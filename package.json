@@ -1,0 +1,14 @@
+{
+  "name": "northstar-macro",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/web",
+    "lint": "npm run lint --prefix apps/web",
+    "typecheck": "npx tsc --noEmit -p apps/web/tsconfig.json",
+    "test": "python -m pytest apps/api/tests"
+  }
+}
