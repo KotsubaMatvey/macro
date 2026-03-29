@@ -1,5 +1,6 @@
-import { SignUpStub } from "@/components/auth-stubs";
+import { createElement as h } from 'react'
+import { SignUpForm } from '@/components/auth/forms'
 
-export default function SignUpPage() {
-  return <SignUpStub />;
+export default function Page() {
+  return h(SignUpForm)
 }

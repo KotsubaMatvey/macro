@@ -1,5 +1,6 @@
-import { OnboardingStub } from "@/components/auth-stubs";
+import { createElement as h } from 'react'
+import { OnboardingForm } from '@/components/auth/forms'
 
-export default function OnboardingPage() {
-  return <OnboardingStub />;
+export default function Page() {
+  return h(OnboardingForm)
 }

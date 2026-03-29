@@ -1,25 +1,27 @@
-# Northstar Macro
-
-Track macro events. Read the regime. Trade the reaction.
-
-Northstar Macro is a demo-first macro intelligence workstation for event-driven traders. This repository contains:
-
-- `apps/web`: Next.js public site and authenticated workstation
-- `apps/api`: FastAPI backend with demo-mode endpoints
-- `apps/worker`: Python worker for demo recomputation
-- `docs`: product and methodology notes
-
-## Quick start
-
-1. Copy `.env.example` to `.env`.
-2. Start infra: `docker-compose up -d`
-3. Install web dependencies if needed: `npm install --prefix apps/web`
-4. Seed demo data: `python apps/api/scripts/seed_demo.py`
-5. Start API: `python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir apps/api`
-6. Start worker: `python apps/worker/main.py`
-7. Start web: `npm run dev --prefix apps/web`
-
-## Demo credentials
-
-- `demo@northstarmacro.local`
-- password: `demo12345`
+# Northstar Macro 
+ 
+Track macro events. Read the regime. Trade the reaction. 
+ 
+## Services 
+- `apps/web`: Next.js workstation and public pages 
+- `apps/api`: FastAPI backend with Postgres-backed demo mode and real auth 
+- `apps/worker`: Redis-backed worker for queued demo jobs 
+- `docs`: architecture, auth, methodology, and local development notes 
+ 
+## Local setup 
+1. Copy `.env.example` to `.env`. 
+2. Start infra: `docker-compose up -d` 
+3. Install web deps: `npm install --prefix apps/web` 
+4. Install API deps: `python -m pip install -r apps/api/requirements.txt` 
+6. Start API: `python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir apps/api` 
+7. Start worker: `python apps/worker/main.py` 
+8. Start web: `npm run dev --prefix apps/web` 
+ 
+## Demo users 
+- User: `demo@northstarmacro.local` / `demo12345` 
+- Analyst: `analyst@northstarmacro.local` / `analyst12345` 
+- Admin: `admin@northstarmacro.local` / `admin12345` 
+ 
+## Verification 
+- Web lint: `npm run lint --prefix apps/web` 
+- Web build: `npm run build --prefix apps/web` 

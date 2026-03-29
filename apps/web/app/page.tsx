@@ -1,69 +1,15 @@
-import Link from "next/link";
-import { Badge, Panel } from "@/components/workstation";
-import {
-  biases,
-  briefings,
-  events,
-  marketingPages,
-  optionsFlow,
-  regime,
-} from "@/lib/demo";
+import Link from 'next/link'
+import { createElement as h } from 'react'
 
-export default function Home() {
-  return (
-    <main className="min-h-screen bg-[#090b0e] px-6 py-8 text-slate-100">
-      <div className="mx-auto max-w-7xl space-y-12">
-        <header className="grid gap-6 border-b border-white/10 pb-8 lg:grid-cols-[1.4fr_1fr]">
-          <div className="max-w-4xl">
-            <Badge accent>Macro intelligence workstation</Badge>
-            <h1 className="mt-4 text-5xl font-semibold tracking-tight text-white">
-              Track macro events. Read the regime. Trade the reaction.
-            </h1>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
-              Northstar Macro is a serious macro terminal for event-driven traders.
-              It combines regime analysis, market bias, macro calendar, reaction history,
-              charts, briefings, watchlists, alerts, options flow, and community in one
-              dense workstation.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href="/sign-in"
-                className="rounded-md bg-amber-500 px-4 py-3 text-sm font-medium text-black"
-              >
-                Open demo workstation
-              </Link>
-              <Link
-                href="/pricing"
-                className="rounded-md border border-white/10 px-4 py-3 text-sm text-slate-200"
-              >
-                View pricing
-              </Link>
-            </div>
-          </div>
-          <div className="grid gap-4">
-            <Panel title="Regime monitor">
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Current regime</span>
-                  <span className="font-mono text-lg text-white">{regime.label}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Confidence</span>
-                  <span className="font-mono text-white">
-                    {Math.round(regime.confidence * 100)}%
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-white/5">
-                  <div
-                    className="h-2 rounded-full bg-amber-500"
-                    style={{ width: `${regime.confidence * 100}%` }}
-                  />
-                </div>
-              </div>
-            </Panel>
-          </div>
-        </header>
-      </div>
-    </main>
-  );
+import { APP_NAME, APP_TAGLINE, PUBLIC_LINKS } from '@northstar/config'
+import { Panel } from '@/components/app/chrome'
+
+export default function HomePage() {
+  return h('main', { className: 'min-h-screen bg-[var(--bg)] px-6 py-8 text-slate-100' }, h('div', { className: 'mx-auto max-w-7xl space-y-12' }, [
+    h('header', { key: 'hero', className: 'grid gap-6 border-b border-white/10 pb-8 lg:grid-cols-[1.4fr_1fr]' }, [
+      h('div', { key: 'copy', className: 'max-w-4xl' }, [h('div', { key: 'eyebrow', className: 'inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-amber-300' }, 'Macro intelligence workstation'), h('h1', { key: 'title', className: 'mt-4 text-5xl font-semibold tracking-tight text-white' }, APP_TAGLINE), h('p', { key: 'body', className: 'mt-5 max-w-3xl text-lg leading-8 text-slate-400' }, APP_NAME + ' is a serious macro terminal for event driven traders. The platform links events, regime, market bias, briefings, alerts, and community workflows into one dense desktop surface.'), h('div', { key: 'actions', className: 'mt-6 flex flex-wrap gap-3' }, [h(Link, { key: 'demo', href: '/sign-in', className: 'rounded-md bg-amber-500 px-4 py-3 text-sm font-medium text-black' }, 'Open demo workstation'), h(Link, { key: 'pricing', href: '/pricing', className: 'rounded-md border border-white/10 px-4 py-3 text-sm text-slate-200' }, 'View pricing')])]),
+      h(Panel, { key: 'panel', title: 'Platform shape' }, h('div', { className: 'grid gap-3 text-sm text-slate-300' }, ['Backend driven demo mode', 'Real auth and sessions', 'Postgres plus Redis worker', 'Modular app routes for major surfaces'].map(function (item) { return h('div', { key: item, className: 'rounded-xl border border-white/10 p-4' }, item) }))),
+    ]),
+    h('div', { key: 'links', className: 'grid gap-4 md:grid-cols-3' }, PUBLIC_LINKS.map(function (item) { return h(Link, { key: item.slug, href: '/' + item.slug, className: 'rounded-2xl border border-white/10 bg-[var(--panel)] p-5 text-sm text-slate-300 transition hover:border-white/20 hover:text-white' }, item.title) })),
+  ]))
 }

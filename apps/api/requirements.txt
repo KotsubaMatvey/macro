@@ -1,4 +1,7 @@
-fastapi>=0.116.0
-uvicorn>=0.35.0
-pydantic>=2.11.0
-pytest>=8.3.5
+fastapi
+uvicorn
+pydantic
+pytest
+psycopg[binary]
+redis
+httpx

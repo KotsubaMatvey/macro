@@ -1,42 +1,29 @@
-@import "tailwindcss";
-
-:root {
-  --background: #090b0e;
-  --panel: #11151a;
-  --panel-alt: #151b22;
-  --border: #232a32;
-  --foreground: #e9edf2;
-  --muted: #96a3af;
-  --amber: #d48428;
-  --green: #3ba776;
-  --red: #b95b5b;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
-html {
-  background:
-    radial-gradient(circle at top, rgba(212, 132, 40, 0.08), transparent 24%),
-    var(--background);
-}
-
-body {
-  background: transparent;
-  color: var(--foreground);
-  font-family:
-    "IBM Plex Sans",
-    "Segoe UI",
-    sans-serif;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-* {
-  box-sizing: border-box;
-}
+@import "tailwindcss";  
+  
+:root {  
+  --bg: #090b0e;  
+  --panel: #11151a;  
+  --panel-2: #0f1317;  
+  --fg: #e9edf2;  
+  --muted: #96a3af;  
+  --accent: #d48428;  
+  --accent-strong: #efac57;  
+}  
+  
+@theme inline {  
+  --color-background: var(--bg);  
+  --color-foreground: var(--fg);  
+}  
+  
+html {  
+  background: radial-gradient(circle at top, rgba(212, 132, 40, 0.08), transparent 24%%), var(--bg);  
+}  
+  
+body {  
+  background: transparent;  
+  color: var(--fg);  
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;  
+}  
+  
+a { color: inherit; text-decoration: none; }  
+* { box-sizing: border-box; }
