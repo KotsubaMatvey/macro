@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from psycopg.rows import dict_row
 
-from .cache import bump_rate_limit, cache_dashboard, enqueue_job
+from .cache import bump_rate_limit, cache_dashboard, enqueue_job, invalidate_dashboard_cache, read_dashboard_cache
 from .db import fetch_all, fetch_one, get_connection
 from .security import hash_password, session_expiry, token_pair, utc_now, verify_password
 from .settings import settings
@@ -270,11 +270,21 @@ def metrics_payload():
         {'label': 'Active alerts', 'value': str(int(alerts['count'])), 'note': 'Cross-channel'},
     ]
 
-def workstation_payload(user):
-    payload = {'session': user, 'metrics': metrics_payload(), 'regime': latest_regime(), 'biases': list_biases(), 'nextEvents': list_events()[:8], 'briefings': list_briefings()[:6], 'news': list_news()[:8], 'watchlists': list_watchlists(user['id']), 'alerts': list_alerts(user['id']), 'posts': list_posts()[:6], 'featureFlags': list_feature_flags(), 'billing': billing_state(user['id']), 'adminSummary': admin_summary() if user['role'] == 'admin' else None}
-    cache_dashboard(payload)
+def _build_workstation_payload(user):
+    payload = {'session': user, 'metrics': metrics_payload(), 'regime': latest_regime(), 'biases': list_biases(), 'nextEvents': list_events()[:10], 'briefings': list_briefings()[:8], 'news': list_news()[:10], 'watchlists': list_watchlists(user['id']), 'alerts': list_alerts(user['id']), 'posts': list_posts()[:8], 'featureFlags': list_feature_flags(), 'billing': billing_state(user['id']), 'adminSummary': admin_summary() if user['role'] == 'admin' else None}
+    cache_dashboard(user['id'], payload)
     return payload
 
+def workstation_payload(user, prefer_cache=False, force_refresh=False):
+	if prefer_cache and not force_refresh:
+		cached = read_dashboard_cache(user["id"])
+		if cached and cached.get("payload"):
+			return cached["payload"]
+	return _build_workstation_payload(user)
+
+def read_cached_workstation(user_id):
+	cached = read_dashboard_cache(user_id)
+	return cached if cached else {"cachedAt": None, "payload": None}
 def create_job(job_type, payload=None, run_now=True):
     job_id = _id('job')
     with get_connection() as conn:
