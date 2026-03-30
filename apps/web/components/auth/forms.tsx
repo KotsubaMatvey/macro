@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createElement as h, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import { Panel } from '@/components/app/chrome'
+import { Panel } from '@/components/app/panel'
 import { postJson } from '@/lib/client/api'
 import { surfaces } from '@northstar/ui'
 
