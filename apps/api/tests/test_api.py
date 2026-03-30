@@ -1,3 +1,8 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from fastapi.testclient import TestClient 
  
 from app.main import app 
@@ -104,3 +109,57 @@ def test_community_post_and_comment_flow():
     feed = client.get('/api/v1/community/posts') 
     assert feed.status_code == 200 
     assert any(item['title'] == 'Desk note' for item in feed.json()) 
+
+def test_event_detail_by_slug_route_is_dynamic():
+    reset_demo()
+    sign_in()
+    detail = client.get('/api/v1/events/us-cpi-mar')
+    assert detail.status_code == 200
+    assert detail.json()['id'] == 'event-cpi-mar'
+
+def test_sign_in_rejects_invalid_password():
+    reset_demo()
+    bad = client.post('/api/v1/auth/sign-in', json={'email': 'demo@northstarmacro.local', 'password': 'wrong-password'})
+    assert bad.status_code == 400
+
+def test_onboarding_persistence_updates_session_state():
+    reset_demo()
+    sign_in()
+    updated = client.post('/api/v1/onboarding', json={'desk': 'macro', 'timezone': 'Europe/Moscow', 'region': 'Global', 'density': 'dense', 'bio': 'desk note'})
+    assert updated.status_code == 200
+    session = client.get('/api/v1/auth/session')
+    assert session.status_code == 200
+    assert session.json()['onboardingCompleted'] is True
+
+def test_watchlist_mutation_invalidates_workstation_cache():
+    reset_demo()
+    sign_in()
+    first = client.get('/api/v1/workstation').json()
+    before = len(first['watchlists'])
+    created = client.post('/api/v1/watchlists', json={'name': 'Cache test', 'description': 'cache'})
+    assert created.status_code == 200
+    second = client.get('/api/v1/workstation').json()
+    assert len(second['watchlists']) == before + 1
+
+def test_worker_job_types_transition_to_completed():
+    reset_demo()
+    import importlib.util
+    from pathlib import Path
+    from app.db import fetch_one
+    from app.services import create_job
+
+    worker_path = Path(__file__).resolve().parents[2] / 'worker' / 'main.py'
+    spec = importlib.util.spec_from_file_location('worker_main', worker_path)
+    assert spec and spec.loader
+    worker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(worker)
+    job_types = ['refresh_demo_market_state', 'recompute_regime', 'recompute_market_bias', 'publish_scheduled_content', 'evaluate_alerts', 'refresh_dashboard_cache']
+    for job_type in job_types:
+        job_id = create_job(job_type, {'source': 'test'}, run_now=False)
+        queued = fetch_one('select status from ingestion_jobs where id = %s', (job_id,))
+        assert queued['status'] == 'queued'
+        worker.run_job(job_id)
+        done = fetch_one('select status, started_at, finished_at from ingestion_jobs where id = %s', (job_id,))
+        assert done['status'] == 'completed'
+        assert done['started_at'] is not None
+        assert done['finished_at'] is not None

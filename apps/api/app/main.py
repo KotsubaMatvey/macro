@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import apply_migrations
 from .schemas import AlertInput, CommentInput, CommunityPostInput, OnboardingRequest, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkstationPayload
 from .seed import seed_demo_database
-from .services import add_watchlist_item, admin_summary, complete_password_reset, create_alert, create_comment, create_post, create_watchlist, current_user_from_token, event_detail, latest_regime, like_post, list_alerts, list_biases, list_briefings, list_events, list_feature_flags, list_jobs, list_news, list_posts, list_watchlists, request_password_reset, sign_in, sign_out, sign_up, update_onboarding, verify_email, workstation_payload
+from .services import add_watchlist_item, admin_summary, complete_password_reset, create_alert, create_comment, create_post, create_watchlist, current_user_from_token, event_detail, latest_regime, like_post, list_alerts, list_biases, list_briefings, list_events, list_feature_flags, list_jobs, list_news, list_posts, list_watchlists, request_password_reset, sign_in, sign_out, sign_up, update_onboarding, verify_email, workstation_payload, create_job
 from .settings import settings
 
 app = FastAPI(title='Northstar Macro API', version='0.8.0')
@@ -95,8 +95,8 @@ def onboarding(payload: OnboardingRequest, user = Depends(current_user)):
     return {'status': 'ok', 'detail': 'Onboarding updated'}
 
 @app.get('/api/v1/workstation', response_model=WorkstationPayload)
-def workstation(user = Depends(current_user)):
-    return workstation_payload(user)
+def workstation(refresh: bool = False, user = Depends(current_user)):
+    return workstation_payload(user, prefer_cache=not refresh, force_refresh=refresh)
 
 @app.get('/api/v1/dashboard')
 def dashboard(user = Depends(current_user)):
@@ -192,8 +192,23 @@ def admin_jobs_route(user = Depends(admin_user)):
 def admin_flags_route(user = Depends(admin_user)):
     return list_feature_flags()
 
+@app.post('/api/v1/admin/jobs/{job_type}', response_model=SimpleResponse)
+def admin_enqueue_job(job_type: str, user = Depends(admin_user)):
+    try:
+        job_id = create_job(job_type, {'source': 'admin'})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {'status': 'ok', 'detail': job_id}
+
 @app.post('/api/v1/admin/reset-demo', response_model=SimpleResponse)
 def admin_reset_demo(user = Depends(admin_user)):
     seed_demo_database()
     return {'status': 'ok', 'detail': 'Demo dataset rebuilt'}
+
+
+
+
+
+
+
 

@@ -7,9 +7,20 @@ from .db import fetch_all, fetch_one, get_connection
 from .security import hash_password, session_expiry, token_pair, utc_now, verify_password 
 from .settings import settings 
  
+JOB_TYPES = ["refresh_demo_market_state", "recompute_regime", "recompute_market_bias", "publish_scheduled_content", "evaluate_alerts", "refresh_dashboard_cache"]
+ 
+
 def _id(prefix): 
     return prefix + '-' + uuid.uuid4().hex[:12] 
  
+def _invalidate_user_cache(user_id):
+    invalidate_dashboard_cache(user_id)
+
+def _invalidate_all_dashboard_caches():
+    users = fetch_all("select id from users")
+    for row in users:
+        invalidate_dashboard_cache(row["id"])
+
 def audit(actor_user_id, action, entity_type, entity_id, payload=None): 
     with get_connection() as conn: 
         with conn.cursor() as cur: 
@@ -31,7 +42,7 @@ def current_user_from_token(session_token):
     if not session_token: 
         return None 
     token_hash = __import__("hashlib").sha256((session_token + settings.session_secret).encode("utf-8")).hexdigest() 
-    row = fetch_one("select u.id, u.email, u.name, u.role, u.onboarding_completed, u.email_verified_at from sessions s join users u on u.id = s.user_id where s.token_hash = %s and s.revoked_at is null and s.expires_at ^> now()", (token_hash,)) 
+    row = fetch_one("select u.id, u.email, u.name, u.role, u.onboarding_completed, u.email_verified_at from sessions s join users u on u.id = s.user_id where s.token_hash = %s and s.revoked_at is null and s.expires_at > now()", (token_hash,)) 
     return _session_row_to_user(row) 
  
 def _auth_limit(kind, key): 
@@ -56,7 +67,7 @@ def sign_up(payload):
  
 def verify_email(token): 
     token_hash = __import__("hashlib").sha256((token + settings.session_secret).encode("utf-8")).hexdigest() 
-    row = fetch_one("select user_id from email_verification_tokens where token_hash = %s and consumed_at is null and expires_at ^> now()", (token_hash,)) 
+    row = fetch_one("select user_id from email_verification_tokens where token_hash = %s and consumed_at is null and expires_at > now()", (token_hash,)) 
     if not row: 
         raise ValueError("Verification token is invalid or expired.") 
     with get_connection() as conn: 
@@ -103,7 +114,7 @@ def request_password_reset(payload):
  
 def complete_password_reset(payload): 
     token_hash = __import__("hashlib").sha256((payload.token + settings.session_secret).encode("utf-8")).hexdigest() 
-    row = fetch_one("select user_id from password_reset_tokens where token_hash = %s and consumed_at is null and expires_at ^> now()", (token_hash,)) 
+    row = fetch_one("select user_id from password_reset_tokens where token_hash = %s and consumed_at is null and expires_at > now()", (token_hash,)) 
     if not row: 
         raise ValueError("Reset token is invalid or expired.") 
     with get_connection() as conn: 
@@ -119,6 +130,7 @@ def update_onboarding(user_id, payload):
             cur.execute('update users set onboarding_completed = true where id = %s', (user_id,)) 
             cur.execute('update profiles set desk = %s, timezone = %s, region = %s, density = %s, bio = %s where user_id = %s', (payload.desk, payload.timezone, payload.region, payload.density, payload.bio, user_id)) 
     audit(user_id, 'complete_onboarding', 'profile', user_id, {'desk': payload.desk}) 
+    _invalidate_user_cache(user_id) 
  
 def list_feature_flags(): 
     return fetch_all('select key, description, enabled from feature_flags order by key')
@@ -168,8 +180,8 @@ def event_detail(event_id):
     return base
  
 def list_briefings(): 
-    rows = fetch_all('select b.id, b.slug, b.title, b.kind, b.published_at, b.summary, u.name as analyst_name, b.takeaways, b.asset_symbols from briefings b join users u on u.id = b.analyst_user_id order by b.published_at desc') 
-    return [{'id': item['id'], 'slug': item['slug'], 'title': item['title'], 'kind': item['kind'], 'publishedAt': item['published_at'].isoformat(), 'summary': item['summary'], 'analystName': item['analyst_name'], 'takeaways': item['takeaways'], 'assetSymbols': item['asset_symbols']} for item in rows] 
+    rows = fetch_all('select b.id, b.slug, b.title, b.kind, b.published_at, b.summary, u.name as analyst_name, b.takeaways, b.asset_symbols, b.event_id from briefings b join users u on u.id = b.analyst_user_id order by b.published_at desc') 
+    return [{'id': item['id'], 'slug': item['slug'], 'title': item['title'], 'kind': item['kind'], 'publishedAt': item['published_at'].isoformat(), 'summary': item['summary'], 'analystName': item['analyst_name'], 'takeaways': item['takeaways'], 'assetSymbols': item['asset_symbols'], 'relatedEventId': item['event_id']} for item in rows] 
  
 def list_news(): 
     rows = fetch_all('select id, slug, title, source, published_at, summary, category, sentiment, event_id from news_items order by published_at desc') 
@@ -190,6 +202,7 @@ def create_watchlist(user_id, payload):
         with conn.cursor() as cur: 
             cur.execute('insert into watchlists (id, user_id, name, description) values (%s, %s, %s, %s)', (watchlist_id, user_id, payload.name, payload.description)) 
     audit(user_id, 'create_watchlist', 'watchlist', watchlist_id, {'name': payload.name}) 
+    _invalidate_user_cache(user_id) 
     return watchlist_id 
  
 def add_watchlist_item(user_id, watchlist_id, payload): 
@@ -198,6 +211,7 @@ def add_watchlist_item(user_id, watchlist_id, payload):
         with conn.cursor() as cur: 
             cur.execute('insert into watchlist_items (id, watchlist_id, item_type, symbol, note) values (%s, %s, %s, %s, %s)', (item_id, watchlist_id, payload.itemType, payload.symbol.upper(), payload.note)) 
     audit(user_id, 'create_watchlist_item', 'watchlist_item', item_id, {'watchlistId': watchlist_id, 'symbol': payload.symbol.upper()}) 
+    _invalidate_user_cache(user_id) 
     return item_id 
  
 def list_alerts(user_id): 
@@ -210,6 +224,7 @@ def create_alert(user_id, payload):
         with conn.cursor() as cur: 
             cur.execute('insert into alerts (id, user_id, name, trigger_type, target_ref, threshold_value, delivery_channel, status) values (%s, %s, %s, %s, %s, %s, %s, %s)', (alert_id, user_id, payload.name, payload.triggerType, payload.targetRef, payload.thresholdValue, payload.deliveryChannel, 'Active')) 
     audit(user_id, 'create_alert', 'alert', alert_id, {'triggerType': payload.triggerType, 'targetRef': payload.targetRef}) 
+    _invalidate_user_cache(user_id) 
     return alert_id
  
 def list_posts():
@@ -222,6 +237,7 @@ def create_post(user_id, payload):
         with conn.cursor() as cur: 
             cur.execute('insert into posts (id, user_id, title, body) values (%s, %s, %s, %s)', (post_id, user_id, payload.title, payload.body)) 
     audit(user_id, 'create_post', 'post', post_id, {'title': payload.title}) 
+    _invalidate_all_dashboard_caches() 
     return post_id 
  
 def create_comment(user_id, post_id, payload): 
@@ -230,12 +246,14 @@ def create_comment(user_id, post_id, payload):
         with conn.cursor() as cur: 
             cur.execute('insert into comments (id, post_id, user_id, body) values (%s, %s, %s, %s)', (comment_id, post_id, user_id, payload.body)) 
     audit(user_id, 'create_comment', 'comment', comment_id, {'postId': post_id}) 
+    _invalidate_all_dashboard_caches() 
     return comment_id 
  
 def like_post(user_id, post_id): 
     with get_connection() as conn: 
         with conn.cursor() as cur: 
             cur.execute('insert into post_likes (post_id, user_id) values (%s, %s) on conflict do nothing', (post_id, user_id)) 
+    _invalidate_all_dashboard_caches() 
  
 def billing_state(user_id): 
     row = fetch_one('select subscription_plan from profiles where user_id = %s', (user_id,)) 
@@ -253,7 +271,7 @@ def admin_summary():
 def list_jobs(): 
     return fetch_all('select id, job_type, status, run_at, started_at, finished_at, error_message from ingestion_jobs order by created_at desc')
  
-def metrics_payload(): 
+def posts_payload(): 
     rows = fetch_all('select p.id, p.title, p.body, p.created_at, u.name, u.role, (select count(*) from post_likes pl where pl.post_id = p.id) as likes, (select count(*) from comments c where c.post_id = p.id) as comments from posts p join users u on u.id = p.user_id where p.moderated = false order by p.created_at desc') 
     return [{'id': item['id'], 'title': item['title'], 'body': item['body'], 'authorName': item['name'], 'authorRole': item['role'], 'likes': int(item['likes']), 'comments': int(item['comments']), 'createdAt': item['created_at'].isoformat()} for item in rows] 
  
@@ -262,7 +280,7 @@ def metrics_payload():
     alerts = fetch_one("select count(*) as count from alerts where status in ('Active', 'Triggered', 'Scheduled')") 
     regime = latest_regime() 
     event_count = len([item for item in events if item['status'] in ['Upcoming', 'Live']]) 
-    return [{'label': 'Regime', 'value': regime['label'], 'note': regime['trend']}, {'label': 'Regime score', 'value': format(regime['score'], '.2f'), 'note': str(int(regime['confidence'] * 100)) + '%% confidence'}, {'label': 'Next 24h events', 'value': str(event_count), 'note': 'Calendar heat'}, {'label': 'Active alerts', 'value': str(int(alerts['count'])), 'note': 'Cross-channel'}] 
+    return [{'label': 'Regime', 'value': regime['label'], 'note': regime['trend']}, {'label': 'Regime score', 'value': format(regime['score'], '.2f'), 'note': str(int(regime['confidence'] * 100)) + '% confidence'}, {'label': 'Next 24h events', 'value': str(event_count), 'note': 'Calendar heat'}, {'label': 'Active alerts', 'value': str(int(alerts['count'])), 'note': 'Cross-channel'}] 
  
 def _build_workstation_payload(user): 
     payload = {'session': user, 'metrics': metrics_payload(), 'regime': latest_regime(), 'biases': list_biases(), 'nextEvents': list_events()[:10], 'briefings': list_briefings()[:8], 'news': list_news()[:10], 'watchlists': list_watchlists(user['id']), 'alerts': list_alerts(user['id']), 'posts': list_posts()[:8], 'featureFlags': list_feature_flags(), 'billing': billing_state(user['id']), 'adminSummary': admin_summary() if user['role'] == 'admin' else None} 
@@ -281,6 +299,8 @@ def read_cached_workstation(user_id):
     return cached if cached else {'cachedAt': None, 'payload': None} 
  
 def create_job(job_type, payload=None, run_now=True): 
+    if job_type not in JOB_TYPES: 
+        raise ValueError(str(job_type)) 
     job_id = _id('job') 
     with get_connection() as conn: 
         with conn.cursor() as cur: 
@@ -292,3 +312,4 @@ def create_job(job_type, payload=None, run_now=True):
 def reset_demo_jobs(): 
     for job_type in ['refresh_demo_market_state', 'recompute_regime', 'recompute_market_bias', 'publish_scheduled_content', 'evaluate_alerts', 'refresh_dashboard_cache']: 
         create_job(job_type, {'source': 'seed'})
+

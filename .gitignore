@@ -1,19 +1,43 @@
+# JavaScript / Next.js
 node_modules/
 .next/
+out/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 
+# Python virtual environments
+.venv/
+venv/
+env/
+.python-version
+
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Local environment files
 .env
 .env.local
 .env.*.local
+.envrc
 
-__pycache__/
-*.py[cod]
-.pytest_cache/
-
+# Logs and runtime artifacts
 *.log
-*.tsbuildinfo
+*.pid
+*.seed
 
+# OS/editor junk
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+
+# Local scratch and temporary files
+tmp*
+*.tmp
