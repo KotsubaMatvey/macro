@@ -1,14 +1,12 @@
-import { createElement as h } from 'react'
-
-import { Panel } from '@/components/app/chrome'
+import { createElement as h } from "react"
 
 export default function DisclaimerPage() {
- return h('main', { className: 'min-h-screen bg-[var(--bg)] px-6 py-8 text-slate-100' }, h('div', { className: 'mx-auto max-w-5xl space-y-5' }, [
- h(Panel, { key: 'legal', title: 'Disclaimer' }, h('div', { className: 'space-y-3 text-sm text-slate-300' }, [
- h('p', { key: 'a' }, 'Northstar Macro provides workflow tooling and market context for educational and operational research purposes.'),
- h('p', { key: 'b' }, 'It does not provide personalized investment advice, solicitation, or guaranteed performance outcomes.'),
- h('p', { key: 'c' }, 'All demo-mode prices, states, and job outcomes are deterministic simulation artifacts.'),
- ])),
- h(Panel, { key: 'risk', title: 'Risk notice' }, h('p', { className: 'text-sm text-slate-300' }, 'Trading and investing involve risk of loss. Users are responsible for independent decision-making and risk management.'))
+ return h("main", { className: "macro-home min-h-screen px-6 py-8 text-slate-100" }, h("div", { className: "mx-auto max-w-5xl space-y-6" }, [
+ h("div", { key: "hero", className: "macro-card macro-card-hero" }, [
+ h("div", { key: "eyebrow", className: "macro-kicker" }, "Disclaimer"),
+ h("h1", { key: "title", className: "mt-5 text-4xl font-semibold tracking-tight text-white md:text-5xl" }, "Workflow tooling, not personalized investment advice"),
+ h("p", { key: "body", className: "mt-5 max-w-3xl text-base leading-7 text-slate-300" }, "Northstar Macro provides workflow tooling and market context for educational and operational research purposes. Demo-mode prices, states, and job outcomes remain deterministic simulation artifacts."),
+ ]),
+ h("div", { key: "risk", className: "macro-card macro-card-rail" }, h("p", { className: "text-sm leading-6 text-slate-300" }, "Trading and investing involve risk of loss. Users remain responsible for independent decision-making, trade execution, and risk management.")),
  ]))
 }

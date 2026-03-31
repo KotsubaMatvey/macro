@@ -3,7 +3,7 @@ import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import type { EventDetail, EventRelease } from "@northstar/types"
 
-import { DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
+import { Badge, DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEventDetail, getEvents } from "@/lib/server/api"
 
 interface ExplorerSearchParams {
@@ -78,7 +78,6 @@ function buildFamilies(events: EventRelease[]) {
  return right.count - left.count
  })
 }
-
 export default async function EventExplorerPage(props: EventExplorerPageProps) {
  const searchParams = props.searchParams ? await props.searchParams : undefined
  const events = await getEvents()
@@ -108,7 +107,7 @@ export default async function EventExplorerPage(props: EventExplorerPageProps) {
  const metrics = [
  { label: "Event families", value: String(families.length), note: "Distinct macro families in the explorer" },
  { label: "Total releases", value: String(events.length), note: "All seeded releases available for drill-down" },
- { label: "Selected family", value: selectedFamily ? selectedFamily : "None", note: "Current family filter applied to the history table" },
+ { label: "Selected family", value: selectedFamily ? selectedFamily : "None", note: "Current family filter applied to the history board" },
  { label: "Family releases", value: String(selectedEvents.length), note: "Release count inside the current family window" },
  ]
  const familyRows: ReactNode[][] = families.map(function (item: FamilySummary) {
@@ -116,14 +115,7 @@ export default async function EventExplorerPage(props: EventExplorerPageProps) {
  return [item.family, String(item.count), item.impact, averageSurprise, item.assets.join(", ")]
  })
  const historyRows: ReactNode[][] = selectedEvents.map(function (item: EventRelease) {
- return [
- h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.status }),
- show(item.actual),
- show(item.forecast),
- show(item.surprise),
- item.relatedAssets.join(", "),
- h(Link, { href: "/app/event-explorer?family=" + encodeURIComponent(item.family) + String.fromCharCode(38) + "release=" + item.id, className: "text-sky-300 transition hover:text-sky-200" }, "Inspect"),
- ]
+ return [h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.status }), show(item.actual), show(item.forecast), show(item.surprise), item.relatedAssets.join(", "), h(Link, { href: "/app/event-explorer?family=" + encodeURIComponent(item.family) + String.fromCharCode(38) + "release=" + item.id, className: "text-sky-300 transition hover:text-sky-200" }, "Inspect")]
  })
  const familySignalRows: ReactNode[][] = selectedFamilySummary ? [
  ["Released prints", String(selectedFamilySummary.releasedCount), "Family archive already populated for comparison"],
@@ -135,24 +127,30 @@ export default async function EventExplorerPage(props: EventExplorerPageProps) {
  return [item.window, item.avgMovePct.toFixed(2) + "%", Math.round(item.consistency * 100) + "%", item.narrative]
  }) : [["No archive", "-", "-", "Open a family release to load reaction context"]]
  const selectedReleaseRows: ReactNode[][] = selectedDetailLoaded ? [
- ["Verdict", show(selectedDetail.status), selectedDetail.whyItMatters],
+ ["Verdict", selectedDetail.status, selectedDetail.whyItMatters],
  ["Forecast", show(selectedDetail.forecast), "Expected print for the selected release"],
  ["Actual", show(selectedDetail.actual), "Delivered print on the selected release"],
  ["Surprise", show(selectedDetail.surprise), "Forecast deviation on the selected release"],
  ] : [["Selected release", "-", "Pick a release in the table to load richer context"]]
  return h(PageShell, { title: "Event Explorer", subtitle: "Family-level release coverage with history, drill-down links, and catalyst context.", active: "event-explorer" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),
- h(Panel, { key: "families", title: "Family filters" }, h("div", { className: "flex flex-wrap gap-2 text-sm text-slate-300" }, families.map(function (item: FamilySummary) { return h(Link, { key: item.family, href: "/app/event-explorer?family=" + encodeURIComponent(item.family), className: "rounded-full border border-white/10 px-3 py-2" }, item.family) }))),
- h("div", { key: "grid", className: "grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]" }, [
- h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "overview", title: "Family overview" }, h(DataTable, { headers: ["Family", "Releases", "Impact", "Avg surprise", "Assets"], rows: familyRows })),
- h(Panel, { key: "signals", title: "Selected family signals" }, h(DataTable, { headers: ["Metric", "Value", "Use"], rows: familySignalRows })),
- h(Panel, { key: "history", title: "Release history" }, h(DataTable, { headers: ["Release", "Actual", "Forecast", "Surprise", "Assets", "Inspect"], rows: historyRows.length !== 0 ? historyRows : [["No releases", "-", "-", "-", "-", "-"]] })),
+ h(Panel, { key: "families", title: "Family filters", subtitle: "Switch family context without leaving the explorer." }, [
+ h("div", { key: "toolbar", className: "ws-toolbar" }, families.map(function (item: FamilySummary) { return h(Link, { key: item.family, href: "/app/event-explorer?family=" + encodeURIComponent(item.family), className: "ws-toolbar-chip" }, item.family) })),
+ h("div", { key: "status", className: "mt-4 flex flex-wrap gap-2" }, [h(Badge, { key: "selected", accent: true }, selectedFamily ? selectedFamily : "No family"), h(Badge, { key: "impact" }, selectedFamilySummary ? selectedFamilySummary.impact : "No impact")]),
  ]),
- h("div", { key: "side", className: "space-y-5" }, [
- h(Panel, { key: "release", title: "Selected release" }, h(DataTable, { headers: ["Field", "Value", "Interpretation"], rows: selectedReleaseRows })),
- h(Panel, { key: "detail", title: "Selected family reaction map" }, h(DataTable, { headers: ["Window", "Average move", "Consistency", "Narrative"], rows: reactionRows })),
- h(Panel, { key: "workflow", title: "Workflow use" }, h(DataTable, { headers: ["Module", "Use"], rows: [[h(Link, { href: selectedDetailLoaded ? "/app/events/" + selectedDetail.id : "/app/macro-calendar", className: "text-sky-300 transition hover:text-sky-200" }, "Open event detail"), "Inspect archive context, bias, and linked intelligence for the selected release"], [h(Link, { href: "/app/impact-lab", className: "text-sky-300 transition hover:text-sky-200" }, "Open impact lab"), "Compare this family's reaction profile against the broader historical reaction surface"], [h(Link, { href: "/app/dashboard", className: "text-sky-300 transition hover:text-sky-200" }, "Return to dashboard"), "Bring the same family context back into the next catalyst workflow"]] })),
+ h("div", { key: "grid", className: "ws-two-panel" }, [
+ h("div", { key: "left", className: "space-y-5" }, [
+ h(Panel, { key: "board", title: "Selected family board", subtitle: "Primary read on the current family before drilling into one release." }, [
+ h("div", { key: "headline", className: "flex flex-wrap items-center gap-2" }, [h(Badge, { key: "family", accent: true }, selectedFamily ? selectedFamily : "No family"), h(Badge, { key: "count" }, String(selectedEvents.length) + " releases")]),
+ h(DataTable, { key: "signals", headers: ["Metric", "Value", "Use"], rows: familySignalRows, dense: true }),
+ ]),
+ h(Panel, { key: "history", title: "Release history", subtitle: "Scan actual, forecast, surprise, and jump directly into release detail." }, h(DataTable, { headers: ["Release", "Actual", "Forecast", "Surprise", "Assets", "Inspect"], rows: historyRows.length !== 0 ? historyRows : [["No releases", "-", "-", "-", "-", "-"]], dense: true })),
+ h(Panel, { key: "overview", title: "Family overview", subtitle: "Broader family map across the full explorer payload." }, h(DataTable, { headers: ["Family", "Releases", "Impact", "Avg surprise", "Assets"], rows: familyRows, dense: true })),
+ ]),
+ h("div", { key: "right", className: "space-y-5" }, [
+ h(Panel, { key: "release", title: "Selected release", subtitle: "Release-specific read once one row is in focus." }, h(DataTable, { headers: ["Field", "Value", "Interpretation"], rows: selectedReleaseRows, dense: true })),
+ h(Panel, { key: "detail", title: "Reaction map", subtitle: "Historical windows tied to the selected release family." }, h(DataTable, { headers: ["Window", "Average move", "Consistency", "Narrative"], rows: reactionRows, numericColumns: [1, 2], dense: true })),
+ h(Panel, { key: "workflow", title: "Workflow use", subtitle: "Continue from the selected release into deeper modules." }, h(DataTable, { headers: ["Module", "Use"], rows: [[h(Link, { href: selectedDetailLoaded ? "/app/events/" + selectedDetail.id : "/app/macro-calendar", className: "text-sky-300 transition hover:text-sky-200" }, "Open event detail"), "Inspect archive context, bias, and linked intelligence for the selected release"], [h(Link, { href: "/app/impact-lab", className: "text-sky-300 transition hover:text-sky-200" }, "Open impact lab"), "Compare this family reaction profile against the broader historical reaction surface"], [h(Link, { href: "/app/dashboard", className: "text-sky-300 transition hover:text-sky-200" }, "Return to dashboard"), "Bring the same family context back into the current catalyst workflow"]], dense: true })),
  ]),
  ]),
  ]))

@@ -14,25 +14,25 @@ const primarySurfaces = [
     title: 'Market Bias',
     eyebrow: 'Consensus engine',
     body: 'Directional stance by asset with structured rationale, narrative context, and positioning shifts before the release window.',
-    href: '/app/market-bias',
+    href: '/sign-in',
   },
   {
     title: 'Risk Regime',
     eyebrow: 'State detection',
     body: 'A transparent read on whether the tape supports aggression, tactical patience, or defense across the session.',
-    href: '/app/regime-monitor',
+    href: '/sign-in',
   },
   {
     title: 'Macro Calendar',
     eyebrow: 'Catalyst map',
     body: 'High-impact events with country, forecast, actual, status, and a clean route into the event-specific reaction view.',
-    href: '/app/macro-calendar',
+    href: '/sign-in',
   },
   {
     title: 'Advanced Charts',
     eyebrow: 'Execution context',
     body: 'Provider-ready charting surface for tracking the reaction path around each release instead of reading headlines in isolation.',
-    href: '/app/advanced-charts',
+    href: '/sign-in',
   },
 ]
 
@@ -63,22 +63,22 @@ const intelligencePanels = [
   {
     title: 'Briefings',
     body: 'Morning and pre-event prep distilled into a dense format designed for people who already know the vocabulary.',
-    href: '/app/briefings',
+    href: '/sign-in',
   },
   {
     title: 'Historical Impacts',
     body: 'Reaction windows and event families grouped so traders can study repeat patterns instead of relying on memory.',
-    href: '/app/impact-lab',
+    href: '/sign-in',
   },
   {
     title: 'Options Flow',
     body: 'A dedicated tape for unusual activity, large positioning shifts, and the context around institutional expression.',
-    href: '/app/options-flow',
+    href: '/sign-in',
   },
   {
     title: 'Community',
     body: 'Professional discussion without turning the product into a social feed first and a workstation second.',
-    href: '/app/community',
+    href: '/sign-in',
   },
 ]
 
@@ -91,7 +91,7 @@ export default function HomePage() {
         h('p', { key: 'body', className: 'mt-6 max-w-3xl text-base leading-7 text-slate-300 md:text-lg' }, APP_NAME + ' is a dense workstation for event-driven traders who need the release calendar, regime state, bias, intelligence, and reaction surfaces in one coherent flow. The product is built around catalysts and the market response, not generic dashboard filler.'),
         h('div', { key: 'actions', className: 'mt-8 flex flex-wrap gap-3' }, [
           h(Link, { key: 'demo', href: '/sign-in', className: 'rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-strong)]' }, 'Open demo workstation'),
-          h(Link, { key: 'app', href: '/app/dashboard', className: 'rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm text-slate-100 transition hover:border-white/25 hover:bg-white/[0.08]' }, 'View dashboard'),
+          h(Link, { key: 'app', href: '/sign-in', className: 'rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm text-slate-100 transition hover:border-white/25 hover:bg-white/[0.08]' }, 'View dashboard'),
         ]),
         h('div', { key: 'stats', className: 'mt-10 grid gap-3 md:grid-cols-3' }, heroStats.map(function (item) {
           return h('div', { key: item.label, className: 'macro-stat' }, [
@@ -117,7 +117,7 @@ export default function HomePage() {
         h('div', { key: 'map', className: 'macro-card macro-card-rail' }, [
           h('div', { key: 'title', className: 'macro-kicker' }, 'Coverage map'),
           h('div', { key: 'grid', className: 'mt-4 grid gap-2 text-sm text-slate-300' }, APP_SECTIONS.slice(0, 12).map(function (item, index) {
-            return h(Link, { key: item.slug, href: '/app/' + item.slug, className: 'macro-section-link' }, [
+            return h(Link, { key: item.slug, href: '/sign-in', className: 'macro-section-link' }, [
               h('span', { key: 'index', className: 'text-slate-500' }, String(index + 1).padStart(2, '0')),
               h('span', { key: 'title', className: 'text-white' }, item.title),
             ])

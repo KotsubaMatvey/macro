@@ -15,9 +15,11 @@ vi.mock("@/components/app/chrome", function () {
  return {
  PageShell: function PageShell(props: { title: string; children?: ReactNode }) { return h("div", {}, [h("h1", { key: "title" }, props.title), h("div", { key: "body" }, props.children)]) },
  Panel: function Panel(props: { title: string; children?: ReactNode }) { return h("section", {}, [h("h2", { key: "title" }, props.title), h("div", { key: "body" }, props.children)]) },
+ MetricGrid: function MetricGrid() { return h("div", {}, "metrics") },
  DataTable: function DataTable() { return h("div", {}, "table") },
  KeyValueList: function KeyValueList() { return h("div", {}, "meta") },
  EventLink: function EventLink(props: { title: string }) { return h("a", {}, props.title) },
+ Badge: function Badge(props: { children?: ReactNode }) { return h("span", {}, props.children) },
  }
 })
 

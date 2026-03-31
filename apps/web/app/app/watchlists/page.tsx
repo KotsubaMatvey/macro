@@ -17,9 +17,9 @@ function nextCatalyst(symbol: string, events: EventRelease[]) {
 export default async function WatchlistsPage() {
  const payload = await getWorkstation()
  const events = await getEvents()
- const itemCount = payload.watchlists.reduce(function (total, item: Watchlist) { return total + item.itemCount }, 0)
- const alertCount = payload.watchlists.reduce(function (total, item: Watchlist) { return total + item.alertCount }, 0)
- const trackedSymbols = Array.from(new Set(payload.watchlists.flatMap(function (item: Watchlist) { return item.items.map(function (entry) { return entry.symbol }) })))
+ const itemCount = (payload.watchlists ? payload.watchlists : []).reduce(function (total, item: Watchlist) { return total + item.itemCount }, 0)
+ const alertCount = (payload.watchlists ? payload.watchlists : []).reduce(function (total, item: Watchlist) { return total + item.alertCount }, 0)
+ const trackedSymbols = Array.from(new Set((payload.watchlists ? payload.watchlists : []).flatMap(function (item: Watchlist) { return item.items.map(function (entry) { return entry.symbol }) })))
  const metrics = [
  { label: "Watchlists", value: String(payload.watchlists.length), note: "Saved baskets currently attached to the workstation" },
  { label: "Tracked items", value: String(itemCount), note: "Assets and events inside saved baskets" },
@@ -45,14 +45,15 @@ export default async function WatchlistsPage() {
  ]
  return h(PageShell, { title: "Watchlists", subtitle: "Saved baskets of assets and catalysts that keep the desk focused on the right tape.", active: "watchlists" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),
- h("div", { key: "grid", className: "grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]" }, [
+ h(Panel, { key: "board", title: "Desk focus", subtitle: "Use watchlists as routing objects into alerts, calendar, and event detail." }, h("p", { className: "text-sm leading-6 text-slate-400" }, "The strongest use is to keep a small set of assets tied to their next catalysts instead of building broad passive lists.")),
+ h("div", { key: "grid", className: "ws-two-panel" }, [
  h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "lists", title: "Saved watchlists" }, h(DataTable, { headers: ["Name", "Description", "Items", "Alerts"], rows: listRows.length !== 0 ? listRows : [["No watchlists", "-", "0", "0"]] })),
- h(Panel, { key: "items", title: "Tracked symbols and events" }, h(DataTable, { headers: ["Watchlist", "Symbol", "Type", "Next catalyst", "Note"], rows: itemRows.length !== 0 ? itemRows : [["No items", "-", "-", "-", "-"]] })),
+ h(Panel, { key: "lists", title: "Saved watchlists", subtitle: "Primary board for basket scope and linked alert load." }, h(DataTable, { headers: ["Name", "Description", "Items", "Alerts"], rows: listRows.length !== 0 ? listRows : [["No watchlists", "-", "0", "0"]], dense: true })),
+ h(Panel, { key: "items", title: "Tracked symbols and events", subtitle: "Each symbol is paired with the nearest catalyst when available." }, h(DataTable, { headers: ["Watchlist", "Symbol", "Type", "Next catalyst", "Note"], rows: itemRows.length !== 0 ? itemRows : [["No items", "-", "-", "-", "-"]], dense: true })),
  ]),
  h("div", { key: "side", className: "space-y-5" }, [
- h(Panel, { key: "coverage", title: "Coverage map" }, h(DataTable, { headers: ["Symbol", "Presence"], rows: symbolRows.length !== 0 ? symbolRows : [["No symbols", "No current watchlist coverage"]] })),
- h(Panel, { key: "workflow", title: "Workflow use" }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows })),
+ h(Panel, { key: "coverage", title: "Coverage map", subtitle: "How often each symbol appears across the saved baskets." }, h(DataTable, { headers: ["Symbol", "Presence"], rows: symbolRows.length !== 0 ? symbolRows : [["No symbols", "No current watchlist coverage"]], dense: true })),
+ h(Panel, { key: "workflow", title: "Workflow use", subtitle: "Natural next routes after selecting a basket." }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows, dense: true })),
  ]),
  ]),
  ]))

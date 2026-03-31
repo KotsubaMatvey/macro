@@ -3,7 +3,7 @@ import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import type { EventRelease, MarketBiasSnapshot, RegimeComponent } from "@northstar/types"
 
-import { DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
+import { Badge, DataTable, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEvents, getWorkstation } from "@/lib/server/api"
 
 function alignmentRead(score: number, bias: MarketBiasSnapshot) {
@@ -29,7 +29,7 @@ export default async function RegimeMonitorPage() {
  if (item.status === "Upcoming") return true
  return item.status === "Live"
  }).slice(0, 6).map(function (item: EventRelease) {
- return [h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.status }), item.relatedAssets.join(", "), item.whyItMatters]
+ return [item.title, item.relatedAssets.join(", "), item.whyItMatters]
  })
  const biasFitRows: ReactNode[][] = payload.biases.slice().sort(function (left, right) {
  return right.confidence - left.confidence
@@ -52,20 +52,25 @@ export default async function RegimeMonitorPage() {
  ]
  return h(PageShell, { title: "Liquidity Regime", subtitle: payload.regime.interpretation, active: "regime-monitor" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),
- h("div", { key: "grid", className: "grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]" }, [
- h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "layers", title: "Model layers" }, h(DataTable, { headers: ["Macro liquidity", "Score"], rows: macroRows.length !== 0 ? macroRows : [["No macro layer", "-"]] })),
- h(Panel, { key: "risk", title: "Risk appetite layer" }, h(DataTable, { headers: ["Risk dimension", "Score"], rows: riskRows.length !== 0 ? riskRows : [["No risk layer", "-"]] })),
- h(Panel, { key: "components", title: "Regime components" }, h(DataTable, { headers: ["Key", "Label", "Score"], rows: componentRows })),
- h(Panel, { key: "events", title: "Event risk window" }, h(DataTable, { headers: ["Event", "Assets", "Why it matters"], rows: eventRiskRows.length !== 0 ? eventRiskRows : [["No high-impact events", "-", "No catalyst stress tests are loaded right now"]] })),
- h(Panel, { key: "bias", title: "Bias fit" }, h(DataTable, { headers: ["Asset", "Direction", "Confidence", "Regime read"], rows: biasFitRows })),
+ h(Panel, { key: "board", title: "Regime board", subtitle: "Use the regime as a filter before trusting catalysts, bias, or reaction follow-through." }, [
+ h("div", { key: "badges", className: "flex flex-wrap gap-2" }, [h(Badge, { key: "state", accent: true }, payload.regime.label), h(Badge, { key: "trend" }, payload.regime.trend), h(Badge, { key: "score" }, payload.regime.score.toFixed(2))]),
+ h("div", { key: "grid", className: "mt-4 ws-kpi-inline" }, [
+ h("div", { key: "method", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Method"), h("div", { key: "value", className: "mt-2 text-base font-semibold text-white" }, "Layered composite"), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, payload.regime.methodology)]),
+ h("div", { key: "macro", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Macro layer"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, String(macroLayer.length)), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "Growth, liquidity, and inflation inputs")]),
+ h("div", { key: "risk", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Risk layer"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, String(riskLayer.length)), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "Risk appetite and tape participation inputs")]),
+ h("div", { key: "stress", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Event stress"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, String(eventRiskRows.length)), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "High-impact events still in the forward window")]),
  ]),
- h("div", { key: "side", className: "space-y-5" }, [
- h(Panel, { key: "method", title: "Methodology" }, h("div", { className: "space-y-3 text-sm text-slate-300" }, [
- h("p", { key: "copy", className: "leading-7 text-slate-400" }, payload.regime.methodology),
- h("div", { key: "score", className: "rounded-xl border border-white/8 p-4 text-slate-400" }, "Use the regime as a risk filter before leaning on bias, catalysts, or live reactions."),
- ])),
- h(Panel, { key: "workflow", title: "Workflow use" }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows })),
+ ]),
+ h("div", { key: "grid", className: "ws-two-panel" }, [
+ h("div", { key: "left", className: "space-y-5" }, [
+ h(Panel, { key: "layers", title: "Macro liquidity layer", subtitle: "Primary macro inputs driving the current regime state." }, h(DataTable, { headers: ["Macro liquidity", "Score"], rows: macroRows.length !== 0 ? macroRows : [["No macro layer", "-"]], numericColumns: [1], dense: true })),
+ h(Panel, { key: "risk", title: "Risk appetite layer", subtitle: "Secondary risk-taking inputs supporting or fighting the macro layer." }, h(DataTable, { headers: ["Risk dimension", "Score"], rows: riskRows.length !== 0 ? riskRows : [["No risk layer", "-"]], numericColumns: [1], dense: true })),
+ h(Panel, { key: "components", title: "Regime components", subtitle: "Full component list for desk transparency." }, h(DataTable, { headers: ["Key", "Label", "Score"], rows: componentRows, numericColumns: [2], dense: true })),
+ ]),
+ h("div", { key: "right", className: "space-y-5" }, [
+ h(Panel, { key: "events", title: "Event risk window", subtitle: "High-impact catalysts that can still stress the regime read." }, h(DataTable, { headers: ["Event", "Assets", "Why it matters"], rows: eventRiskRows.length !== 0 ? eventRiskRows : [["No high-impact events", "-", "No catalyst stress tests are loaded right now"]], dense: true })),
+ h(Panel, { key: "bias", title: "Bias fit", subtitle: "Highest-conviction bias calls measured against the current regime." }, h(DataTable, { headers: ["Asset", "Direction", "Confidence", "Regime read"], rows: biasFitRows.length !== 0 ? biasFitRows : [["No bias", "-", "-", "No bias payload returned"]], dense: true })),
+ h(Panel, { key: "workflow", title: "Workflow use", subtitle: "Next surfaces that need the regime filter." }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows, dense: true })),
  ]),
  ]),
  ]))

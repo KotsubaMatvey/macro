@@ -3,7 +3,7 @@ import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import type { EventRelease, Watchlist } from "@northstar/types"
 
-import { DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
+import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEvents, getWorkstation } from "@/lib/server/api"
 
 interface CalendarSearchParams {
@@ -61,7 +61,6 @@ function filterEvents(events: EventRelease[], filters: CalendarSearchParams) {
  return true
  })
 }
-
 export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  const events = await getEvents()
  const payload = await getWorkstation()
@@ -73,39 +72,47 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  search: readParam(searchParams ? searchParams.search : undefined),
  }
  const filtered = filterEvents(events, filters)
- const watchSymbols = Array.from(new Set(payload.watchlists.flatMap(function (list: Watchlist) { return list.items.map(function (item) { return item.symbol }) })))
+ const watchSymbols = Array.from(new Set((payload.watchlists ? payload.watchlists : []).flatMap(function (list: Watchlist) { return list.items.map(function (item) { return item.symbol }) })))
  const currencies = Array.from(new Set(events.map(function (item: EventRelease) { return item.currency })))
  const metrics = [
  { label: "Tracked releases", value: String(events.length), note: "Calendar rows across the demo tape" },
- { label: "Filtered rows", value: String(filtered.length), note: "Rows currently matching the selected filter state" },
- { label: "High impact", value: String(events.filter(function (item: EventRelease) { return item.impact === "High" }).length), note: "Macro catalysts worth pre-positioning" },
- { label: "Watch context", value: String(watchSymbols.length), note: "Symbols already covered by user watchlists" },
+ { label: "Filtered rows", value: String(filtered.length), note: "Rows matching the current control deck" },
+ { label: "High impact", value: String(events.filter(function (item: EventRelease) { return item.impact === "High" }).length), note: "Catalysts worth pre-positioning" },
+ { label: "Watch context", value: String(watchSymbols.length), note: "Symbols already tracked by watchlists" },
  ]
  const rows: ReactNode[][] = filtered.map(function (item: EventRelease) {
  const watchedAssets = item.relatedAssets.filter(function (asset) { return watchSymbols.includes(asset) })
- return [timeLabel(item.scheduledAt), item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.category }), String(item.actual !== undefined ? item.actual : "-"), String(item.forecast !== undefined ? item.forecast : "-"), String(item.previous !== undefined ? item.previous : "-"), verdict(item), watchedAssets.length !== 0 ? watchedAssets.join(", ") : "Open"]
+ return [timeLabel(item.scheduledAt), item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.category }), item.actual !== undefined ? String(item.actual) : "-", item.forecast !== undefined ? String(item.forecast) : "-", item.previous !== undefined ? String(item.previous) : "-", verdict(item), watchedAssets.length !== 0 ? watchedAssets.join(", ") : "Open"]
  })
- const focusRows: ReactNode[][] = events.filter(function (item: EventRelease) { return item.impact === "High" }).slice(0, 6).map(function (item: EventRelease) {
- return [item.currency, item.title, item.status, timeLabel(item.scheduledAt)]
- })
+ const highImpact = events.filter(function (item: EventRelease) { return item.impact === "High" }).slice(0, 6)
  const workflowRows: ReactNode[][] = [
- [h(Link, { href: "/app/alerts", className: "text-sky-300 transition hover:text-sky-200" }, "Open alerts"), "Turn the filtered calendar into scheduled reminders before the print."],
+ [h(Link, { href: "/app/alerts", className: "text-sky-300 transition hover:text-sky-200" }, "Open alerts"), "Turn the filtered board into scheduled reminders before the print."],
  [h(Link, { href: "/app/watchlists", className: "text-sky-300 transition hover:text-sky-200" }, "Open watchlists"), "Use tracked baskets to focus on the rows that already matter to the desk."],
- [h(Link, { href: "/app/event-explorer", className: "text-sky-300 transition hover:text-sky-200" }, "Open event explorer"), "Move from a single row into family-level archive and surprise context."],
+ [h(Link, { href: "/app/event-explorer", className: "text-sky-300 transition hover:text-sky-200" }, "Open event explorer"), "Move from one row into family-level archive and surprise context."],
  ]
- return h(PageShell, { title: "Macro Calendar", subtitle: "Event schedule, release context, and direct routing into the dynamic event detail surface.", active: "macro-calendar" }, h("div", { className: "space-y-5" }, [
+ return h(PageShell, { title: "Macro Calendar", subtitle: "Dense event board with direct routing into the dynamic event detail surface.", active: "macro-calendar" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),
- h(Panel, { key: "filters", title: "Filters" }, h("div", { className: "flex flex-wrap gap-2 text-sm text-slate-300" }, [
- h(Link, { key: "today", href: "/app/macro-calendar", className: "rounded-full border border-white/10 px-3 py-2" }, "Today"),
- h(Link, { key: "high", href: "/app/macro-calendar?impact=High", className: "rounded-full border border-white/10 px-3 py-2" }, "High impact"),
- h(Link, { key: "upcoming", href: "/app/macro-calendar?status=Upcoming", className: "rounded-full border border-white/10 px-3 py-2" }, "Upcoming"),
- currencies.slice(0, 5).map(function (currency: string) { return h(Link, { key: currency, href: "/app/macro-calendar?currency=" + currency, className: "rounded-full border border-white/10 px-3 py-2" }, currency) }),
- ])),
- h("div", { key: "grid", className: "grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]" }, [
- h(Panel, { key: "table", title: "Calendar tape" }, h(DataTable, { headers: ["Time", "CCY", "Event", "Actual", "Forecast", "Previous", "Verdict", "Watch"], rows: rows.length !== 0 ? rows : [["-", "-", "No events match the current filters", "-", "-", "-", "-", "-"]] })),
- h("div", { key: "side", className: "space-y-5" }, [
- h(Panel, { key: "focus", title: "High impact focus" }, h(DataTable, { headers: ["CCY", "Event", "Status", "Time"], rows: focusRows })),
- h(Panel, { key: "workflow", title: "Workflow use" }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows })),
+ h(Panel, { key: "controls", title: "Control deck", subtitle: "Filter the tape by impact, currency, and event state without leaving the board." }, [
+ h("div", { key: "toolbar", className: "ws-toolbar" }, [
+ h(Link, { key: "today", href: "/app/macro-calendar", className: "ws-toolbar-chip" }, "Today"),
+ h(Link, { key: "high", href: "/app/macro-calendar?impact=High", className: "ws-toolbar-chip" }, "High impact"),
+ h(Link, { key: "upcoming", href: "/app/macro-calendar?status=Upcoming", className: "ws-toolbar-chip" }, "Upcoming"),
+ currencies.slice(0, 6).map(function (currency: string) { return h(Link, { key: currency, href: "/app/macro-calendar?currency=" + currency, className: "ws-toolbar-chip" }, currency) }),
+ ]),
+ h("div", { key: "status", className: "mt-4 flex flex-wrap gap-2" }, [
+ h(Badge, { key: "impact" }, filters.impact ? filters.impact : "All impact"),
+ h(Badge, { key: "currency" }, filters.currency ? filters.currency : "All currencies"),
+ h(Badge, { key: "status" }, filters.status ? filters.status : "All states"),
+ ]),
+ ]),
+ h("div", { key: "grid", className: "ws-two-panel" }, [
+ h("div", { key: "left", className: "space-y-5" }, [
+ h(Panel, { key: "tape", title: "Calendar tape", subtitle: "Compact event board for release timing, values, verdict, and watch focus." }, h(DataTable, { headers: ["Time", "CCY", "Event", "Actual", "Forecast", "Previous", "Verdict", "Watch"], rows: rows.length !== 0 ? rows : [["-", "-", "No events match the current filters", "-", "-", "-", "-", "-"]], numericColumns: [3, 4, 5], dense: true })),
+ ]),
+ h("div", { key: "right", className: "space-y-5" }, [
+ h(Panel, { key: "focus", title: "Desk focus", subtitle: "Quick read on the current filter state and watch overlap." }, h(KeyValueList, { items: [{ label: "Rows visible", value: String(filtered.length) }, { label: "Tracked symbols", value: String(watchSymbols.length) }, { label: "High impact rows", value: String(highImpact.length), tone: "High" }, { label: "Search", value: filters.search ? filters.search : "No search" }] })),
+ h(Panel, { key: "high-board", title: "High impact board", subtitle: "The events most likely to set the tone for the session." }, highImpact.length !== 0 ? h("div", { className: "grid gap-3" }, highImpact.map(function (item: EventRelease) { return h(EventLink, { key: item.id, eventId: item.id, slug: item.slug, title: item.title, meta: item.status + " / " + timeLabel(item.scheduledAt) }) })) : h("div", { className: "text-sm text-slate-500" }, "No high-impact releases loaded.")),
+ h(Panel, { key: "workflow", title: "Workflow use", subtitle: "Natural next steps after filtering the board." }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows, dense: true })),
  ]),
  ]),
  ]))

@@ -46,15 +46,16 @@ export default async function AlertsPage() {
  ]
  return h(PageShell, { title: "Alerts", subtitle: "Event reminders, threshold logic, and channel state in one operational alert center.", active: "alerts" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),
- h("div", { key: "grid", className: "grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]" }, [
+ h(Panel, { key: "board", title: "Alert board", subtitle: "Alerts should move the desk into action, not sit as passive notification rows." }, h("p", { className: "text-sm leading-6 text-slate-400" }, "Pair alert rules with watchlists and calendar routing so evaluation jobs point back into a concrete catalyst workflow.")),
+ h("div", { key: "grid", className: "ws-two-panel" }, [
  h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "alerts", title: "Alert center" }, h(DataTable, { headers: ["Alert", "Trigger", "Channel", "Status", "Threshold", "Last trigger"], rows: rows.length !== 0 ? rows : [["No alerts", "-", "-", "-", "-", "-"]] })),
- h(Panel, { key: "mix", title: "Trigger mix" }, h(DataTable, { headers: ["Bucket", "Count", "Use case"], rows: [["Event reminders", String(payload.alerts.filter(function (item: Alert) { return item.triggerType === "event_reminder" }).length), "Pre-event workflow and catalyst tracking"], ["Threshold rules", String(payload.alerts.filter(function (item: Alert) { return item.triggerType !== "event_reminder" }).length), "Provider-ready logic for asset or regime conditions"], ["Scheduled", String(scheduled), "Rules parked ahead of the catalyst window"]] })),
+ h(Panel, { key: "alerts", title: "Alert center", subtitle: "Primary board for trigger, channel, status, and recent firing state." }, h(DataTable, { headers: ["Alert", "Trigger", "Channel", "Status", "Threshold", "Last trigger"], rows: rows.length !== 0 ? rows : [["No alerts", "-", "-", "-", "-", "-"]], dense: true })),
+ h(Panel, { key: "mix", title: "Trigger mix", subtitle: "How the current alert book is split between reminders and rule-driven checks." }, h(DataTable, { headers: ["Bucket", "Count", "Use case"], rows: [["Event reminders", String(payload.alerts.filter(function (item: Alert) { return item.triggerType === "event_reminder" }).length), "Pre-event workflow and catalyst tracking"], ["Threshold rules", String(payload.alerts.filter(function (item: Alert) { return item.triggerType !== "event_reminder" }).length), "Provider-ready logic for asset or regime conditions"], ["Scheduled", String(scheduled), "Rules parked ahead of the catalyst window"]], dense: true })),
  ]),
  h("div", { key: "side", className: "space-y-5" }, [
- h(Panel, { key: "channels", title: "Channel readiness" }, h(DataTable, { headers: ["Channel", "Rules", "State"], rows: channelRows.length !== 0 ? channelRows : [["No channel", "0", "No delivery path configured"]] })),
- h(Panel, { key: "jobs", title: "Alert pipeline" }, h(DataTable, { headers: ["Job", "Status", "Run at", "Finished"], rows: jobRows.length !== 0 ? jobRows : [["evaluate_alerts", "Not visible", "-", "Admin route not available for this session"]] })),
- h(Panel, { key: "workflow", title: "Workflow use" }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows })),
+ h(Panel, { key: "channels", title: "Channel readiness", subtitle: "Delivery coverage by channel in the current environment." }, h(DataTable, { headers: ["Channel", "Rules", "State"], rows: channelRows.length !== 0 ? channelRows : [["No channel", "0", "No delivery path configured"]], dense: true })),
+ h(Panel, { key: "jobs", title: "Alert pipeline", subtitle: "Worker visibility into alert evaluation runs." }, h(DataTable, { headers: ["Job", "Status", "Run at", "Finished"], rows: jobRows.length !== 0 ? jobRows : [["evaluate_alerts", "Not visible", "-", "Admin route not available for this session"]], dense: true })),
+ h(Panel, { key: "workflow", title: "Workflow use", subtitle: "Routes that complete the alert workflow." }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows, dense: true })),
  ]),
  ]),
  ]))

@@ -17,6 +17,7 @@ vi.mock("@/components/app/chrome", function () {
  MetricGrid: function MetricGrid() { return h("div", {}, "metrics") },
  DataTable: function DataTable() { return h("div", {}, "table") },
  EventLink: function EventLink(props: any) { return h("a", {}, props.title) },
+ Badge: function Badge(props: any) { return h("span", {}, props.children) },
  }
 })
 
