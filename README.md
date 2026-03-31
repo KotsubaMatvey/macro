@@ -17,7 +17,7 @@ Track macro events. Read the regime. Trade the reaction.
 - Redis used for queue/cache/rate-limits (with worker queue consumption)
 - Worker jobs refresh demo state and admin-visible job status
 
-## Quick start
+## Workstation surfaces`r`n- Dashboard: next catalyst, consensus, regime, action routing`r`n- Macro Calendar: filterable event tape with drill-down into dynamic event detail`r`n- Event Explorer and Impact Lab: family history and reaction context`r`n- Market Bias and Liquidity Regime: cross-asset consensus and regime layers`r`n- News, Briefings, Watchlists, Alerts, Community, Admin: connected operator workflows`r`n`r`n## Quick start
 1. Copy `.env.example` to `.env`.
 2. Start infra: `docker-compose up -d`.
 3. Install web deps: `npm install --prefix apps/web`.
@@ -42,3 +42,4 @@ Track macro events. Read the regime. Trade the reaction.
 - Deterministic seeded market/event state
 - Worker jobs simulate operations, not live market ingestion
 - Billing and provider integrations are contract-ready but demo-backed
+

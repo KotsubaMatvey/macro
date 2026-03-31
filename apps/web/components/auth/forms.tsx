@@ -118,3 +118,4 @@ export function OnboardingForm() {
   }
   return authShell('Onboarding', h('div', { className: 'grid gap-4' }, [field('Desk', desk, setDesk), field('Timezone', timezone, setTimezone), field('Region', region, setRegion), field('Density', density, setDensity), field('Bio', bio, setBio), error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'button', onClick: submit, className: surfaces.button }, 'Save preferences')]))
 }
+

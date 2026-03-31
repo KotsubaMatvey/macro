@@ -1,10 +1,14 @@
 import json
 
+from .cache import get_redis
 from .db import apply_migrations, get_connection
 from .security import hash_password
 from .services import reset_demo_jobs
 
 def seed_demo_database():
+    client = get_redis()
+    if client:
+        client.flushdb()
     apply_migrations()
     with get_connection() as conn:
         with conn.cursor() as cur:
