@@ -16,9 +16,9 @@ def seed_demo_database():
                 cur.execute(f'delete from {table}')
 
             users = [
-                ('user-demo', 'demo@northstarmacro.local', hash_password('demo12345'), 'user', 'Mara Levin', '2026-03-01T08:00:00+00:00', True),
-                ('user-analyst', 'analyst@northstarmacro.local', hash_password('analyst12345'), 'analyst', 'Elena Park', '2026-03-01T08:00:00+00:00', True),
-                ('user-admin', 'admin@northstarmacro.local', hash_password('admin12345'), 'admin', 'Ibrahim Shah', '2026-03-01T08:00:00+00:00', True),
+                ('user-demo', 'demo@macroaccess.local', hash_password('demo12345'), 'user', 'Mara Levin', '2026-03-01T08:00:00+00:00', True),
+                ('user-analyst', 'analyst@macroaccess.local', hash_password('analyst12345'), 'analyst', 'Elena Park', '2026-03-01T08:00:00+00:00', True),
+                ('user-admin', 'admin@macroaccess.local', hash_password('admin12345'), 'admin', 'Ibrahim Shah', '2026-03-01T08:00:00+00:00', True),
             ]
             for row in users:
                 cur.execute('insert into users (id, email, password_hash, role, name, email_verified_at, onboarding_completed) values (%s, %s, %s, %s, %s, %s, %s)', row)
@@ -92,8 +92,8 @@ def seed_demo_database():
             for row in briefings:
                 cur.execute('insert into briefings (id, slug, kind, title, summary, body, analyst_user_id, published_at, event_id, asset_symbols, takeaways) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)', row)
             news_rows = [
-                ('news-fed', 'fed-patient', 'Fed speakers stay patient as inflation normalizes', 'Northstar Wire', 'Officials continue to argue for data dependence while labor stays firm.', 'Central Banks', 'Neutral', '2026-03-29T06:00:00+00:00', 'event-cpi-mar'),
-                ('news-china', 'china-credit-pulse', 'China credit pulse improves in March release', 'Northstar Wire', 'Incremental stabilization supports industrial cyclicals but the impulse remains narrow.', 'Growth', 'Bullish', '2026-03-29T07:15:00+00:00', None),
+                ('news-fed', 'fed-patient', 'Fed speakers stay patient as inflation normalizes', 'Macro Access Wire', 'Officials continue to argue for data dependence while labor stays firm.', 'Central Banks', 'Neutral', '2026-03-29T06:00:00+00:00', 'event-cpi-mar'),
+                ('news-china', 'china-credit-pulse', 'China credit pulse improves in March release', 'Macro Access Wire', 'Incremental stabilization supports industrial cyclicals but the impulse remains narrow.', 'Growth', 'Bullish', '2026-03-29T07:15:00+00:00', None),
             ]
             for row in news_rows:
                 cur.execute('insert into news_items (id, slug, title, source, summary, category, sentiment, published_at, event_id) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)', row)

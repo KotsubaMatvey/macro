@@ -1,5 +1,5 @@
 {
- "name": "northstar-macro",
+ "name": "macro-access",
  "private": true,
  "workspaces": [
  "apps/web",

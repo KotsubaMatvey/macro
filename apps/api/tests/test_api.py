@@ -14,7 +14,7 @@ def reset_demo():
     seed_demo_database() 
     client.cookies.clear() 
  
-def sign_in(email='demo@northstarmacro.local', password='demo12345'): 
+def sign_in(email='demo@macroaccess.local', password='demo12345'): 
     response = client.post('/api/v1/auth/sign-in', json={'email': email, 'password': password}) 
     assert response.status_code == 200, response.text 
     return response 
@@ -30,7 +30,7 @@ def test_demo_sign_in_and_workstation_flow():
     response = client.get('/api/v1/workstation') 
     assert response.status_code == 200 
     payload = response.json() 
-    assert payload['session']['email'] == 'demo@northstarmacro.local' 
+    assert payload['session']['email'] == 'demo@macroaccess.local' 
     assert payload['regime']['label'] == 'Expansionary' 
     assert payload['nextEvents'] 
     assert payload['watchlists'] 
@@ -38,21 +38,21 @@ def test_demo_sign_in_and_workstation_flow():
  
 def test_sign_up_verify_and_sign_in_new_user(): 
     reset_demo() 
-    signup = client.post('/api/v1/auth/sign-up', json={'email': 'new@northstarmacro.local', 'password': 'pass12345', 'name': 'New User'}) 
+    signup = client.post('/api/v1/auth/sign-up', json={'email': 'new@macroaccess.local', 'password': 'pass12345', 'name': 'New User'}) 
     assert signup.status_code == 200, signup.text 
     verify = client.post('/api/v1/auth/verify-email', json={'token': signup.json()['token']}) 
     assert verify.status_code == 200, verify.text 
-    signin = client.post('/api/v1/auth/sign-in', json={'email': 'new@northstarmacro.local', 'password': 'pass12345'}) 
+    signin = client.post('/api/v1/auth/sign-in', json={'email': 'new@macroaccess.local', 'password': 'pass12345'}) 
     assert signin.status_code == 200, signin.text 
-    assert signin.json()['email'] == 'new@northstarmacro.local' 
+    assert signin.json()['email'] == 'new@macroaccess.local' 
  
 def test_password_reset_flow(): 
     reset_demo() 
-    issued = client.post('/api/v1/auth/request-password-reset', json={'email': 'demo@northstarmacro.local'}) 
+    issued = client.post('/api/v1/auth/request-password-reset', json={'email': 'demo@macroaccess.local'}) 
     assert issued.status_code == 200, issued.text 
     reset = client.post('/api/v1/auth/reset-password', json={'token': issued.json()['token'], 'password': 'demo54321'}) 
     assert reset.status_code == 200, reset.text 
-    signin = client.post('/api/v1/auth/sign-in', json={'email': 'demo@northstarmacro.local', 'password': 'demo54321'}) 
+    signin = client.post('/api/v1/auth/sign-in', json={'email': 'demo@macroaccess.local', 'password': 'demo54321'}) 
     assert signin.status_code == 200, signin.text 
  
 def test_events_and_event_detail_are_backed_by_seeded_data(): 
@@ -91,7 +91,7 @@ def test_admin_summary_requires_admin_role():
     forbidden = client.get('/api/v1/admin/summary') 
     assert forbidden.status_code == 403 
     client.post('/api/v1/auth/sign-out') 
-    sign_in('admin@northstarmacro.local', 'admin12345') 
+    sign_in('admin@macroaccess.local', 'admin12345') 
     allowed = client.get('/api/v1/admin/summary') 
     assert allowed.status_code == 200 
     summary = allowed.json() 
@@ -119,7 +119,7 @@ def test_event_detail_by_slug_route_is_dynamic():
 
 def test_sign_in_rejects_invalid_password():
     reset_demo()
-    bad = client.post('/api/v1/auth/sign-in', json={'email': 'demo@northstarmacro.local', 'password': 'wrong-password'})
+    bad = client.post('/api/v1/auth/sign-in', json={'email': 'demo@macroaccess.local', 'password': 'wrong-password'})
     assert bad.status_code == 400
 
 def test_onboarding_persistence_updates_session_state():

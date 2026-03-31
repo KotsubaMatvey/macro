@@ -1,6 +1,6 @@
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { Briefing, EventRelease } from "@northstar/types"
+import type { Briefing, EventRelease } from "@macroaccess/types"
 
 import { DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getBriefings, getEvents } from "@/lib/server/api"

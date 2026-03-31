@@ -1,4 +1,4 @@
-# Northstar Macro
+# Macro Access
 
 Track macro events. Read the regime. Trade the reaction.
 
@@ -28,9 +28,9 @@ Track macro events. Read the regime. Trade the reaction.
 8. Start web: `npm run web:dev`.
 
 ## Demo accounts
-- user: `demo@northstarmacro.local` / `demo12345`
-- analyst: `analyst@northstarmacro.local` / `analyst12345`
-- admin: `admin@northstarmacro.local` / `admin12345`
+- user: `demo@macroaccess.local` / `demo12345`
+- analyst: `analyst@macroaccess.local` / `analyst12345`
+- admin: `admin@macroaccess.local` / `admin12345`
 
 ## Verification
 - `npm run lint`

@@ -15,7 +15,7 @@ export default function FeaturesPage() {
  h("div", { key: "copy", className: "macro-card macro-card-hero" }, [
  h("div", { key: "eyebrow", className: "macro-kicker" }, "Features"),
  h("h1", { key: "title", className: "mt-5 text-4xl font-semibold tracking-tight text-white md:text-6xl" }, "Macro workstation surfaces organized around the decision stack"),
- h("p", { key: "body", className: "mt-5 max-w-3xl text-base leading-7 text-slate-300" }, "Northstar Macro is structured around event routing, regime interpretation, bias, briefings, live reactions, and operator-facing admin visibility."),
+ h("p", { key: "body", className: "mt-5 max-w-3xl text-base leading-7 text-slate-300" }, "Macro Access is structured around event routing, regime interpretation, bias, briefings, live reactions, and operator-facing admin visibility."),
  h("div", { key: "actions", className: "mt-8 flex flex-wrap gap-3" }, [
  h(Link, { key: "app", href: "/sign-in", className: "rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[var(--accent-strong)]" }, "Open workstation"),
  h(Link, { key: "pricing", href: "/pricing", className: "rounded-full border border-white/12 bg-white/[0.04] px-5 py-3 text-sm text-white transition hover:border-white/25 hover:bg-white/[0.08]" }, "View pricing"),

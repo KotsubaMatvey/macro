@@ -1,6 +1,6 @@
 import type { NavSection } from '../../types/src';
 
-export const APP_NAME = 'Northstar Macro';
+export const APP_NAME = 'Macro Access';
 export const APP_TAGLINE = 'Track macro events. Read the regime. Trade the reaction.';
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 

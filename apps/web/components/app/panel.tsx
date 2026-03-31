@@ -1,6 +1,6 @@
 import { createElement as h } from 'react'
 
-import { cx, surfaces } from '@northstar/ui'
+import { cx, surfaces } from '@macroaccess/ui'
 
 export function Panel(props: { title: string; children?: React.ReactNode; className?: string }) {
   return h('section', { className: cx(surfaces.panel, props.className) }, [

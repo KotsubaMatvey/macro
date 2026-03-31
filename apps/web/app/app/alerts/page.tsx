@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { Alert, JobRun } from "@northstar/types"
+import type { Alert, JobRun } from "@macroaccess/types"
 
 import { DataTable, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getAdminJobs, getWorkstation } from "@/lib/server/api"

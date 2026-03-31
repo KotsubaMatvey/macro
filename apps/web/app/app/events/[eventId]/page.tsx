@@ -2,7 +2,7 @@ import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
-import type { Briefing, EventDetail, EventRelease, MarketBiasSnapshot, NewsItem, WorkstationPayload } from "@northstar/types"
+import type { Briefing, EventDetail, EventRelease, MarketBiasSnapshot, NewsItem, WorkstationPayload } from "@macroaccess/types"
 
 import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEventDetail, getEvents, getWorkstation } from "@/lib/server/api"

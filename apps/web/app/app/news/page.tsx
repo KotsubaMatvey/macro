@@ -1,6 +1,6 @@
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { EventRelease, NewsItem } from "@northstar/types"
+import type { EventRelease, NewsItem } from "@macroaccess/types"
 
 import { Badge, DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEvents, getNews } from "@/lib/server/api"

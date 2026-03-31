@@ -27,13 +27,13 @@
       "@/*": [
         "./*"
       ],
-      "@northstar/types": [
+      "@macroaccess/types": [
         "../../packages/types/src/index.ts"
       ],
-      "@northstar/config": [
+      "@macroaccess/config": [
         "../../packages/config/src/index.ts"
       ],
-      "@northstar/ui": [
+      "@macroaccess/ui": [
         "../../packages/ui/src/index.ts"
       ]
     }

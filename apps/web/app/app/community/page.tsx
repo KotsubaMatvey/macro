@@ -1,6 +1,6 @@
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { CommunityPost } from "@northstar/types"
+import type { CommunityPost } from "@macroaccess/types"
 
 import { DataTable, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getWorkstation } from "@/lib/server/api"

@@ -1,7 +1,7 @@
 # Product
 
 ## Positioning
-Northstar Macro is a premium macro intelligence workstation for event-driven traders.
+Macro Access is a premium macro intelligence workstation for event-driven traders.
 
 ## Core promise
 - Track macro catalysts before release

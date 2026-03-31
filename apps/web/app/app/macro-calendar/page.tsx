@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { EventRelease, Watchlist } from "@northstar/types"
+import type { EventRelease, Watchlist } from "@macroaccess/types"
 
 import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEvents, getWorkstation } from "@/lib/server/api"

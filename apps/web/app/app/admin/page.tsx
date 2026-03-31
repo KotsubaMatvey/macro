@@ -1,6 +1,6 @@
 import { createElement as h } from "react"
 import { redirect } from "next/navigation"
-import type { AdminSummary, FeatureFlag, JobRun } from "@northstar/types"
+import type { AdminSummary, FeatureFlag, JobRun } from "@macroaccess/types"
 
 import { DataTable, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getAdminFlags, getAdminJobs, getAdminSummary } from "@/lib/server/api"

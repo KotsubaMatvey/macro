@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createElement as h } from 'react'
 
-import { APP_NAME, APP_SECTIONS, APP_TAGLINE } from '@northstar/config'
+import { APP_NAME, APP_SECTIONS, APP_TAGLINE } from '@macroaccess/config'
 
 const heroStats = [
   { label: 'Tracked catalysts', value: '1,200+', note: 'Macro releases, speeches, inflation prints, labor data, and cross-asset follow-through.' },

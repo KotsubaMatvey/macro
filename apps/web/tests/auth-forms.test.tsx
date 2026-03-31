@@ -19,15 +19,15 @@ describe('SignInForm', () => {
 
   it('renders sign-in defaults', () => {
     render(<SignInForm />)
-    expect(screen.getByDisplayValue('demo@northstarmacro.local')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('demo@macroaccess.local')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open workstation' })).toBeInTheDocument()
   })
 
   it('submits credentials and routes to dashboard', async () => {
-    postJson.mockResolvedValue({ email: 'demo@northstarmacro.local' })
+    postJson.mockResolvedValue({ email: 'demo@macroaccess.local' })
     render(<SignInForm />)
     fireEvent.click(screen.getByRole('button', { name: 'Open workstation' }))
-    await waitFor(() => expect(postJson).toHaveBeenCalledWith('/api/v1/auth/sign-in', { email: 'demo@northstarmacro.local', password: 'demo12345' }))
+    await waitFor(() => expect(postJson).toHaveBeenCalledWith('/api/v1/auth/sign-in', { email: 'demo@macroaccess.local', password: 'demo12345' }))
     await waitFor(() => expect(push).toHaveBeenCalledWith('/app/dashboard'))
     expect(refresh).toHaveBeenCalled()
   })

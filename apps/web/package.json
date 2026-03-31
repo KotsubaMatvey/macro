@@ -1,5 +1,5 @@
 {
- "name": "@northstar/web",
+ "name": "@macroaccess/web",
  "version": "0.1.0",
  "private": true,
  "scripts": {
@@ -11,9 +11,9 @@
  "test": "vitest run"
  },
  "dependencies": {
- "@northstar/config": "0.1.0",
- "@northstar/types": "0.1.0",
- "@northstar/ui": "0.1.0",
+ "@macroaccess/config": "0.1.0",
+ "@macroaccess/types": "0.1.0",
+ "@macroaccess/ui": "0.1.0",
  "@playwright/test": "^1.58.2",
  "@testing-library/jest-dom": "^6.9.1",
  "@testing-library/react": "^16.3.2",

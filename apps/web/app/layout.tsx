@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Northstar Macro",
+  title: "Macro Access",
   description: "Track macro events. Read the regime. Trade the reaction.",
 };
 

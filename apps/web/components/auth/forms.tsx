@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { Panel } from '@/components/app/panel'
 import { postJson } from '@/lib/client/api'
-import { surfaces } from '@northstar/ui'
+import { surfaces } from '@macroaccess/ui'
 
 function field(label: string, value: string, setValue: (value: string) => void, type = 'text') {
   return h('label', { className: 'grid gap-2 text-sm text-slate-300' }, [h('span', { key: 'label' }, label), h('input', { key: 'input', type, value, onChange: function (event: any) { setValue(event.target.value) }, className: surfaces.input })])
@@ -17,7 +17,7 @@ function authShell(title: string, children: any, footer: any = null) {
 
 export function SignInForm() {
   const router = useRouter()
-  const [email, setEmail] = useState('demo@northstarmacro.local')
+  const [email, setEmail] = useState('demo@macroaccess.local')
   const [password, setPassword] = useState('demo12345')
   const [error, setError] = useState('')
   async function submit() {
