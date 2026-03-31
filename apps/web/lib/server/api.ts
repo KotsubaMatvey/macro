@@ -1,7 +1,18 @@
 import { cache } from "react"
 import { cookies } from "next/headers"
+import type {
+ AdminSummary,
+ Briefing,
+ EventDetail,
+ EventRelease,
+ FeatureFlag,
+ JobRun,
+ NewsItem,
+ SessionUser,
+ WorkstationPayload,
+} from "@northstar/types"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000"
 
 const getCookieHeader = cache(async function getCookieHeader() {
  const cookieStore = await cookies()
@@ -21,37 +32,46 @@ async function load(path: string) {
 }
 
 export const getSession = cache(async function getSession() {
- return load("/api/v1/auth/session")
+ const payload = await load("/api/v1/auth/session")
+ return payload as SessionUser
 })
 
 export const getWorkstation = cache(async function getWorkstation(refresh = false) {
- return load("/api/v1/workstation" + (refresh ? "?refresh=true" : ""))
+ const payload = await load("/api/v1/workstation" + (refresh ? "?refresh=true" : ""))
+ return payload as WorkstationPayload
 })
 
 export const getEvents = cache(async function getEvents(search = "") {
- return load("/api/v1/events?search=" + encodeURIComponent(search))
+ const payload = await load("/api/v1/events?search=" + encodeURIComponent(search))
+ return payload as EventRelease[]
 })
 
 export const getEventDetail = cache(async function getEventDetail(id: string) {
- return load("/api/v1/events/" + id)
+ const payload = await load("/api/v1/events/" + id)
+ return payload as EventDetail
 })
 
 export const getBriefings = cache(async function getBriefings() {
- return load("/api/v1/briefings")
+ const payload = await load("/api/v1/briefings")
+ return payload as Briefing[]
 })
 
 export const getNews = cache(async function getNews() {
- return load("/api/v1/news")
+ const payload = await load("/api/v1/news")
+ return payload as NewsItem[]
 })
 
 export const getAdminSummary = cache(async function getAdminSummary() {
- return load("/api/v1/admin/summary")
+ const payload = await load("/api/v1/admin/summary")
+ return payload as AdminSummary
 })
 
 export const getAdminJobs = cache(async function getAdminJobs() {
- return load("/api/v1/admin/jobs")
+ const payload = await load("/api/v1/admin/jobs")
+ return payload as JobRun[]
 })
 
 export const getAdminFlags = cache(async function getAdminFlags() {
- return load("/api/v1/admin/feature-flags")
+ const payload = await load("/api/v1/admin/feature-flags")
+ return payload as FeatureFlag[]
 })
