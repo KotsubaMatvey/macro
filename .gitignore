@@ -20,6 +20,8 @@ __pycache__/
 *.pyd
 .pytest_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 
 # Local environment files
 .env
@@ -41,3 +43,10 @@ Thumbs.db
 # Local scratch and temporary files
 tmp*
 *.tmp
+
+# Testing and tooling outputs
+playwright-report/
+test-results/
+.turbo/
+.cache/
+.vitest/

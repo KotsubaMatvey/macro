@@ -13,13 +13,14 @@
  "web:dev": "npm run dev --prefix apps/web",
  "web:build": "npm run build --prefix apps/web",
  "web:lint": "npm run lint --prefix apps/web",
+ "web:test": "npm test --prefix apps/web",
  "api:seed": "cd apps/api && python scripts/seed_demo.py",
  "api:test": "python -m pytest apps/api/tests -q",
  "api:dev": "python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir apps/api",
  "worker:dev": "python apps/worker/main.py",
  "lint": "npm run web:lint",
  "typecheck": "npm run typecheck --prefix apps/web",
- "test": "npm run api:test",
+ "test": "npm run web:test && npm run api:test",
  "build": "npm run web:build"
  }
 }
