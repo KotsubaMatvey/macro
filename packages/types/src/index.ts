@@ -5,11 +5,18 @@ export type EventStatus = string;
 export type MarketDirection = string;
 export type RegimeTrend = string;
 
+export interface NavChildDestination {
+ slug: string;
+ title: string;
+ description?: string;
+}
+
 export interface NavSection {
  slug: string;
  title: string;
  description: string;
  adminOnly?: boolean;
+ children?: NavChildDestination[];
 }
 
 export interface SessionUser {
