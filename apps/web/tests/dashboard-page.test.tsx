@@ -1,4 +1,4 @@
-﻿import { createElement as h } from "react"
+import { createElement as h } from "react"
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
@@ -40,7 +40,9 @@ describe("DashboardPage", function () {
 		render(view)
 		expect(screen.getByText('Dashboard')).toBeInTheDocument()
 		expect(screen.getByText('Today edge')).toBeInTheDocument()
-		expect(screen.getByText('Key catalyst')).toBeInTheDocument()
-		expect(screen.getByText('AI / model track record')).toBeInTheDocument()
+		expect(screen.getByText('Next event')).toBeInTheDocument()
+		expect(screen.getByText('Market consensus')).toBeInTheDocument()
+	 expect(screen.getByText('Live reactions')).toBeInTheDocument()
+	 expect(screen.getByText('AI / model track record')).toBeInTheDocument()
 	})
 })
