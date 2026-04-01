@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -38,13 +38,13 @@ def test_demo_sign_in_and_workstation_flow():
  
 def test_sign_up_verify_and_sign_in_new_user(): 
     reset_demo() 
-    signup = client.post('/api/v1/auth/sign-up', json={'email': 'new@macroaccess.local', 'password': 'pass12345', 'name': 'New User'}) 
-    assert signup.status_code == 200, signup.text 
+    email = 'new-' + __import__('uuid').uuid4().hex[:6] + '@macroaccess.local'
+    signup = client.post('/api/v1/auth/sign-up', json={'email': email, 'password': 'pass12345', 'name': 'New User'})
     verify = client.post('/api/v1/auth/verify-email', json={'token': signup.json()['token']}) 
     assert verify.status_code == 200, verify.text 
-    signin = client.post('/api/v1/auth/sign-in', json={'email': 'new@macroaccess.local', 'password': 'pass12345'}) 
+    signin = client.post('/api/v1/auth/sign-in', json={'email': email, 'password': 'pass12345'})
     assert signin.status_code == 200, signin.text 
-    assert signin.json()['email'] == 'new@macroaccess.local' 
+    assert signin.json()['email'] == email
  
 def test_password_reset_flow(): 
     reset_demo() 
@@ -163,3 +163,17 @@ def test_worker_job_types_transition_to_completed():
         assert done['status'] == 'completed'
         assert done['started_at'] is not None
         assert done['finished_at'] is not None
+
+def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
+ reset_demo()
+ sign_in()
+ from app import dashboard_service
+ sample_points = [{'date': '2026-02-01', 'value': 100.0}, {'date': '2026-02-15', 'value': 102.0}, {'date': '2026-03-01', 'value': 103.0}, {'date': '2026-03-15', 'value': 104.0}, {'date': '2026-03-20', 'value': 105.0}, {'date': '2026-03-21', 'value': 106.0}, {'date': '2026-03-22', 'value': 104.5}, {'date': '2026-03-23', 'value': 105.5}, {'date': '2026-03-24', 'value': 107.0}, {'date': '2026-03-25', 'value': 108.5}, {'date': '2026-03-26', 'value': 109.2}, {'date': '2026-03-27', 'value': 109.9}, {'date': '2026-03-28', 'value': 110.4}, {'date': '2026-03-29', 'value': 111.0}, {'date': '2026-03-30', 'value': 111.8}, {'date': '2026-03-31', 'value': 112.3}, {'date': '2026-04-01', 'value': 113.1}, {'date': '2026-04-02', 'value': 114.0}, {'date': '2026-04-03', 'value': 114.6}, {'date': '2026-04-04', 'value': 115.4}, {'date': '2026-04-05', 'value': 116.0}, {'date': '2026-04-06', 'value': 116.4}, {'date': '2026-04-07', 'value': 116.8}, {'date': '2026-04-08', 'value': 117.1}, {'date': '2026-04-09', 'value': 117.7}, {'date': '2026-04-10', 'value': 118.1}, {'date': '2026-04-11', 'value': 118.5}, {'date': '2026-04-12', 'value': 118.9}, {'date': '2026-04-13', 'value': 119.3}, {'date': '2026-04-14', 'value': 119.8}, {'date': '2026-04-15', 'value': 120.1}, {'date': '2026-04-16', 'value': 120.6}, {'date': '2026-04-17', 'value': 121.0}, {'date': '2026-04-18', 'value': 121.5}, {'date': '2026-04-19', 'value': 121.9}, {'date': '2026-04-20', 'value': 122.3}, {'date': '2026-04-21', 'value': 122.7}, {'date': '2026-04-22', 'value': 123.1}, {'date': '2026-04-23', 'value': 123.5}, {'date': '2026-04-24', 'value': 124.0}, {'date': '2026-04-25', 'value': 124.4}]
+ monkeypatch.setattr(dashboard_service, '_load_series', lambda symbol: {'seriesId': symbol, 'source': 'FRED', 'sourceUrl': 'https://example.com', 'fetchedAt': '2026-04-25T08:00:00+00:00', 'lastUpdated': '2026-04-25T00:00:00+00:00', 'points': sample_points})
+ monkeypatch.setattr(dashboard_service, '_load_live_news', lambda: ([{'title': 'Fed headline', 'subtitle': 'Official note', 'href': 'https://example.com', 'mode': 'live', 'publishedAt': '2026-04-25T07:00:00+00:00'}], [{'name': 'Federal Reserve press feed', 'status': 'live', 'detail': 'Official feed connected', 'mode': 'live'}]))
+ response = client.get('/api/v1/dashboard')
+ assert response.status_code == 200, response.text
+ body = response.json()
+ assert body['hero']['assets']
+ assert body['marketConsensus']['freshness']['mode'] == 'live'
+ assert body['keyCatalyst']['freshness']['mode'] in ['demo', 'fallback']

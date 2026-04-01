@@ -1,11 +1,12 @@
-import time
+﻿import time
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import apply_migrations
-from .schemas import AlertInput, CommentInput, CommunityPostInput, OnboardingRequest, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkstationPayload
+from .schemas import AlertInput, CommentInput, CommunityPostInput, DashboardPayload, OnboardingRequest, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkstationPayload
+from .dashboard_service import dashboard_payload
 from .seed import seed_demo_database
 from .services import add_watchlist_item, admin_summary, complete_password_reset, create_alert, create_comment, create_post, create_watchlist, current_user_from_token, event_detail, latest_regime, like_post, list_alerts, list_biases, list_briefings, list_events, list_feature_flags, list_jobs, list_news, list_posts, list_watchlists, request_password_reset, sign_in, sign_out, sign_up, update_onboarding, verify_email, workstation_payload, create_job
 from .settings import settings
@@ -98,10 +99,9 @@ def onboarding(payload: OnboardingRequest, user = Depends(current_user)):
 def workstation(refresh: bool = False, user = Depends(current_user)):
     return workstation_payload(user, prefer_cache=not refresh, force_refresh=refresh)
 
-@app.get('/api/v1/dashboard')
-def dashboard(user = Depends(current_user)):
-    payload = workstation_payload(user)
-    return {'metrics': payload['metrics'], 'regime': payload['regime'], 'biases': payload['biases'], 'events': payload['nextEvents']}
+@app.get('/api/v1/dashboard', response_model=DashboardPayload)
+def dashboard(refresh: bool = False, user = Depends(current_user)):
+ return dashboard_payload(user, prefer_cache=not refresh, force_refresh=refresh)
 
 @app.get('/api/v1/regime')
 def regime(user = Depends(current_user)):

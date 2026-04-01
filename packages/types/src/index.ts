@@ -211,3 +211,175 @@ export interface WorkstationPayload {
  billing: BillingState;
  adminSummary?: AdminSummary;
 }
+
+export type FreshnessState = string;
+export type DataMode = string;
+
+export interface SourceMetadata {
+ label: string;
+ source: string;
+ sourceUrl?: string;
+ fetchedAt?: string;
+ lastUpdated?: string;
+ freshness: FreshnessState;
+ mode: DataMode;
+ note: string;
+}
+
+export interface DashboardScenarioBucket {
+ label: string;
+ probability: number;
+ description: string;
+}
+
+export interface DashboardSparkPoint {
+ label: string;
+ value: number;
+}
+
+export interface DashboardAssetView {
+ symbol: string;
+ title: string;
+ subtitle: string;
+ sourceSymbol: string;
+ price: string;
+ change1dPct: number;
+ change30dPct: number;
+ expectedMove5dPct: number;
+ stance: string;
+ skew: string;
+ confidence: number;
+ sampleCount: number;
+ regimeContext: string;
+ sourceFacts: string[];
+ modelFacts: string[];
+ scenarioBuckets: DashboardScenarioBucket[];
+ sparkline: DashboardSparkPoint[];
+ freshness: SourceMetadata;
+}
+
+export interface DashboardHero {
+ assets: DashboardAssetView[];
+ defaultSymbol: string;
+ sourceNote: string;
+ modelNote: string;
+}
+
+export interface DashboardCatalyst {
+ title: string;
+ status: string;
+ scheduledAt?: string;
+ countdownLabel: string;
+ impact: string;
+ country: string;
+ currency: string;
+ relatedAssets: string[];
+ threshold: string;
+ sensitivity: string;
+ whyItMatters: string;
+ context: string[];
+ href: string;
+ freshness: SourceMetadata;
+}
+
+export interface DashboardRegimeBlock {
+ label: string;
+ score: number;
+ delta: number;
+ trend: string;
+ interpretation: string;
+drivers: string[];
+ history: DashboardSparkPoint[];
+ freshness: SourceMetadata;
+}
+
+export interface DashboardConsensusAsset {
+ symbol: string;
+ direction: string;
+ score: number;
+ confidence: number;
+ change30dPct: number;
+ note: string;
+}
+
+export interface DashboardConsensus {
+ label: string;
+ score: number;
+ trend30d: string;
+ confidence: number;
+ sampleSize: number;
+ note: string;
+ href: string;
+ assets: DashboardConsensusAsset[];
+ freshness: SourceMetadata;
+}
+
+export interface DashboardTrackRecordItem {
+ symbol: string;
+ asOf: string;
+ stance: string;
+ expectedMove5dPct: number;
+ realizedMove5dPct: number;
+ outcome: string;
+ linkedEventTitle?: string;
+ linkedEventHref?: string;
+}
+
+export interface DashboardTrackRecord {
+ status: string;
+ evaluationMode: string;
+ sampleSize: number;
+ hitRate?: number;
+ magnitudeErrorPct?: number;
+ note: string;
+ records: DashboardTrackRecordItem[];
+ freshness: SourceMetadata;
+}
+
+export interface DashboardLinkedItem {
+ title: string;
+ subtitle: string;
+ href: string;
+ mode: DataMode;
+}
+
+export interface DashboardLinkedIntelligence {
+ briefings: DashboardLinkedItem[];
+ news: DashboardLinkedItem[];
+ watchlists: DashboardLinkedItem[];
+ alerts: DashboardLinkedItem[];
+ catalysts: DashboardLinkedItem[];
+}
+
+export interface DashboardSessionMarker {
+ code: string;
+ label: string;
+ active: boolean;
+}
+
+export interface DashboardProviderStatus {
+ name: string;
+ status: string;
+ detail: string;
+ mode: DataMode;
+}
+
+export interface DashboardUtilityStrip {
+ activeSession: string;
+ sessions: DashboardSessionMarker[];
+ refreshedAt: string;
+ providers: DashboardProviderStatus[];
+}
+
+export interface DashboardPayload {
+ generatedAt: string;
+ session: SessionUser;
+ hero: DashboardHero;
+ keyCatalyst: DashboardCatalyst;
+ riskRegime: DashboardRegimeBlock;
+ liquidityRegime: DashboardRegimeBlock;
+ marketConsensus: DashboardConsensus;
+ trackRecord: DashboardTrackRecord;
+ linkedIntelligence: DashboardLinkedIntelligence;
+ utility: DashboardUtilityStrip;
+}

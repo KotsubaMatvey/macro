@@ -162,3 +162,155 @@ class WorkstationPayload(BaseModel):
     featureFlags: list[dict[str, Any]] 
     billing: dict[str, Any] 
     adminSummary: Optional[dict[str, Any]] = None 
+
+class SourceMetadata(BaseModel):
+ label: str
+ source: str
+ sourceUrl: Optional[str] = None
+ fetchedAt: Optional[str] = None
+ lastUpdated: Optional[str] = None
+ freshness: str
+ mode: str
+ note: str
+
+class DashboardScenarioBucket(BaseModel):
+ label: str
+ probability: float
+ description: str
+
+class DashboardSparkPoint(BaseModel):
+ label: str
+ value: float
+
+class DashboardAssetView(BaseModel):
+ symbol: str
+ title: str
+ subtitle: str
+ sourceSymbol: str
+ price: str
+ change1dPct: float
+ change30dPct: float
+ expectedMove5dPct: float
+ stance: str
+ skew: str
+ confidence: float
+ sampleCount: int
+ regimeContext: str
+ sourceFacts: list[str]
+ modelFacts: list[str]
+ scenarioBuckets: list[DashboardScenarioBucket]
+ sparkline: list[DashboardSparkPoint]
+ freshness: SourceMetadata
+
+class DashboardHero(BaseModel):
+ assets: list[DashboardAssetView]
+ defaultSymbol: str
+ sourceNote: str
+ modelNote: str
+
+class DashboardCatalyst(BaseModel):
+ title: str
+ status: str
+ scheduledAt: Optional[str] = None
+ countdownLabel: str
+ impact: str
+ country: str
+ currency: str
+ relatedAssets: list[str]
+ threshold: str
+ sensitivity: str
+ whyItMatters: str
+ context: list[str]
+ href: str
+ freshness: SourceMetadata
+
+class DashboardRegimeBlock(BaseModel):
+ label: str
+ score: float
+ delta: float
+ trend: str
+ interpretation: str
+ drivers: list[str]
+ history: list[DashboardSparkPoint]
+ freshness: SourceMetadata
+
+class DashboardConsensusAsset(BaseModel):
+ symbol: str
+ direction: str
+ score: float
+ confidence: float
+ change30dPct: float
+ note: str
+
+class DashboardConsensus(BaseModel):
+ label: str
+ score: float
+ trend30d: str
+ confidence: float
+ sampleSize: int
+ note: str
+ href: str
+ assets: list[DashboardConsensusAsset]
+ freshness: SourceMetadata
+
+class DashboardTrackRecordItem(BaseModel):
+ symbol: str
+ asOf: str
+ stance: str
+ expectedMove5dPct: float
+ realizedMove5dPct: float
+ outcome: str
+ linkedEventTitle: Optional[str] = None
+ linkedEventHref: Optional[str] = None
+
+class DashboardTrackRecord(BaseModel):
+ status: str
+ evaluationMode: str
+ sampleSize: int
+ hitRate: Optional[float] = None
+ magnitudeErrorPct: Optional[float] = None
+ note: str
+ records: list[DashboardTrackRecordItem]
+ freshness: SourceMetadata
+
+class DashboardLinkedItem(BaseModel):
+ title: str
+ subtitle: str
+ href: str
+ mode: str
+
+class DashboardLinkedIntelligence(BaseModel):
+ briefings: list[DashboardLinkedItem]
+ news: list[DashboardLinkedItem]
+ watchlists: list[DashboardLinkedItem]
+ alerts: list[DashboardLinkedItem]
+ catalysts: list[DashboardLinkedItem]
+
+class DashboardSessionMarker(BaseModel):
+ code: str
+ label: str
+ active: bool
+
+class DashboardProviderStatus(BaseModel):
+ name: str
+ status: str
+ detail: str
+ mode: str
+
+class DashboardUtilityStrip(BaseModel):
+ activeSession: str
+ sessions: list[DashboardSessionMarker]
+ refreshedAt: str
+ providers: list[DashboardProviderStatus]
+
+class DashboardPayload(BaseModel):
+ generatedAt: str
+ session: SessionUser
+ hero: DashboardHero
+ keyCatalyst: DashboardCatalyst
+ riskRegime: DashboardRegimeBlock
+ liquidityRegime: DashboardRegimeBlock
+ marketConsensus: DashboardConsensus
+ trackRecord: DashboardTrackRecord
+ linkedIntelligence: DashboardLinkedIntelligence
+ utility: DashboardUtilityStrip

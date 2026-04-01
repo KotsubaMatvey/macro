@@ -1,217 +1,152 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { Briefing, EventDetail, EventRelease, MarketBiasSnapshot, NewsItem, Watchlist, WorkstationPayload } from "@macroaccess/types"
+import type {
+ DashboardAssetView,
+ DashboardLinkedIntelligence,
+ DashboardPayload,
+ DashboardProviderStatus,
+ DashboardRegimeBlock,
+ DashboardTrackRecordItem,
+ SourceMetadata,
+} from "@macroaccess/types"
 
-import { Badge, DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
-import { getEventDetail, getWorkstation } from "@/lib/server/api"
+import { Badge, DataTable, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
+import { getDashboard } from "@/lib/server/api"
 
-function show(value: unknown) {
- if (value === null) return "-"
- if (value === undefined) return "-"
- if (value === "") return "-"
- return String(value)
+function showPercent(value: number) {
+	const prefix = value > 0 ? '+' : ''
+	return prefix + value.toFixed(2) + '%'
 }
 
-function watchSymbolsFromLists(watchlists?: Watchlist[]) {
- const source = watchlists ? watchlists : []
- const symbols: string[] = []
- for (const list of source) {
- for (const item of list.items) {
- if (!symbols.includes(item.symbol)) symbols.push(item.symbol)
- }
- }
- return symbols
+function selectedAsset(payload: DashboardPayload, requested?: string) {
+	const source = payload.hero.assets ? payload.hero.assets : []
+	const exact = requested ? source.find(function (item) { return item.symbol === requested }) : undefined
+	return exact ? exact : source[0]
 }
 
-function hasAssetOverlap(left: string[], right: string[]) {
- for (const item of left) {
- if (right.includes(item)) return true
- }
- return false
+function freshnessBadges(meta: SourceMetadata) {
+	return h('div', { className: 'flex flex-wrap gap-2' }, [
+		h(Badge, { key: 'mode', accent: meta.mode === 'live' }, meta.mode),
+		h(Badge, { key: 'fresh' }, meta.freshness),
+		h(Badge, { key: 'source' }, meta.source),
+	])
 }
 
-function relevantBriefings(event: EventRelease, briefings?: Briefing[]) {
- const source = briefings ? briefings : []
- return source.filter(function (item) {
- if (item.relatedEventId === event.id) return true
- return hasAssetOverlap(item.assetSymbols, event.relatedAssets)
- }).slice(0, 4)
+function assetTabs(payload: DashboardPayload, activeSymbol: string) {
+	return h('div', { className: 'flex flex-wrap gap-2' }, (payload.hero.assets ? payload.hero.assets : []).map(function (item: DashboardAssetView) {
+		const active = item.symbol === activeSymbol
+		return h(Link, { key: item.symbol, href: '/app/dashboard?asset=' + item.symbol, className: active ? 'rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-medium text-amber-200' : 'rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-white/20 hover:text-white' }, item.symbol)
+	}))
 }
 
-function relevantNews(event: EventRelease, news?: NewsItem[]) {
- const source = news ? news : []
- return source.filter(function (item) {
- if (item.relatedEventId === event.id) return true
- return item.category === event.category
- }).slice(0, 4)
+function sparkline(points: { label: string; value: number }[]) {
+	if (points.length === 0) return h('div', { className: 'text-xs text-slate-500' }, 'No history loaded.')
+	const values = points.map(function (item) { return item.value })
+	const min = Math.min.apply(null, values)
+	const max = Math.max.apply(null, values)
+	return h('div', { className: 'flex h-20 items-end gap-1 rounded-[14px] border border-white/8 bg-white/[0.02] px-2 py-2' }, points.map(function (item, index) {
+		const height = max === min ? 50 : Math.max(10, Math.round(((item.value - min) / (max - min)) * 100))
+		return h('div', { key: item.label + String(index), className: 'flex-1 rounded-full bg-amber-300/70', style: { height: String(height) + '%' } })
+	}))
 }
 
-function eventPriority(event: EventRelease, payload: WorkstationPayload) {
- let score = 0
- const watchSymbols = watchSymbolsFromLists(payload.watchlists)
- const linkedBriefings = relevantBriefings(event, payload.briefings)
- const linkedNews = relevantNews(event, payload.news)
- if (event.status === "Live") score += 40
- if (event.status === "Upcoming") score += 30
- if (event.impact === "High") score += 24
- if (event.impact === "Medium") score += 12
- score += event.relatedAssets.length * 4
- for (const symbol of event.relatedAssets) {
- if (watchSymbols.includes(symbol)) score += 6
- }
- for (const bias of payload.biases ? payload.biases : []) {
- if (event.relatedAssets.includes(bias.symbol)) score += 4
- }
- score += linkedBriefings.length * 3
- score += linkedNews.length * 2
- return score
+function regimeSummary(block: DashboardRegimeBlock, href: string, label: string) {
+	const rows: ReactNode[][] = [
+		['State', block.label, block.interpretation],
+		['Score', block.score.toFixed(2), 'Delta ' + block.delta.toFixed(2) + ' / ' + block.trend],
+		['Drivers', String(block.drivers.length), block.drivers.join('. ')],
+	]
+	return h('div', { className: 'space-y-4' }, [
+		freshnessBadges(block.freshness),
+		h(DataTable, { key: label + '-table', headers: ['Field', 'Value', 'Desk read'], rows, dense: true, numericColumns: [1] }),
+		h('div', { key: label + '-spark', className: 'space-y-2' }, [
+			h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, 'History'),
+			sparkline(block.history),
+		]),
+		h(Link, { key: label + '-link', href, className: 'text-sm text-sky-300 transition hover:text-sky-200' }, label),
+	])
 }
 
-function findKeyEvent(payload: WorkstationPayload) {
- const events = payload.nextEvents ? payload.nextEvents.slice() : []
- return events.sort(function (left, right) {
- return eventPriority(right, payload) - eventPriority(left, payload)
- })[0]
+function trackRows(items: DashboardTrackRecordItem[]) {
+	if (items.length === 0) return [['No replay records', '-', '-', '-'] as ReactNode[]]
+	return items.map(function (item: DashboardTrackRecordItem) {
+		const link = item.linkedEventHref && item.linkedEventTitle ? h(Link, { href: item.linkedEventHref, className: 'text-sky-300 transition hover:text-sky-200' }, item.linkedEventTitle) : 'No linked catalyst'
+		return [item.symbol + ' / ' + item.stance, showPercent(item.expectedMove5dPct), showPercent(item.realizedMove5dPct), link]
+	})
 }
 
-function actionLink(href: string, title: string, body: string) {
- return h(Link, { key: href, href, className: "ws-link-card" }, [
- h("div", { key: "title", className: "text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500" }, title),
- h("div", { key: "body", className: "mt-2 text-sm leading-6 text-slate-300" }, body),
- ])
+function providerRows(items: DashboardProviderStatus[]) {
+	return items.map(function (item: DashboardProviderStatus) {
+		return [item.name, item.status, item.detail]
+	})
 }
 
-function reactionWindow(detail: EventDetail, label: string) {
- return detail.historicalReactions.find(function (item) {
- return item.window === label
- })
+function intelligenceRows(linked: DashboardLinkedIntelligence) {
+	const rows: ReactNode[][] = []
+	for (const item of linked.briefings) rows.push(['Briefing', item.title, item.subtitle])
+	for (const item of linked.news) rows.push(['News', h('a', { href: item.href, className: 'text-sky-300 transition hover:text-sky-200', target: '_blank', rel: 'noreferrer' }, item.title), item.subtitle])
+	for (const item of linked.watchlists) rows.push(['Watchlist', item.title, item.subtitle])
+	for (const item of linked.alerts) rows.push(['Alert', item.title, item.subtitle])
+	for (const item of linked.catalysts) rows.push(['Catalyst', h(Link, { href: item.href, className: 'text-sky-300 transition hover:text-sky-200' }, item.title), item.subtitle])
+	return rows.length !== 0 ? rows : [['Intelligence', 'No linked items', 'No linked intelligence is available']]
 }
 
-function relatedBiases(event: EventRelease, payload: WorkstationPayload) {
- const source = payload.biases ? payload.biases : []
- return source.filter(function (item) {
- return event.relatedAssets.includes(item.symbol)
- }).slice().sort(function (left, right) {
- return right.confidence - left.confidence
- }).slice(0, 4)
-}
-export default async function DashboardPage() {
- const payload = await getWorkstation()
- const keyEvent = findKeyEvent(payload)
- let keyDetailLoaded = false
- let keyDetail = {} as EventDetail
- if (keyEvent) {
- try {
- keyDetail = await getEventDetail(keyEvent.id)
- keyDetailLoaded = true
- } catch {}
- }
- const keyBiases = keyEvent ? relatedBiases(keyEvent, payload) : []
- const linkedBriefings = keyEvent ? relevantBriefings(keyEvent, payload.briefings) : []
- const linkedNews = keyEvent ? relevantNews(keyEvent, payload.news) : []
- const shortWindow = keyDetailLoaded ? reactionWindow(keyDetail, "5m") : undefined
- const continuation = keyDetailLoaded ? reactionWindow(keyDetail, "1h") : undefined
- const scenarioSource = keyDetailLoaded ? keyDetail.historicalReactions.slice(0, 4) : []
- let metrics = payload.metrics ? payload.metrics.slice(0, 4) : []
- if (metrics.length === 0) {
- metrics = [
- { label: "Regime", value: payload.regime.label, note: payload.regime.trend },
- { label: "Biases", value: String(payload.biases ? payload.biases.length : 0), note: "Tracked asset reads" },
- { label: "Catalysts", value: String(payload.nextEvents ? payload.nextEvents.length : 0), note: "Upcoming and live releases" },
- { label: "Alerts", value: String(payload.alerts ? payload.alerts.length : 0), note: "Rules attached to the desk" },
- ]
- }
- const keyTitle = keyEvent ? show(keyEvent.title) : "No catalyst loaded"
- const keySummary = keyEvent ? keyEvent.whyItMatters : "No upcoming catalysts are available in the current payload."
- const catalystRows: ReactNode[][] = keyEvent ? [
- ["Scheduled", keyEvent.scheduledAt.replace("T", " ").slice(0, 16), "Primary timed catalyst on the desk"],
- ["Impact", keyEvent.impact, "High impact releases stay on the top line"],
- ["Expected move", shortWindow ? shortWindow.avgMovePct.toFixed(2) + "%" : "-", "Derived from family reaction history"],
- ["Continuation", continuation ? continuation.avgMovePct.toFixed(2) + "%" : "-", "Secondary follow-through window"],
- ["Bias overlap", String(keyBiases.length), keyBiases[0] ? keyBiases[0].symbol + " carries the leading overlap" : "No direct bias overlap"],
- ["Desk coverage", String(linkedBriefings.length + linkedNews.length), "Briefings plus news mapped to the catalyst"],
- ] : [["Catalyst", "None", "No high-priority event is available right now"]]
- const scenarioRows: ReactNode[][] = scenarioSource.length !== 0 ? scenarioSource.map(function (item) {
- return [item.window, item.avgMovePct.toFixed(2) + "%", Math.round(item.consistency * 100) + "%", item.narrative]
- }) : [["No history", "-", "-", "Open an event family with historical reactions to populate this panel"]]
- const biasRows: ReactNode[][] = keyBiases.length !== 0 ? keyBiases.map(function (item: MarketBiasSnapshot) {
- return [item.symbol, item.direction, item.score.toFixed(0), Math.round(item.confidence * 100) + "%", item.rationale.join(", ")]
- }) : [["No overlap", "-", "-", "-", "No asset bias mapped to the current catalyst"]]
- const intelligenceRows: ReactNode[][] = []
- if (linkedBriefings.length === 0) {
- intelligenceRows.push(["Briefing", "No linked note", "Research coverage has not been attached to this catalyst yet"])
- }
- for (const item of linkedBriefings.slice(0, 3)) {
- intelligenceRows.push(["Briefing", item.title, item.summary])
- }
- if (linkedNews.length === 0) {
- intelligenceRows.push(["News", "No linked headline", "No event or category-linked headline is attached yet"])
- }
- for (const item of linkedNews.slice(0, 3)) {
- intelligenceRows.push(["News", item.title, item.summary])
- }
- const nextRows: ReactNode[][] = (payload.nextEvents ? payload.nextEvents : []).slice(0, 6).map(function (item: EventRelease) {
- return [h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.status }), item.impact, item.relatedAssets.join(", ")]
- })
- const watchRows: ReactNode[][] = (payload.watchlists ? payload.watchlists : []).map(function (list: Watchlist) {
- const overlap = [] as string[]
- if (keyEvent) {
- for (const item of list.items) {
- if (keyEvent.relatedAssets.includes(item.symbol)) overlap.push(item.symbol)
- }
- }
- return [list.name, String(list.itemCount), String(list.alertCount), overlap.length !== 0 ? overlap.join(", ") : "No overlap"]
- })
- const actionCards = [
- actionLink(keyEvent ? "/app/events/" + keyEvent.id : "/app/macro-calendar", "Event detail", "Open the catalyst page with archive, reactions, and intelligence context."),
- actionLink("/app/market-bias", "Bias surface", "Check whether consensus lines up with the current catalyst and watchlist basket."),
- actionLink("/app/regime-monitor", "Regime surface", "Use the macro backdrop as a risk filter before leaning into a release read."),
- actionLink("/app/live-reactions", "Reaction tape", "Move straight into the live-style reaction board once the release resolves."),
- ]
- const watchOverlap = keyEvent ? keyEvent.relatedAssets.filter(function (item) {
- return watchSymbolsFromLists(payload.watchlists).includes(item)
- }).length : 0
- const briefingLead = linkedBriefings[0]
- const newsLead = linkedNews[0]
- return h(PageShell, { title: "Dashboard", subtitle: "Top catalysts, regime backdrop, consensus bias, and desk coverage arranged into one operating surface.", active: "dashboard" }, h("div", { className: "space-y-5" }, [
- h(MetricGrid, { key: "metrics", items: metrics }),
- h("div", { key: "main-grid", className: "ws-two-panel" }, [
- h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "edge", title: "Today edge", subtitle: "Primary catalyst ranked against regime, bias, and desk coverage." }, [
- h("div", { key: "hero", className: "grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]" }, [
- h("div", { key: "copy", className: "space-y-4" }, [
- h("div", { key: "badges", className: "flex flex-wrap gap-2" }, [
- h(Badge, { key: "impact", accent: true }, keyEvent ? keyEvent.impact : "Idle"),
- h(Badge, { key: "status" }, keyEvent ? keyEvent.status : "No event"),
- h(Badge, { key: "regime" }, payload.regime.label),
- ]),
- h("div", { key: "title", className: "text-2xl font-semibold tracking-tight text-white" }, keyTitle),
- h("p", { key: "summary", className: "max-w-3xl text-sm leading-7 text-slate-400" }, keySummary),
- h("div", { key: "kpis", className: "ws-kpi-inline" }, [
- h("div", { key: "move", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Expected move"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, shortWindow ? shortWindow.avgMovePct.toFixed(2) + "%" : "-"), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "Primary reaction window")]),
- h("div", { key: "follow", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Follow through"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, continuation ? continuation.avgMovePct.toFixed(2) + "%" : "-"), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "One hour continuation guide")]),
- h("div", { key: "bias", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Bias overlap"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, String(keyBiases.length)), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "Assets already covered by market bias")]),
- h("div", { key: "desk", className: "ws-kpi" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Desk coverage"), h("div", { key: "value", className: "mt-2 font-mono text-xl text-white" }, String(linkedBriefings.length + linkedNews.length)), h("div", { key: "note", className: "mt-2 text-xs text-slate-400" }, "Linked notes and headlines")]),
- ]),
- ]),
- h("div", { key: "rail", className: "grid gap-3" }, [
- h("div", { key: "regime-card", className: "ws-note-card" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Regime overlay"), h("div", { key: "value", className: "mt-2 text-lg font-semibold text-white" }, payload.regime.label + " / " + payload.regime.trend), h("p", { key: "copy", className: "mt-2 text-sm leading-6 text-slate-400" }, payload.regime.interpretation)]),
- h("div", { key: "bias-card", className: "ws-note-card" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Consensus lead"), h("div", { key: "value", className: "mt-2 text-lg font-semibold text-white" }, keyBiases[0] ? keyBiases[0].symbol + " / " + keyBiases[0].direction : "No mapped bias"), h("p", { key: "copy", className: "mt-2 text-sm leading-6 text-slate-400" }, keyBiases[0] ? keyBiases[0].rationale.join(". ") + "." : "Current catalyst is not linked to a tracked asset bias.")]),
- h("div", { key: "desk-card", className: "ws-note-card" }, [h("div", { key: "label", className: "text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500" }, "Watch overlap"), h("div", { key: "value", className: "mt-2 text-lg font-semibold text-white" }, String(watchOverlap) + " tracked symbols"), h("p", { key: "copy", className: "mt-2 text-sm leading-6 text-slate-400" }, briefingLead ? briefingLead.title : newsLead ? newsLead.title : "No linked note or headline is attached to the key catalyst yet.")]),
- ]),
- ]),
- ]),
- h(Panel, { key: "catalyst", title: "Key catalyst", subtitle: "Release board with timing, expected move, and direct desk-read context." }, h(DataTable, { headers: ["Field", "Value", "Desk read"], rows: catalystRows })),
- h(Panel, { key: "scenarios", title: "Scenario distribution", subtitle: "Historical windows tighten the expected path before the print." }, h(DataTable, { headers: ["Window", "Average move", "Consistency", "Interpretation"], rows: scenarioRows, numericColumns: [1, 2], dense: true })),
- h(Panel, { key: "bias-panel", title: "Consensus overlap", subtitle: "Asset bias tied directly to the catalyst rather than shown in isolation." }, h(DataTable, { headers: ["Asset", "Direction", "Score", "Confidence", "Themes"], rows: biasRows, numericColumns: [2, 3], dense: true })),
- ]),
- h("div", { key: "right", className: "space-y-5" }, [
- h(Panel, { key: "actions", title: "Action paths", subtitle: "Fast routes into the next decision surface." }, h("div", { className: "grid gap-3" }, actionCards)),
- h(Panel, { key: "next", title: "Next catalysts", subtitle: "The remaining high-visibility tape after the lead event." }, nextRows.length !== 0 ? h("div", { className: "grid gap-3" }, (payload.nextEvents ? payload.nextEvents : []).slice(0, 5).map(function (item: EventRelease) { return h(EventLink, { key: item.id, eventId: item.id, slug: item.slug, title: item.title, meta: item.impact + " / " + item.status }) })) : h("div", { className: "text-sm text-slate-500" }, "No next catalysts loaded.")),
- h(Panel, { key: "intel", title: "Desk intelligence", subtitle: "Research and headline coverage attached to the lead catalyst." }, h(DataTable, { headers: ["Type", "Headline", "Why it matters"], rows: intelligenceRows, dense: true })),
- h(Panel, { key: "watch", title: "Watch focus", subtitle: "Saved baskets that already overlap the current catalyst stack." }, h(DataTable, { headers: ["Watchlist", "Items", "Alerts", "Overlap"], rows: watchRows.length !== 0 ? watchRows : [["No watchlists", "0", "0", "No overlap"]], dense: true })),
- ]),
- ]),
- ]))
+export default async function DashboardPage(props: any = {}) {
+	const params = props.searchParams ? await props.searchParams : {}
+	const requested = typeof params.asset === 'string' ? params.asset.toUpperCase() : undefined
+	const payload = await getDashboard()
+	const active = selectedAsset(payload, requested)
+	const metrics = [
+		{ label: 'Lead asset', value: active ? active.symbol : '-', note: active ? active.stance + ' / ' + String(Math.round(active.confidence * 100)) + '% confidence' : 'No live tape attached' },
+		{ label: 'Expected 5d move', value: active ? showPercent(active.expectedMove5dPct) : '-', note: active ? active.subtitle : 'Model-derived edge is unavailable' },
+		{ label: 'Key catalyst', value: payload.keyCatalyst.status, note: payload.keyCatalyst.title },
+		{ label: 'Refresh', value: payload.utility.activeSession, note: payload.utility.refreshedAt.replace('T', ' ').slice(0, 16) },
+	]
+	const scenarioRows: ReactNode[][] = active ? active.scenarioBuckets.map(function (item) { return [item.label, String(Math.round(item.probability * 100)) + '%', item.description] }) : [['No asset', '-', 'No live asset was selected']]
+	const catalystRows: ReactNode[][] = [
+		['Status', payload.keyCatalyst.status, payload.keyCatalyst.countdownLabel],
+		['Market', payload.keyCatalyst.country + ' / ' + payload.keyCatalyst.currency, payload.keyCatalyst.impact + ' impact'],
+		['Threshold', payload.keyCatalyst.threshold, payload.keyCatalyst.relatedAssets.join(', ') || 'No mapped assets'],
+		['Sensitivity', payload.keyCatalyst.sensitivity, payload.keyCatalyst.whyItMatters],
+	]
+	const consensusRows: ReactNode[][] = payload.marketConsensus.assets.length !== 0 ? payload.marketConsensus.assets.map(function (item) { return [item.symbol, item.direction, item.score.toFixed(1), String(Math.round(item.confidence * 100)) + '%', showPercent(item.change30dPct), item.note] }) : [['No assets', '-', '-', '-', '-', 'Consensus could not be computed']]
+	return h(PageShell, { title: 'Dashboard', subtitle: 'Real market tape, honest catalyst state, regime context, and linked operator workflows.', active: 'dashboard' }, h('div', { className: 'space-y-5' }, [
+		h(MetricGrid, { key: 'metrics', items: metrics }),
+		h(Panel, { key: 'edge', title: 'Today edge', subtitle: payload.hero.modelNote }, active ? h('div', { className: 'space-y-4' }, [
+			h('div', { key: 'tabs' }, assetTabs(payload, active.symbol)),
+			h('div', { key: 'hero', className: 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]' }, [
+				h('div', { key: 'copy', className: 'space-y-4' }, [
+					freshnessBadges(active.freshness),
+					h('div', { key: 'title', className: 'text-2xl font-semibold tracking-tight text-white' }, active.title + ' / ' + active.price),
+					h('p', { key: 'subtitle', className: 'max-w-3xl text-sm leading-7 text-slate-400' }, active.regimeContext),
+					h('div', { key: 'kpis', className: 'ws-kpi-inline' }, [
+						h('div', { key: 'move', className: 'ws-kpi' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, '1d'), h('div', { key: 'value', className: 'mt-2 font-mono text-xl text-white' }, showPercent(active.change1dPct)), h('div', { key: 'note', className: 'mt-2 text-xs text-slate-400' }, 'Source-derived')]),
+						h('div', { key: 'month', className: 'ws-kpi' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, '30d'), h('div', { key: 'value', className: 'mt-2 font-mono text-xl text-white' }, showPercent(active.change30dPct)), h('div', { key: 'note', className: 'mt-2 text-xs text-slate-400' }, 'Source-derived')]),
+						h('div', { key: 'edge', className: 'ws-kpi' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, 'Expected 5d'), h('div', { key: 'value', className: 'mt-2 font-mono text-xl text-white' }, showPercent(active.expectedMove5dPct)), h('div', { key: 'note', className: 'mt-2 text-xs text-slate-400' }, 'Model-derived')]),
+						h('div', { key: 'stance', className: 'ws-kpi' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, 'Stance'), h('div', { key: 'value', className: 'mt-2 text-base font-semibold text-white' }, active.stance + ' / ' + active.skew), h('div', { key: 'note', className: 'mt-2 text-xs text-slate-400' }, String(Math.round(active.confidence * 100)) + '% confidence')]),
+					]),
+				]),
+				h('div', { key: 'rail', className: 'grid gap-3' }, [
+					h('div', { key: 'source', className: 'ws-note-card' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, 'Source-derived'), h('div', { key: 'body', className: 'mt-2 grid gap-2 text-sm text-slate-300' }, active.sourceFacts.map(function (item) { return h('div', { key: item }, item) }))]),
+					h('div', { key: 'model', className: 'ws-note-card' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, 'Model-derived'), h('div', { key: 'body', className: 'mt-2 grid gap-2 text-sm text-slate-300' }, active.modelFacts.map(function (item) { return h('div', { key: item }, item) }))]),
+					h('div', { key: 'path', className: 'ws-note-card' }, [h('div', { key: 'label', className: 'text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500' }, 'Recent path'), h('div', { key: 'body', className: 'mt-3' }, sparkline(active.sparkline)), h('p', { key: 'note', className: 'mt-3 text-sm leading-6 text-slate-400' }, active.freshness.note)]),
+				]),
+			]),
+		]) : h('div', { className: 'text-sm text-slate-500' }, 'No live market assets are currently available.')), 
+		h('div', { key: 'grid', className: 'ws-two-panel' }, [
+			h('div', { key: 'left', className: 'space-y-5' }, [
+				h(Panel, { key: 'scenario', title: 'Scenario distribution', subtitle: payload.hero.sourceNote }, h(DataTable, { headers: ['Bucket', 'Probability', 'Interpretation'], rows: scenarioRows, dense: true })),
+				h(Panel, { key: 'catalyst', title: 'Key catalyst', subtitle: 'Highest-priority catalyst with explicit fallback labeling when live calendar coverage is missing.' }, h('div', { className: 'space-y-4' }, [freshnessBadges(payload.keyCatalyst.freshness), h(DataTable, { headers: ['Field', 'Value', 'Context'], rows: catalystRows, dense: true }), h('div', { className: 'grid gap-2 text-sm text-slate-300' }, payload.keyCatalyst.context.map(function (item) { return h('div', { key: item }, item) })), h(Link, { href: payload.keyCatalyst.href, className: 'text-sm text-sky-300 transition hover:text-sky-200' }, 'Open catalyst detail')])),
+				h(Panel, { key: 'consensus', title: 'Market consensus', subtitle: payload.marketConsensus.note }, h('div', { className: 'space-y-4' }, [freshnessBadges(payload.marketConsensus.freshness), h(DataTable, { headers: ['Asset', 'Direction', 'Score', 'Confidence', '30d', 'Read'], rows: consensusRows, dense: true, numericColumns: [2, 3, 4] }), h(Link, { href: payload.marketConsensus.href, className: 'text-sm text-sky-300 transition hover:text-sky-200' }, 'Open market bias')])),
+		]),
+			h('div', { key: 'right', className: 'space-y-5' }, [
+				h(Panel, { key: 'risk', title: 'Risk regime', subtitle: 'Real risk backdrop derived from cross-asset market inputs.' }, regimeSummary(payload.riskRegime, '/app/regime-monitor', 'Open liquidity regime')),
+				h(Panel, { key: 'liquidity', title: 'Liquidity regime', subtitle: 'Funding and policy overlay tied back to the current tape.' }, regimeSummary(payload.liquidityRegime, '/app/regime-monitor', 'Open regime monitor')),
+				h(Panel, { key: 'track', title: 'AI / model track record', subtitle: payload.trackRecord.note }, h('div', { className: 'space-y-4' }, [freshnessBadges(payload.trackRecord.freshness), h(DataTable, { headers: ['Signal', 'Expected', 'Realized', 'Linked catalyst'], rows: trackRows(payload.trackRecord.records), dense: true, numericColumns: [1, 2] })])),
+				h(Panel, { key: 'providers', title: 'Provider state', subtitle: 'Dashboard freshness is explicit by block and provider.' }, h(DataTable, { headers: ['Provider', 'Status', 'Detail'], rows: providerRows(payload.utility.providers), dense: true })),
+		]),
+		]),
+		h(Panel, { key: 'intel', title: 'Linked intelligence', subtitle: 'Official headlines plus internal watchlists, alerts, and catalyst paths.' }, h(DataTable, { headers: ['Type', 'Headline', 'Context'], rows: intelligenceRows(payload.linkedIntelligence), dense: true })),
+	]))
 }

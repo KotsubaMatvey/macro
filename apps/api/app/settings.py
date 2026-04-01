@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 import os
 
 
@@ -16,6 +16,13 @@ class Settings:
  secure_cookies: bool = os.getenv('SECURE_COOKIES', 'false').lower() == 'true'
  dashboard_cache_key: str = 'macro_access:dashboard:cache'
  dashboard_cache_ttl_seconds: int = int(os.getenv('DASHBOARD_CACHE_TTL_SECONDS', '240'))
+ dashboard_live_cache_key: str = 'macro_access:dashboard:live'
+ dashboard_live_cache_ttl_seconds: int = int(os.getenv('DASHBOARD_LIVE_CACHE_TTL_SECONDS', '300'))
+ provider_cache_key: str = 'macro_access:providers'
+ provider_cache_ttl_seconds: int = int(os.getenv('PROVIDER_CACHE_TTL_SECONDS', '900'))
+ provider_market_ttl_seconds: int = int(os.getenv('PROVIDER_MARKET_TTL_SECONDS', '900'))
+ provider_news_ttl_seconds: int = int(os.getenv('PROVIDER_NEWS_TTL_SECONDS', '1800'))
+ provider_timeout_seconds: float = float(os.getenv('PROVIDER_TIMEOUT_SECONDS', '8'))
  jobs_queue_key: str = 'macro_access:jobs'
  auth_window_seconds: int = int(os.getenv('AUTH_WINDOW_SECONDS', '900'))
  auth_max_attempts: int = int(os.getenv('AUTH_MAX_ATTEMPTS', '10'))
