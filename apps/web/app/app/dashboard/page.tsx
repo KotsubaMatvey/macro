@@ -1,13 +1,16 @@
 import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
-import type { DashboardLiquidityInput, DashboardPayload, DashboardRegimeBlock, DashboardSparkPoint, EventRelease, SourceMetadata } from "@macroaccess/types"
+import type { DashboardAssetView, DashboardLiquidityInput, DashboardPayload, DashboardRegimeBlock, DashboardSparkPoint, EventRelease, SourceMetadata } from "@macroaccess/types"
+import { buildDashboardState, buildDashboardView, compactImpactLabel, dashboardHref } from "./lib"
+import type { DashboardBiasCard, DashboardQueryState, DashboardRouteSearchParams } from "./lib"
 import { toneClass } from "@macroaccess/ui"
 import { Badge, DataTable, PageShell, Panel } from "@/components/app/chrome"
 import { getDashboard, getEvents } from "@/lib/server/api"
 
-type WindowMode = string
-type ImpactFilter = string
+interface DashboardPageProps {
+ searchParams?: Promise<DashboardRouteSearchParams | undefined>
+}
 
 const MODULE_LINKS = [
  { label: "Dashboard", href: "/app/dashboard" },
@@ -24,56 +27,6 @@ const BOARD_RAIL = [
  { id: "calendar-board", short: "CAL", label: "Calendar", note: "Tape" },
  { id: "market-board", short: "MKT", label: "Market", note: "Strip" },
 ]
-
-const BIAS_SLOTS = [
- { label: "Equities", symbols: ["SPX"] },
- { label: "Rates", symbols: ["US10Y", "US2Y"] },
- { label: "Dollar", symbols: ["DXY", "EURUSD"] },
- { label: "Alternatives", symbols: ["BTC", "XAU"] },
-]
-
-const MARKET_STRIP_ORDER = ["SPX", "US10Y", "DXY", "BTC", "XAU", "EURUSD", "US2Y"]
-
-function readParam(value: unknown) {
- if (Array.isArray(value)) return value[0] ? String(value[0]) : ""
- if (typeof value === "string") return value
- return ""
-}
-
-function normalizeWindow(value: string) {
- return value === "1w" ? "1w" : "48h"
-}
-
-
-function normalizeImpact(value: string) {
- const canonical = canonicalImpact(value)
- if (canonical === "High" || canonical === "Medium" || canonical === "Low") return canonical
- return "all"
-}
-
-function canonicalImpact(value: string) {
- const normalized = value.trim().toLowerCase()
- if (normalized === "high") return "High"
- if (normalized === "medium" || normalized === "med") return "Medium"
- if (normalized === "low") return "Low"
- return value
-}
-
-function compactImpactLabel(value: string) {
- const canonical = canonicalImpact(value)
- if (canonical === "Medium") return "Med"
- return canonical
-}
-
-function dashboardHref(state: any, overrides: any) {
- const next = { ...state, ...overrides }
- const params = new URLSearchParams()
- if (next.asset) params.set("asset", next.asset)
- if (next.window !== "48h") params.set("window", next.window)
- if (next.impact !== "all") params.set("impact", next.impact)
- const query = params.toString()
- return query ? "/app/dashboard?" + query : "/app/dashboard"
-}
 
 function showPercent(value: number, digits = 2) {
  const prefix = Math.sign(value) === 1 ? "+" : ""
@@ -160,84 +113,6 @@ function miniLineChart(points: DashboardSparkPoint[], tone: string) {
  ])
 }
 
-function currentAsset(payload: DashboardPayload, requested?: string) {
- const assets = payload.hero.assets ? payload.hero.assets : []
- const exact = requested ? assets.find(function (item) { return item.symbol === requested }) : undefined
- return exact ? exact : assets[0]
-}
-
-function resolveBiasCards(payload: DashboardPayload) {
- const consensusMap = new Map(payload.marketConsensus.assets.map(function (item) { return [item.symbol, item] }))
- const assetMap = new Map(payload.hero.assets.map(function (item) { return [item.symbol, item] }))
- return BIAS_SLOTS.map(function (slot) {
- const symbol = slot.symbols.find(function (candidate) { return consensusMap.has(candidate) || assetMap.has(candidate) })
- const consensus = symbol ? consensusMap.get(symbol) : payload.marketConsensus.assets[0]
- const asset = symbol ? assetMap.get(symbol) : payload.hero.assets.find(function (item) { return item.symbol === (consensus ? consensus.symbol : "") })
- if (!consensus && !asset) return null
- return {
- label: slot.label,
- symbol: consensus ? consensus.symbol : asset ? asset.symbol : slot.label,
- direction: consensus ? consensus.direction : asset ? asset.stance : "Neutral",
- confidence: Math.round((consensus ? consensus.confidence : asset ? asset.confidence : 0.5) * 100),
- change30dPct: consensus ? consensus.change30dPct : asset ? asset.change30dPct : 0,
- price: asset ? asset.price : "--",
- note: asset ? asset.regimeContext : consensus ? consensus.note : "No desk note loaded",
- }
- }).filter(Boolean)
-}
-
-function fallbackLiquidityInputs(payload: DashboardPayload) {
- return payload.liquidityRegime.drivers.slice(0, 4).map(function (item, index) {
- return { label: index === 0 ? "Balance sheet" : "Layer " + String(index + 1), value: "Derived", detail: item, tone: payload.liquidityRegime.label }
- })
-}
-
-function selectCatalysts(events: EventRelease[], reference: string, windowMode: WindowMode) {
- const now = parseTime(reference) ? parseTime(reference) as Date : new Date()
- const lowerBound = new Date(now.getTime() - (6 * 60 * 60 * 1000))
- const upperBound = new Date(now.getTime() + ((windowMode === "1w" ? 168 : 48) * 60 * 60 * 1000))
- const activeWindow = events.filter(function (item) {
- const scheduled = parseTime(item.scheduledAt)
- if (!scheduled) return false
- if (scheduled < lowerBound || scheduled > upperBound) return false
- if (item.status === "Released" && scheduled < lowerBound) return false
- return true
- }).slice(0, 5)
- if (activeWindow.length !== 0) return activeWindow
- const unresolved = events.filter(function (item) { return item.status !== "Released" }).slice(0, 5)
- return unresolved.length !== 0 ? unresolved : events.slice(0, 5)
-}
-
-function filterCalendar(events: EventRelease[], impact: ImpactFilter) {
- if (impact === "all") return events
- return events.filter(function (item) { return normalizeImpact(item.impact) === impact })
-}
-
-function sortEvents(events: EventRelease[]) {
- return events.slice().sort(function (left, right) {
- const leftTime = parseTime(left.scheduledAt)
- const rightTime = parseTime(right.scheduledAt)
- return (leftTime ? leftTime.getTime() : 0) - (rightTime ? rightTime.getTime() : 0)
- })
-}
-
-function providerCounts(payload: DashboardPayload) {
- const live = payload.utility.providers.filter(function (item) { return item.status === "live" }).length
- return { live: live, fallback: Math.max(0, payload.utility.providers.length - live) }
-}
-
-function orderedMarketAssets(payload: DashboardPayload) {
- const ordered: any[] = []
- MARKET_STRIP_ORDER.forEach(function (symbol) {
- const item = payload.hero.assets.find(function (candidate) { return candidate.symbol === symbol })
- if (item) ordered.push(item)
- })
- payload.hero.assets.forEach(function (item) {
- if (!ordered.find(function (candidate) { return candidate.symbol === item.symbol })) ordered.push(item)
- })
- return ordered.slice(0, 7)
-}
-
 function signalTile(label: string, value: string, note: string, tone?: string) {
  return h("div", { className: "macro-stat" }, [
  h("div", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, label),
@@ -278,7 +153,7 @@ function regimeCard(title: string, block: DashboardRegimeBlock, href: string, to
  ])
 }
 
-function biasCard(item: any) {
+function biasCard(item: DashboardBiasCard) {
  return h("div", { key: item.label, className: "rounded-[12px] border border-white/[0.06] bg-white/[0.02] px-3 py-3" }, [
  h("div", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, item.label),
  h("div", { key: "head", className: "mt-2 flex items-start justify-between gap-3" }, [
@@ -332,7 +207,7 @@ function catalystCard(item: EventRelease, reference: string) {
  ])
 }
 
-function marketCard(item: any, state: any) {
+function marketCard(item: DashboardAssetView, state: DashboardQueryState) {
  return h(Link, { key: item.symbol, href: dashboardHref(state, { asset: item.symbol }), className: "macro-list-row min-w-[164px]" }, [
  h("div", { key: "row", className: "flex items-start justify-between gap-3" }, [
  h("div", { key: "copy" }, [
@@ -367,31 +242,29 @@ function calendarRow(item: EventRelease) {
  ]
 }
 
-export default async function DashboardPage(props: any = {}) {
- const params = props.searchParams ? await props.searchParams : {}
- const state = {
- asset: readParam(params.asset).toUpperCase() || undefined,
- window: normalizeWindow(readParam(params.window)),
- impact: normalizeImpact(readParam(params.impact)),
- }
+export default async function DashboardPage(props: DashboardPageProps) {
+ const params = props.searchParams ? await props.searchParams : undefined
  const payload = await getDashboard()
- const events = sortEvents(await getEvents())
- const catalysts = selectCatalysts(events, payload.generatedAt, state.window)
- const visibleCalendar = filterCalendar(events, state.impact).slice(0, 12)
- const activeAsset = currentAsset(payload, state.asset)
- const biasCards = resolveBiasCards(payload)
- const liquidityInputs = payload.liquidityInputs.length !== 0 ? payload.liquidityInputs : fallbackLiquidityInputs(payload)
- const providers = providerCounts(payload)
- const marketAssets = orderedMarketAssets(payload)
- const marketLive = marketAssets.filter(function (item) { return item.freshness.mode === "live" }).length
- const marketFallback = Math.max(0, marketAssets.length - marketLive)
- const highVisible = visibleCalendar.filter(function (item) { return item.impact === "High" }).length
- const upcomingVisible = visibleCalendar.filter(function (item) { return item.status !== "Released" }).length
- const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
- const trackValue = payload.trackRecord.hitRate === undefined ? "Replay only" : String(Math.round(payload.trackRecord.hitRate * 100)) + "% hit"
- const briefingLead = payload.linkedIntelligence.briefings[0]
- const alertLead = payload.linkedIntelligence.alerts[0]
- return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard" }, h("div", { className: "space-y-3" }, [
+ const view = buildDashboardView(payload, await getEvents(), buildDashboardState(params))
+ const {
+  activeAsset,
+  alertLead,
+  biasCards,
+  briefingLead,
+  catalysts,
+  highVisible,
+  liquidityInputs,
+  marketAssets,
+  marketFallback,
+  marketLive,
+  providers,
+  state,
+  trackValue,
+  upcomingVisible,
+  visibleCalendar,
+ } = view
+const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
+    return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard" }, h("div", { className: "space-y-3" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
  h("div", { key: "modules", className: "terminal-strip" }, [
  h("div", { key: "links", className: "flex flex-wrap items-center gap-2" }, ([h("span", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, "Desk modules")] as ReactNode[]).concat(MODULE_LINKS.map(function (item) { return h(Link, { key: item.href, href: item.href, className: item.href === "/app/dashboard" ? "desk-tab desk-tab-active" : "desk-tab" }, item.label) }))),

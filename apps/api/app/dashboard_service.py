@@ -443,14 +443,14 @@ def _linked_intelligence(user_id, live_news, events):
 	}
 
 def _build_dashboard_payload(user):
-	market_status = []
+	series_failures = {}
 	live_news, news_status = _load_live_news()
 	series_map = {}
 	for symbol in ['SPX', 'BTC', 'XAU', 'DXY', 'EURUSD', 'US2Y', 'US10Y', 'VIX', 'WALCL', 'FEDFUNDS', 'SOFR', 'NFCI']:
 		try:
 			series_map[symbol] = _load_series(symbol)
 		except ProviderError as exc:
-			market_status.append({'name': symbol, 'status': 'degraded', 'detail': str(exc), 'mode': 'fallback'})
+			series_failures[symbol] = str(exc)
 	events = list_events()
 	catalyst = _pick_catalyst(events)
 	if {'SPX', 'BTC', 'XAU', 'DXY', 'US10Y', 'VIX'}.issubset(series_map.keys()):
@@ -487,7 +487,17 @@ def _build_dashboard_payload(user):
 		for item in edge_assets
 	]
 	consensus_score = round(sum((item['score'] - 50.0) for item in consensus_assets) / max(len(consensus_assets), 1), 2)
-	provider_rows = market_status if market_status else [{'name': 'FRED market tape', 'status': 'live', 'detail': 'Official public series connected', 'mode': 'live'}]
+	live_series = len(series_map)
+	degraded_series = len(series_failures)
+	if live_series and not degraded_series:
+		provider_rows = [{'name': 'FRED market tape', 'status': 'live', 'detail': 'Official public series connected', 'mode': 'live'}]
+	elif live_series:
+		failed_symbols = ', '.join(list(series_failures.keys())[:3])
+		extra = '' if degraded_series <= 3 else ', +' + str(degraded_series - 3) + ' more'
+		provider_rows = [{'name': 'FRED market tape', 'status': 'degraded', 'detail': str(live_series) + ' live / ' + str(degraded_series) + ' degraded series (' + failed_symbols + extra + ')', 'mode': 'live'}]
+	else:
+		detail = '; '.join(series_failures.values()) if series_failures else 'No market series loaded'
+		provider_rows = [{'name': 'FRED market tape', 'status': 'fallback', 'detail': detail, 'mode': 'fallback'}]
 	provider_rows.extend(news_status)
 	provider_rows.append({'name': 'Catalyst calendar', 'status': 'fallback', 'detail': 'Internal seeded calendar until a live macro schedule provider is attached', 'mode': 'demo' if settings.app_mode == 'demo' else 'fallback'})
 	sessions, active_session = _session_strip()
@@ -582,6 +592,5 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
 		if cached and cached.get('payload'):
 			return cached['payload']
 	return _build_dashboard_payload(user)
-
 
 

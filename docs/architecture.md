@@ -1,20 +1,20 @@
 # Architecture
 
 ## Services
-- Web (`apps/web`): renders public marketing pages and authenticated workstation routes.
+- Web (`apps/web`): renders public pages and authenticated workstation routes.
 - API (`apps/api`): owns auth, sessions, domain reads/writes, admin APIs, and payload composition.
-- Worker (`apps/worker`): consumes queued demo jobs and updates persisted state.
+- Worker (`apps/worker`): consumes queued jobs and refreshes only the surfaces relevant to that job type.
 - Postgres: source of truth for users, events, regime snapshots, biases, content, watchlists, alerts, jobs.
-- Redis: dashboard cache, rate-limit counters, and job queue transport.
+- Redis: dashboard cache, provider cache, rate-limit counters, and job queue transport.
+
+## Runtime split
+- Workstation payloads remain seeded/Postgres-backed for calendar, content, watchlists, alerts, and admin workflows.
+- Dashboard payloads blend provider-backed market/news data with seeded catalyst/calendar context.
+- Provider failures degrade honestly: the dashboard keeps rendering with fallback/degraded metadata instead of pretending to be live.
 
 ## Data flow
-1. User signs in via API, receives session cookie.
-2. Web server components call API with forwarded cookie.
-3. API resolves session, applies role checks, and returns workstation/admin payloads.
-4. Writes (alerts/watchlists/posts/onboarding) persist to Postgres and are reflected in subsequent reads.
-5. Worker consumes queued jobs and marks lifecycle in `ingestion_jobs`.
-
-## Product boundaries
-- Demo mode is deterministic and seeded.
-- Queue/cache mechanisms are real but used for deterministic simulation paths.
-- Admin role is server-authorized; non-admin users cannot access admin API routes.
+1. User signs in via API and receives a session cookie.
+2. Web server components call the API with that cookie.
+3. API resolves session, applies role checks, and returns workstation/admin/dashboard payloads.
+4. Writes persist to Postgres and invalidate the affected cache surfaces.
+5. Worker jobs mark lifecycle in `ingestion_jobs` and refresh only the surfaces their job type targets.

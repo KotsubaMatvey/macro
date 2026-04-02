@@ -60,7 +60,7 @@ describe('DashboardPage', function () {
  it('renders the workstation boards and desk links', async function () {
  api.getDashboard.mockResolvedValue(payload)
  api.getEvents.mockResolvedValue(events)
- const view = await DashboardPage()
+ const view = await DashboardPage({})
  render(view)
  expect(api.getDashboard).toHaveBeenCalledTimes(1)
  expect(api.getEvents).toHaveBeenCalledTimes(1)

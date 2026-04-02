@@ -6,15 +6,24 @@ import type { EventRelease, Watchlist } from "@macroaccess/types"
 import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEvents, getWorkstation } from "@/lib/server/api"
 
+type CalendarImpactFilter = "" | "High" | "Medium" | "Low"
+
 interface CalendarSearchParams {
- impact?: string
- currency?: string
- status?: string
- search?: string
+ impact?: string | string[]
+ currency?: string | string[]
+ status?: string | string[]
+ search?: string | string[]
+}
+
+interface CalendarFilters {
+ impact: CalendarImpactFilter
+ currency: string
+ status: string
+ search: string
 }
 
 interface MacroCalendarPageProps {
- searchParams?: any
+ searchParams?: Promise<CalendarSearchParams | undefined>
 }
 
 function verdict(item: EventRelease) {
@@ -36,16 +45,27 @@ function timeLabel(value: string) {
  return value.replace("T", " ").slice(0, 16)
 }
 
+function canonicalImpact(value: string): CalendarImpactFilter {
+ if (value.trim().toLowerCase() === "high") return "High"
+ if (["medium", "med"].includes(value.trim().toLowerCase())) return "Medium"
+ if (value.trim().toLowerCase() === "low") return "Low"
+ return ""
+}
+
+function compactImpactLabel(value: CalendarImpactFilter) {
+ return value === "Medium" ? "Med" : value
+}
+
 function readParam(value: unknown) {
  if (Array.isArray(value)) return value[0]
  if (typeof value === "string") return value
  return ""
 }
 
-function filterEvents(events: EventRelease[], filters: CalendarSearchParams) {
+function filterEvents(events: EventRelease[], filters: CalendarFilters) {
  return events.filter(function (item: EventRelease) {
  if (filters.impact) {
- if (item.impact !== filters.impact) return false
+ if (canonicalImpact(item.impact) !== filters.impact) return false
  }
  if (filters.currency) {
  if (item.currency !== filters.currency) return false
@@ -65,8 +85,8 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  const events = await getEvents()
  const payload = await getWorkstation()
  const searchParams = props.searchParams ? await props.searchParams : undefined
- const filters = {
- impact: readParam(searchParams ? searchParams.impact : undefined),
+ const filters: CalendarFilters = {
+ impact: canonicalImpact(readParam(searchParams ? searchParams.impact : undefined)),
  currency: readParam(searchParams ? searchParams.currency : undefined),
  status: readParam(searchParams ? searchParams.status : undefined),
  search: readParam(searchParams ? searchParams.search : undefined),
@@ -77,14 +97,14 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  const metrics = [
  { label: "Tracked releases", value: String(events.length), note: "Calendar rows across the demo tape" },
  { label: "Filtered rows", value: String(filtered.length), note: "Rows matching the current control deck" },
- { label: "High impact", value: String(events.filter(function (item: EventRelease) { return item.impact === "High" }).length), note: "Catalysts worth pre-positioning" },
+ { label: "High impact", value: String(events.filter(function (item: EventRelease) { return canonicalImpact(item.impact) === "High" }).length), note: "Catalysts worth pre-positioning" },
  { label: "Watch context", value: String(watchSymbols.length), note: "Symbols already tracked by watchlists" },
  ]
  const rows: ReactNode[][] = filtered.map(function (item: EventRelease) {
  const watchedAssets = item.relatedAssets.filter(function (asset) { return watchSymbols.includes(asset) })
  return [timeLabel(item.scheduledAt), item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.category }), item.actual !== undefined ? String(item.actual) : "-", item.forecast !== undefined ? String(item.forecast) : "-", item.previous !== undefined ? String(item.previous) : "-", verdict(item), watchedAssets.length !== 0 ? watchedAssets.join(", ") : "Open"]
  })
- const highImpact = events.filter(function (item: EventRelease) { return item.impact === "High" }).slice(0, 6)
+ const highImpact = events.filter(function (item: EventRelease) { return canonicalImpact(item.impact) === "High" }).slice(0, 6)
  const workflowRows: ReactNode[][] = [
  [h(Link, { href: "/app/alerts", className: "text-sky-300 transition hover:text-sky-200" }, "Open alerts"), "Turn the filtered board into scheduled reminders before the print."],
  [h(Link, { href: "/app/watchlists", className: "text-sky-300 transition hover:text-sky-200" }, "Open watchlists"), "Use tracked baskets to focus on the rows that already matter to the desk."],
@@ -100,7 +120,7 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  currencies.slice(0, 6).map(function (currency: string) { return h(Link, { key: currency, href: "/app/macro-calendar?currency=" + currency, className: "ws-toolbar-chip" }, currency) }),
  ]),
  h("div", { key: "status", className: "mt-4 flex flex-wrap gap-2" }, [
- h(Badge, { key: "impact" }, filters.impact ? filters.impact : "All impact"),
+ h(Badge, { key: "impact" }, filters.impact ? compactImpactLabel(filters.impact) : "All impact"),
  h(Badge, { key: "currency" }, filters.currency ? filters.currency : "All currencies"),
  h(Badge, { key: "status" }, filters.status ? filters.status : "All states"),
  ]),

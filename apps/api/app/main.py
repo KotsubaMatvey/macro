@@ -1,5 +1,6 @@
 ﻿import time
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,13 +12,14 @@ from .seed import seed_demo_database
 from .services import add_watchlist_item, admin_summary, complete_password_reset, create_alert, create_comment, create_post, create_watchlist, current_user_from_token, event_detail, latest_regime, like_post, list_alerts, list_biases, list_briefings, list_events, list_feature_flags, list_jobs, list_news, list_posts, list_watchlists, request_password_reset, sign_in, sign_out, sign_up, update_onboarding, verify_email, workstation_payload, create_job
 from .settings import settings
 
-app = FastAPI(title='Macro Access API', version='0.8.0')
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    apply_migrations()
+    yield
+
+app = FastAPI(title='Macro Access API', version='0.8.0', lifespan=lifespan)
 
 app.add_middleware(CORSMiddleware, allow_origins=[settings.api_origin, 'http://localhost:3000'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
-
-@app.on_event('startup')
-def startup_event():
-    apply_migrations()
 
 @app.middleware('http')
 async def add_request_context(request: Request, call_next):

@@ -1,36 +1,22 @@
 # Product
 
 ## Positioning
-Macro Access is a premium macro intelligence workstation for event-driven traders.
+Macro Access is a dark, desk-oriented macro intelligence workstation for event-driven operators.
 
-## Core promise
-- Track macro catalysts before release
-- Read regime context transparently
-- Navigate reaction pathways quickly
+## Current runtime
+- Provider-backed today: dashboard market tape from FRED public series and official RSS feeds when reachable
+- Seeded today: auth/demo accounts, macro calendar/events, briefings, watchlists, alerts, community, and admin workflows
+- Replay today: track record is a retrospective model replay, not a live audited blotter
 
 ## Core surfaces
 - Dashboard
-- Market Bias
-- Regime Monitor
 - Macro Calendar
-- Event Detail (dynamic route)
-- Briefings
-- News
-- Impact Lab
-- Event Explorer
-- Watchlists
-- Alerts
-- Community
-- Settings/Billing
-- Admin (role-gated)
+- Event Detail, Event Explorer, and Impact Lab
+- Market Bias and Regime surfaces
+- News, Briefings, Watchlists, Alerts, Community, Admin
 
 ## UX principles
 - Institutional dark visual system
-- Dense but readable information hierarchy
+- Dense board-based desktop hierarchy
+- Honest live/fallback/provider labeling
 - Direct drill-down into event detail routes
-- Role-aware operations for admin users
-
-## Demo-mode constraints
-- No claim of live market ingestion
-- Deterministic seeded payloads and worker updates
-- Architecture remains provider-ready for future integrations

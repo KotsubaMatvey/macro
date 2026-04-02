@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
  
 from pydantic import BaseModel, Field 
  
@@ -148,6 +148,51 @@ class SimpleResponse(BaseModel):
     detail: Optional[str] = None 
     token: Optional[str] = None 
  
+class WatchlistEntry(BaseModel): 
+    id: str 
+    name: str 
+    description: str 
+    itemCount: int 
+    alertCount: int 
+    items: list[WatchlistItemInput] 
+
+class AlertSummary(BaseModel): 
+    id: str 
+    name: str 
+    triggerType: str 
+    deliveryChannel: str 
+    status: str 
+    threshold: str 
+    lastTriggeredAt: Optional[str] = None 
+
+class CommunityPostSummary(BaseModel): 
+    id: str 
+    title: str 
+    body: str 
+    authorName: str 
+    authorRole: str 
+    likes: int 
+    comments: int 
+    createdAt: str 
+
+class FeatureFlagState(BaseModel): 
+    key: str 
+    description: str 
+    enabled: bool 
+
+class BillingSummary(BaseModel): 
+    plan: str 
+    seatCount: int 
+    renewalDate: str 
+    providerMode: str 
+
+class AdminSummaryPayload(BaseModel): 
+    users: int 
+    analysts: int 
+    scheduledEvents: int 
+    activeAlerts: int 
+    queuedJobs: int 
+
 class WorkstationPayload(BaseModel): 
     session: SessionUser 
     metrics: list[DashboardMetric] 
@@ -156,12 +201,12 @@ class WorkstationPayload(BaseModel):
     nextEvents: list[EventRelease] 
     briefings: list[BriefingItem] 
     news: list[NewsItem] 
-    watchlists: list[dict[str, Any]] 
-    alerts: list[dict[str, Any]] 
-    posts: list[dict[str, Any]] 
-    featureFlags: list[dict[str, Any]] 
-    billing: dict[str, Any] 
-    adminSummary: Optional[dict[str, Any]] = None 
+    watchlists: list[WatchlistEntry] 
+    alerts: list[AlertSummary] 
+    posts: list[CommunityPostSummary] 
+    featureFlags: list[FeatureFlagState] 
+    billing: BillingSummary 
+    adminSummary: Optional[AdminSummaryPayload] = None 
 
 class SourceMetadata(BaseModel):
  label: str

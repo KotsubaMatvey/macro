@@ -1,19 +1,15 @@
 # Demo Mode
 
 ## What demo mode means
-- Deterministic, seeded market/event dataset in Postgres.
-- Real API/auth/session mechanics over simulated domain state.
-- Worker jobs mutate demo state coherently, not by external ingestion.
+- Real API/auth/session mechanics over a seeded domain dataset.
+- Dashboard market/news surfaces can still use real providers when FRED/RSS are reachable.
+- Calendar, catalyst, briefing, watchlist, alert, community, and admin state remain seeded or demo-backed.
 
-## Seed behavior
-- `seed_demo_database()` truncates and rebuilds domain/user datasets.
-- Initial jobs are queued in `ingestion_jobs` for worker processing.
+## Boundaries
+- No fake live-feed claims.
+- Fallback/degraded metadata must remain visible when providers fail.
+- Track record is a retrospective model replay, not a logged discretionary track record.
 
 ## Worker behavior
 - Jobs represent operational classes (state refresh, recompute, publish, evaluate, cache refresh).
-- Status lifecycle is persisted and admin-visible.
-
-## Guardrails
-- No fake live-feed claims.
-- Payloads are deterministic and auditable in local development.
-- Product copy and docs should clearly indicate simulation boundaries.
+- The worker keeps admin-visible job lifecycle and refreshes only the surfaces relevant to each job type.

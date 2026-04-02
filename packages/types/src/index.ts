@@ -1,4 +1,4 @@
-export type UserRole = string;
+export type UserRole = "user" | "analyst" | "admin";
 
 export type EventImpact = string;
 export type EventStatus = string;
@@ -212,8 +212,8 @@ export interface WorkstationPayload {
  adminSummary?: AdminSummary;
 }
 
-export type FreshnessState = string;
-export type DataMode = string;
+export type FreshnessState = "fresh" | "aging" | "stale" | "degraded";
+export type DataMode = "live" | "demo" | "fallback";
 
 export interface SourceMetadata {
  label: string;
@@ -288,7 +288,7 @@ export interface DashboardRegimeBlock {
  delta: number;
  trend: string;
  interpretation: string;
-drivers: string[];
+ drivers: string[];
  history: DashboardSparkPoint[];
  freshness: SourceMetadata;
 }

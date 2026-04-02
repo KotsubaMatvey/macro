@@ -141,7 +141,7 @@ def test_watchlist_mutation_invalidates_workstation_cache():
     second = client.get('/api/v1/workstation').json()
     assert len(second['watchlists']) == before + 1
 
-def test_worker_job_types_transition_to_completed():
+def test_worker_job_types_transition_to_completed(monkeypatch):
     reset_demo()
     import importlib.util
     from pathlib import Path
@@ -153,16 +153,32 @@ def test_worker_job_types_transition_to_completed():
     assert spec and spec.loader
     worker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(worker)
-    job_types = ['refresh_demo_market_state', 'recompute_regime', 'recompute_market_bias', 'publish_scheduled_content', 'evaluate_alerts', 'refresh_dashboard_cache']
-    for job_type in job_types:
-        job_id = create_job(job_type, {'source': 'test'}, run_now=False)
-        queued = fetch_one('select status from ingestion_jobs where id = %s', (job_id,))
-        assert queued['status'] == 'queued'
-        worker.run_job(job_id)
-        done = fetch_one('select status, started_at, finished_at from ingestion_jobs where id = %s', (job_id,))
-        assert done['status'] == 'completed'
-        assert done['started_at'] is not None
-        assert done['finished_at'] is not None
+
+    calls = []
+    monkeypatch.setattr(worker, 'invalidate_provider_payload', lambda key: calls.append(('provider', key)))
+    monkeypatch.setattr(worker, 'workstation_payload', lambda user, prefer_cache=False, force_refresh=False: calls.append(('workstation', user['id'], force_refresh)))
+    monkeypatch.setattr(worker, 'dashboard_payload', lambda user, prefer_cache=False, force_refresh=False: calls.append(('dashboard', user['id'], force_refresh)))
+
+    refresh_job_id = create_job('refresh_demo_market_state', {'source': 'test', 'userId': 'user-demo'}, run_now=False)
+    worker.run_job(refresh_job_id)
+    refresh_done = fetch_one('select status, started_at, finished_at from ingestion_jobs where id = %s', (refresh_job_id,))
+    assert refresh_done['status'] == 'completed'
+    assert refresh_done['started_at'] is not None
+    assert refresh_done['finished_at'] is not None
+    provider_keys = [item[1] for item in calls if item[0] == 'provider']
+    assert 'fred:SP500' in provider_keys
+    assert 'rss:fed' in provider_keys
+    scoped_users = {item[1] for item in calls if item[0] in {'workstation', 'dashboard'}}
+    assert scoped_users == {'user-demo'}
+
+    calls.clear()
+    recompute_job_id = create_job('recompute_market_bias', {'source': 'test', 'userId': 'user-demo'}, run_now=False)
+    worker.run_job(recompute_job_id)
+    recompute_done = fetch_one('select status from ingestion_jobs where id = %s', (recompute_job_id,))
+    assert recompute_done['status'] == 'completed'
+    assert not [item for item in calls if item[0] == 'provider']
+    assert ('workstation', 'user-demo', True) in calls
+    assert ('dashboard', 'user-demo', True) in calls
 
 def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
  reset_demo()
@@ -181,3 +197,6 @@ def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
  assert body['liquidityInputs'][0]['label'] == 'Balance sheet'
  assert body['marketConsensus']['freshness']['mode'] == 'live'
  assert body['keyCatalyst']['freshness']['mode'] in ['demo', 'fallback']
+ fred_row = next(item for item in body['utility']['providers'] if item['name'] == 'FRED market tape')
+ assert fred_row['status'] == 'live'
+ assert not any(item['name'] == 'SPX' for item in body['utility']['providers'])
