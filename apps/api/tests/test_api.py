@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -175,5 +175,9 @@ def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
  assert response.status_code == 200, response.text
  body = response.json()
  assert body['hero']['assets']
+ assert len(body['hero']['assets']) >= 6
+ assert any(item['symbol'] == 'US10Y' for item in body['hero']['assets'])
+ assert body['liquidityInputs']
+ assert body['liquidityInputs'][0]['label'] == 'Balance sheet'
  assert body['marketConsensus']['freshness']['mode'] == 'live'
  assert body['keyCatalyst']['freshness']['mode'] in ['demo', 'fallback']

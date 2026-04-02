@@ -364,6 +364,13 @@ export interface DashboardProviderStatus {
  mode: DataMode;
 }
 
+export interface DashboardLiquidityInput {
+ label: string;
+ value: string;
+ detail: string;
+ tone: string;
+}
+
 export interface DashboardUtilityStrip {
  activeSession: string;
  sessions: DashboardSessionMarker[];
@@ -379,7 +386,9 @@ export interface DashboardPayload {
  riskRegime: DashboardRegimeBlock;
  liquidityRegime: DashboardRegimeBlock;
  marketConsensus: DashboardConsensus;
+ liquidityInputs: DashboardLiquidityInput[];
  trackRecord: DashboardTrackRecord;
  linkedIntelligence: DashboardLinkedIntelligence;
  utility: DashboardUtilityStrip;
 }
+

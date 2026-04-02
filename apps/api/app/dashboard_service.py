@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 import math
@@ -30,7 +30,7 @@ NEWS_FEEDS = [
 	{'cache': 'ecb', 'label': 'ECB press feed', 'url': 'https://www.ecb.europa.eu/rss/press.html'},
 ]
 
-DEFAULT_EDGE_SYMBOLS = ['SPX', 'BTC', 'XAU', 'DXY']
+DEFAULT_EDGE_SYMBOLS = ['SPX', 'US10Y', 'DXY', 'XAU', 'BTC', 'EURUSD', 'US2Y']
 
 def _parse_dt(value):
 	if not value:
@@ -130,6 +130,31 @@ def _format_price(symbol, value):
 		return format(value, '.2f') + '%'
 	return format(value, ',.2f')
 
+def _liquidity_input_value(symbol, value):
+	if symbol == 'WALCL':
+		return '$' + format(value / 1000.0, '.2f') + 'T'
+	if symbol == 'NFCI':
+		return format(value, '.2f')
+	return _format_price(symbol, value)
+
+def _liquidity_inputs(series_map):
+	if not {'WALCL', 'US2Y', 'FEDFUNDS', 'DXY', 'NFCI'}.issubset(series_map.keys()):
+		return []
+	values = {
+		'WALCL': _values(series_map['WALCL']),
+		'US2Y': _values(series_map['US2Y']),
+		'FEDFUNDS': _values(series_map['FEDFUNDS']),
+		'DXY': _values(series_map['DXY']),
+		'NFCI': _values(series_map['NFCI']),
+	}
+	return [
+		{'label': 'Balance sheet', 'value': _liquidity_input_value('WALCL', values['WALCL'][-1]), 'detail': format(_pct_change(values['WALCL'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['WALCL'], 8) >= 0 else 'Restrictive'},
+		{'label': 'US 2Y', 'value': _liquidity_input_value('US2Y', values['US2Y'][-1]), 'detail': format(_abs_change(values['US2Y'], 20), '+.2f') + ' / 20d', 'tone': 'Supportive' if _abs_change(values['US2Y'], 20) <= 0 else 'Restrictive'},
+		{'label': 'Fed funds', 'value': _liquidity_input_value('FEDFUNDS', values['FEDFUNDS'][-1]), 'detail': format(_abs_change(values['FEDFUNDS'], 20), '+.2f') + ' / 20d', 'tone': 'Neutral'},
+		{'label': 'Dollar', 'value': _liquidity_input_value('DXY', values['DXY'][-1]), 'detail': format(_pct_change(values['DXY'], 20), '+.2f') + '% / 20d', 'tone': 'Restrictive' if _pct_change(values['DXY'], 20) >= 0 else 'Supportive'},
+		{'label': 'NFCI', 'value': _liquidity_input_value('NFCI', values['NFCI'][-1]), 'detail': format(_abs_change(values['NFCI'], 8), '+.2f') + ' / 8w', 'tone': 'Supportive' if _abs_change(values['NFCI'], 8) <= 0 else 'Restrictive'},
+	]
+
 def _source_meta(label, source, source_url='', payload=None, mode='live', note=''):
 	fetched_at = utc_now().isoformat()
 	last_updated = None
@@ -201,7 +226,7 @@ def _edge_symbols(user_id):
 	for symbol in DEFAULT_EDGE_SYMBOLS:
 		if symbol not in symbols:
 			symbols.append(symbol)
-	return symbols[:4]
+	return symbols[:7]
 
 def _build_asset_view(symbol, series_payload, regime_context):
 	values = _values(series_payload)
@@ -527,6 +552,7 @@ def _build_dashboard_payload(user):
 			'Front-end yields and Fed funds capture policy tightness',
 			'Dollar pressure is used as an additional liquidity tax',
 		], liquidity_history, liquidity_freshness, 15, -15, 'Neutral'),
+		'liquidityInputs': _liquidity_inputs(series_map),
 		'marketConsensus': {
 			'label': 'Risk is being rewarded' if consensus_score >= 5 else 'Consensus is defensive' if consensus_score <= -5 else 'Consensus is mixed',
 			'score': consensus_score,
@@ -556,3 +582,6 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
 		if cached and cached.get('payload'):
 			return cached['payload']
 	return _build_dashboard_payload(user)
+
+
+

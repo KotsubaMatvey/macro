@@ -297,6 +297,12 @@ class DashboardProviderStatus(BaseModel):
  detail: str
  mode: str
 
+class DashboardLiquidityInput(BaseModel):
+ label: str
+ value: str
+ detail: str
+ tone: str
+
 class DashboardUtilityStrip(BaseModel):
  activeSession: str
  sessions: list[DashboardSessionMarker]
@@ -311,6 +317,8 @@ class DashboardPayload(BaseModel):
  riskRegime: DashboardRegimeBlock
  liquidityRegime: DashboardRegimeBlock
  marketConsensus: DashboardConsensus
+ liquidityInputs: list[DashboardLiquidityInput]
  trackRecord: DashboardTrackRecord
  linkedIntelligence: DashboardLinkedIntelligence
  utility: DashboardUtilityStrip
+

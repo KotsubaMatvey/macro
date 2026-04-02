@@ -1,4 +1,4 @@
-﻿from collections import deque
+from collections import deque
 import json
 from datetime import timedelta
 
@@ -12,7 +12,7 @@ _LOCAL_QUEUE = deque()
 _LOCAL_RATES = {}
 
 def get_redis():
-	client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+	client = redis.Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=0.2, socket_timeout=0.2)
 	try:
 		client.ping()
 	except redis.RedisError:

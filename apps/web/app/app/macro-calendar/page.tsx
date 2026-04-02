@@ -14,7 +14,7 @@ interface CalendarSearchParams {
 }
 
 interface MacroCalendarPageProps {
- searchParams?: CalendarSearchParams
+ searchParams?: any
 }
 
 function verdict(item: EventRelease) {
