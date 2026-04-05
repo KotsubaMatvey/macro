@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import importlib.util
 import sys
 
@@ -158,6 +158,7 @@ def test_watchlist_and_alert_mutations_invalidate_live_dashboard_cache():
 	second = client.get("/api/v1/dashboard").json()
 	assert any(item["title"] == "FX Desk" for item in second["linkedIntelligence"]["watchlists"])
 
+	sign_in()
 	alert = client.post("/api/v1/alerts", json={"name": "EURUSD dashboard alert", "triggerType": "asset_threshold", "targetRef": "EURUSD", "thresholdValue": "1.10", "deliveryChannel": "In-app"})
 	assert alert.status_code == 200, alert.text
 

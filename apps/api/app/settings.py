@@ -15,18 +15,43 @@ class Settings:
  session_ttl_hours: int = int(os.getenv('SESSION_TTL_HOURS', '72'))
  session_secret: str = os.getenv('SESSION_SECRET', 'replace-me')
  secure_cookies: bool = os.getenv('SECURE_COOKIES', 'false').lower() == 'true'
- dashboard_cache_key: str = 'macro_access:dashboard:cache'
+ dashboard_cache_key: str = os.getenv('DASHBOARD_CACHE_KEY', 'macro_access:dashboard:cache')
  dashboard_cache_ttl_seconds: int = int(os.getenv('DASHBOARD_CACHE_TTL_SECONDS', '240'))
- dashboard_live_cache_key: str = 'macro_access:dashboard:live'
+ dashboard_live_cache_key: str = os.getenv('DASHBOARD_LIVE_CACHE_KEY', 'macro_access:dashboard:live')
  dashboard_live_cache_ttl_seconds: int = int(os.getenv('DASHBOARD_LIVE_CACHE_TTL_SECONDS', '300'))
- provider_cache_key: str = 'macro_access:providers'
+ provider_cache_key: str = os.getenv('PROVIDER_CACHE_KEY', 'macro_access:providers')
  provider_cache_ttl_seconds: int = int(os.getenv('PROVIDER_CACHE_TTL_SECONDS', '900'))
  provider_market_ttl_seconds: int = int(os.getenv('PROVIDER_MARKET_TTL_SECONDS', '900'))
  provider_news_ttl_seconds: int = int(os.getenv('PROVIDER_NEWS_TTL_SECONDS', '1800'))
  provider_timeout_seconds: float = float(os.getenv('PROVIDER_TIMEOUT_SECONDS', '8'))
- jobs_queue_key: str = 'macro_access:jobs'
+ market_cache_key: str = os.getenv('MARKET_CACHE_KEY', 'macro_access:market')
+ market_cache_ttl_seconds: int = int(os.getenv('MARKET_CACHE_TTL_SECONDS', '300'))
+ market_intraday_cache_ttl_seconds: int = int(os.getenv('MARKET_INTRADAY_CACHE_TTL_SECONDS', '300'))
+ market_history_days: int = int(os.getenv('MARKET_HISTORY_DAYS', '420'))
+ calendar_cache_key: str = os.getenv('CALENDAR_CACHE_KEY', 'macro_access:calendar')
+ calendar_cache_ttl_seconds: int = int(os.getenv('CALENDAR_CACHE_TTL_SECONDS', '900'))
+ calendar_history_cache_ttl_seconds: int = int(os.getenv('CALENDAR_HISTORY_CACHE_TTL_SECONDS', '3600'))
+ macro_cache_key: str = os.getenv('MACRO_CACHE_KEY', 'macro_access:macro')
+ macro_series_ttl_seconds: int = int(os.getenv('MACRO_SERIES_TTL_SECONDS', '3600'))
+ reactions_cache_key: str = os.getenv('REACTIONS_CACHE_KEY', 'macro_access:reactions')
+ reactions_cache_ttl_seconds: int = int(os.getenv('REACTIONS_CACHE_TTL_SECONDS', '900'))
+ track_record_cache_key: str = os.getenv('TRACK_RECORD_CACHE_KEY', 'macro_access:track-record')
+ track_record_cache_ttl_seconds: int = int(os.getenv('TRACK_RECORD_CACHE_TTL_SECONDS', '900'))
+ reports_cache_key: str = os.getenv('REPORTS_CACHE_KEY', 'macro_access:reports')
+ reports_cache_ttl_seconds: int = int(os.getenv('REPORTS_CACHE_TTL_SECONDS', '1800'))
+ jobs_queue_key: str = os.getenv('JOBS_QUEUE_KEY', 'macro_access:jobs')
  auth_window_seconds: int = int(os.getenv('AUTH_WINDOW_SECONDS', '900'))
  auth_max_attempts: int = int(os.getenv('AUTH_MAX_ATTEMPTS', '10'))
+ market_provider: str = os.getenv('MARKET_PROVIDER', 'auto')
+ calendar_provider: str = os.getenv('CALENDAR_PROVIDER', 'auto')
+ tradingeconomics_api_key: str = os.getenv('TRADINGECONOMICS_API_KEY', '')
+ tradingeconomics_username: str = os.getenv('TRADINGECONOMICS_USERNAME', '')
+ tradingeconomics_password: str = os.getenv('TRADINGECONOMICS_PASSWORD', '')
+ tradingeconomics_api_base_url: str = os.getenv('TRADINGECONOMICS_API_BASE_URL', 'https://api.tradingeconomics.com')
+ report_llm_enabled: bool = os.getenv('REPORT_LLM_ENABLED', 'false').lower() == 'true'
+ openai_api_key: str = os.getenv('OPENAI_API_KEY', '')
+ openai_base_url: str = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+ openai_model: str = os.getenv('OPENAI_MODEL', 'gpt-5-mini')
 
 
 settings = Settings()

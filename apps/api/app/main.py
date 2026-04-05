@@ -214,3 +214,29 @@ def admin_reset_demo(user = Depends(admin_user)):
 
 
 
+ 
+@app.get('/api/v1/market-bias/insights') 
+def market_bias_insights(user = Depends(current_user)): 
+    from .services import market_bias_payload 
+    return market_bias_payload() 
+ 
+@app.get('/api/v1/reactions') 
+def reactions(family: str = '', asset: str = 'SPX', country: str = '', currency: str = '', user = Depends(current_user)): 
+    from .services import reactions_payload 
+    return reactions_payload(family or None, asset, country or None, currency or None) 
+ 
+@app.get('/api/v1/track-record') 
+def track_record(user = Depends(current_user)): 
+    from .services import track_record_payload 
+    return track_record_payload() 
+ 
+@app.get('/api/v1/reports') 
+def reports(limit: int = 12, user = Depends(current_user)): 
+    from .services import reports_payload 
+    return reports_payload(limit=limit) 
+ 
+@app.post('/api/v1/admin/reports/generate', response_model=SimpleResponse) 
+def admin_generate_report(user = Depends(admin_user)): 
+    from .services import generate_report_now 
+    report = generate_report_now() 
+    return {'status': 'ok', 'detail': report['slug']}

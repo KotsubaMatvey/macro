@@ -81,3 +81,28 @@ export const getAdminFlags = cache(async function getAdminFlags() {
 	const payload = await load('/api/v1/admin/feature-flags')
 	return payload as FeatureFlag[]
 })
+ 
+export const getMarketBiasInsights = cache(async function getMarketBiasInsights() { 
+ const payload = await load('/api/v1/market-bias/insights') 
+ return payload as import('@macroaccess/types').MarketBiasInsights 
+}) 
+ 
+export const getReactions = cache(async function getReactions(family = '', asset = 'SPX', country = '', currency = '') { 
+ const params = new URLSearchParams() 
+ if (family) params.set('family', family) 
+ if (asset) params.set('asset', asset) 
+ if (country) params.set('country', country) 
+ if (currency) params.set('currency', currency) 
+ const payload = await load('/api/v1/reactions?' + params.toString()) 
+ return payload as import('@macroaccess/types').ReactionsPayload 
+}) 
+ 
+export const getTrackRecord = cache(async function getTrackRecord() { 
+ const payload = await load('/api/v1/track-record') 
+ return payload as import('@macroaccess/types').TrackRecordPayload 
+}) 
+ 
+export const getReports = cache(async function getReports(limit = 12) { 
+ const payload = await load('/api/v1/reports?limit=' + String(limit)) 
+ return payload as import('@macroaccess/types').WeeklyReport[] 
+})

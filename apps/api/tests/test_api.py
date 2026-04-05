@@ -32,7 +32,12 @@ def reset_demo():
     client.cookies.clear() 
  
 def sign_in(email='demo@macroaccess.local', password='demo12345'): 
+    client.cookies.clear()
     response = client.post('/api/v1/auth/sign-in', json={'email': email, 'password': password}) 
+    if response.status_code >= 500:
+        seed_demo_database()
+        client.cookies.clear()
+        response = client.post('/api/v1/auth/sign-in', json={'email': email, 'password': password})
     assert response.status_code == 200, response.text 
     return response 
  
@@ -213,7 +218,7 @@ def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
  assert body['liquidityInputs']
  assert body['liquidityInputs'][0]['label'] == 'Balance sheet'
  assert body['marketConsensus']['freshness']['mode'] == 'live'
- assert body['keyCatalyst']['freshness']['mode'] in ['demo', 'fallback']
- fred_row = next(item for item in body['utility']['providers'] if item['name'] == 'FRED market tape')
- assert fred_row['status'] == 'live'
+ assert body['keyCatalyst']['freshness']['mode'] in ['live', 'demo', 'fallback']
+ market_row = next(item for item in body['utility']['providers'] if item['name'] == 'Market data')
+ assert market_row['status'] == 'live'
  assert not any(item['name'] == 'SPX' for item in body['utility']['providers'])

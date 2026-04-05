@@ -50,3 +50,17 @@ Track macro events. Read the regime. Trade the reaction.
 - Provider-backed today: dashboard market tape from FRED public series and official RSS news feeds when reachable
 - Fallback/demo today: seeded macro calendar, demo accounts, watchlists/alerts/community/admin content, and the catalyst calendar until a live schedule provider is attached
 - Replay/simulated today: track-record windows are retrospective model replays, not logged discretionary calls
+
+## Real-data Product Layer
+- Market data now runs through a replaceable provider adapter, with yfinance-backed instrument coverage for SPX, NDX, DXY, US10Y, VIX, EURUSD, XAU, and BTC.
+- Calendar data now prefers TradingEconomics when credentials are configured; the seeded calendar remains an explicit demo or fallback mode rather than a hidden live substitute.
+- Reactions, Bias or Influencers, Track Record, and Reports all consume the same structured provider-backed product layer and keep live, fallback, and replay labeling explicit.
+
+## Cache and Jobs
+- Redis TTLs: market tape 5 minutes, intraday market windows 5 minutes, upcoming calendar 15 minutes, calendar history 1 hour, macro or FRED series 1 hour, dashboard live payload 5 minutes, reactions 15 minutes, track record 15 minutes, reports 30 minutes.
+- Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
+- Reports are deterministic by default and may optionally add LLM narrative summarization when `REPORT_LLM_ENABLED=true` and OpenAI credentials are configured. Numeric source-backed sections remain authoritative.
+
+## Reactions and Replay Integrity
+- Reactions use real market history windows only when the available data resolution supports them. Intraday windows are not fabricated.
+- Track Record remains replay-only product analytics. It is not an audited live discretionary blotter or realized PnL record.

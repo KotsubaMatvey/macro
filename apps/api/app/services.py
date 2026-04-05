@@ -315,3 +315,57 @@ def reset_demo_jobs():
     for job_type in ['refresh_demo_market_state', 'recompute_regime', 'recompute_market_bias', 'publish_scheduled_content', 'evaluate_alerts', 'refresh_dashboard_cache']: 
         create_job(job_type, {'source': 'seed'})
 
+ 
+JOB_TYPES = JOB_TYPES + ['refresh_market_prices', 'refresh_calendar_events', 'recompute_reactions', 'recompute_track_record', 'generate_weekly_report'] 
+ 
+def list_biases(): 
+    from .insights_service import build_market_bias_payload 
+    payload = build_market_bias_payload() 
+    return [{'assetId': 'bias-' + item['symbol'].lower(), 'symbol': item['symbol'], 'name': item['name'], 'className': 'Cross Asset', 'direction': item['direction'], 'score': float(item['score']), 'confidence': float(item['confidence']), 'change1d': float(item['change1d']), 'change5d': float(item['change30d']), 'rationale': [item['note']]} for item in payload['assets']] 
+ 
+def market_bias_payload(): 
+    from .insights_service import build_market_bias_payload 
+    return build_market_bias_payload() 
+ 
+def list_events(search=None, family=None, days_back=30, days_forward=60): 
+    from .calendar_data import list_calendar_events 
+    return list_calendar_events(search=search, family=family, days_back=days_back, days_forward=days_forward) 
+ 
+def event_detail(event_id): 
+    from .calendar_data import get_calendar_event 
+    from .insights_service import build_reactions_payload 
+    item = get_calendar_event(event_id) 
+    if not item: 
+        return None 
+    asset = item['relatedAssets'][0] if item['relatedAssets'] else 'SPX' 
+    try: 
+        reactions = build_reactions_payload(family=item['family'], asset=asset, country=item['country'], currency=item['currency']) 
+    except Exception: 
+        reactions = {'summary': {'windowStats': []}} 
+    briefings = fetch_all('select b.id, b.slug, b.title, b.kind, b.published_at, b.summary, u.name as analyst_name, b.takeaways, b.asset_symbols from briefings b join users u on u.id = b.analyst_user_id where b.event_id = %s or b.asset_symbols ? %s order by b.published_at desc', (item['id'], asset)) 
+    news = fetch_all('select id, slug, title, source, published_at, summary, category, sentiment, event_id from news_items where event_id = %s or category = %s order by published_at desc', (item['id'], item['category'])) 
+    detail = dict(item) 
+    detail['historicalReactions'] = [{'window': row['window'], 'avgMovePct': row['meanMovePct'], 'consistency': row['positiveHitRate'], 'narrative': 'Historical reaction summary built from real market history for the event family.'} for row in reactions['summary']['windowStats']] 
+    detail['linkedBriefings'] = [{'id': row['id'], 'slug': row['slug'], 'title': row['title'], 'kind': row['kind'], 'publishedAt': row['published_at'].isoformat(), 'summary': row['summary'], 'analystName': row['analyst_name'], 'takeaways': row['takeaways'], 'assetSymbols': row['asset_symbols']} for row in briefings] 
+    detail['linkedNews'] = [{'id': row['id'], 'slug': row['slug'], 'title': row['title'], 'source': row['source'], 'publishedAt': row['published_at'].isoformat(), 'summary': row['summary'], 'category': row['category'], 'sentiment': row['sentiment'], 'relatedEventId': row['event_id']} for row in news] 
+    return detail 
+ 
+def reactions_payload(family=None, asset='SPX', country=None, currency=None): 
+    from .insights_service import build_reactions_payload 
+    return build_reactions_payload(family=family, asset=asset, country=country, currency=currency) 
+ 
+def track_record_payload(): 
+    from .insights_service import build_track_record_payload 
+    return build_track_record_payload() 
+ 
+def reports_payload(limit=12): 
+    from .insights_service import list_reports 
+    return list_reports(limit=limit) 
+ 
+def generate_report_now(): 
+    from .insights_service import generate_weekly_report 
+    return generate_weekly_report(persist=True) 
+ 
+def reset_demo_jobs(): 
+    for job_type in JOB_TYPES: 
+        create_job(job_type, {'source': 'seed'})

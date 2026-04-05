@@ -62,3 +62,12 @@ export const PUBLIC_LINKS = [
  { slug: 'contact', title: 'Contact' },
  { slug: 'disclaimer', title: 'Disclaimer' },
 ];
+ 
+const biasChildren = APP_SECTIONS.find(function (item) { return item.slug === 'market-bias' })?.children 
+if (biasChildren) { 
+ const reactionsItem = biasChildren.find(function (item) { return item.slug === 'live-reactions' }) 
+ if (reactionsItem) reactionsItem.title = 'Reactions' 
+ if (!biasChildren.some(function (item) { return item.slug === 'track-record' })) biasChildren.push({ slug: 'track-record', title: 'Track Record', description: 'Replay evaluation' }) 
+} 
+const calendarChildren = APP_SECTIONS.find(function (item) { return item.slug === 'macro-calendar' })?.children 
+if (calendarChildren && !calendarChildren.some(function (item) { return item.slug === 'reports' })) calendarChildren.push({ slug: 'reports', title: 'Reports', description: 'Weekly brief archive' })

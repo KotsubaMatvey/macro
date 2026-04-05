@@ -174,3 +174,36 @@ def run_forever():
 
 if __name__ == '__main__':
 	run_forever()
+ 
+from app.calendar_data import calendar_feed 
+from app.insights_service import build_market_bias_payload, build_reactions_payload, build_track_record_payload, generate_weekly_report as build_weekly_report 
+from app.market_data import MARKET_INSTRUMENTS, invalidate_market_bundle, load_market_bundle 
+ 
+def _refresh_market_prices(job_type, payload): 
+    symbols = payload.get('symbols') if isinstance(payload, dict) and isinstance(payload.get('symbols'), list) else list(MARKET_INSTRUMENTS.keys()) 
+    invalidate_market_bundle(symbols) 
+    load_market_bundle(symbols, interval='1d', period='18mo') 
+    _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True) 
+ 
+def _refresh_calendar_events(job_type, payload): 
+    calendar_feed(days_back=30, days_forward=60, prefer_cache=False) 
+    _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True) 
+ 
+def _recompute_market_bias(job_type, payload): 
+    build_market_bias_payload() 
+    _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True) 
+ 
+def _recompute_reactions(job_type, payload): 
+    for asset in ['SPX', 'NDX', 'EURUSD', 'BTC']: 
+        build_reactions_payload(asset=asset) 
+    _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True) 
+ 
+def _recompute_track_record(job_type, payload): 
+    build_track_record_payload() 
+    _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True) 
+ 
+def _generate_weekly_report(job_type, payload): 
+    build_weekly_report(persist=True) 
+    _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True) 
+ 
+JOB_HANDLERS.update({'refresh_market_prices': _refresh_market_prices, 'refresh_calendar_events': _refresh_calendar_events, 'recompute_market_bias': _recompute_market_bias, 'recompute_reactions': _recompute_reactions, 'recompute_track_record': _recompute_track_record, 'generate_weekly_report': _generate_weekly_report})

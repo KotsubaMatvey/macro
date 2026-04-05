@@ -392,3 +392,71 @@ export interface DashboardPayload {
  utility: DashboardUtilityStrip;
 }
 
+ 
+export interface BiasFactor { 
+ key: string; 
+ label: string; 
+ score: number; 
+ direction: string; 
+ strength: number; 
+ confidence: number; 
+ detail: string; 
+ note: string; 
+ source: SourceMetadata; 
+} 
+ 
+export interface BiasAssetInfluence { 
+ symbol: string; 
+ name: string; 
+ direction: string; 
+ score: number; 
+ confidence: number; 
+ change1d: number; 
+ change30d: number; 
+ note: string; 
+ freshness: SourceMetadata; 
+} 
+ 
+export interface MarketBiasInsights { 
+ summary: { label: string; score: number; confidence: number; note: string; freshness: SourceMetadata }; 
+ factors: BiasFactor[]; 
+ assets: BiasAssetInfluence[]; 
+ providerStatus: { live: number; degraded: number; detail: { [key: string]: string } };
+}
+
+export interface ReactionWindowStat { 
+ window: string; 
+ sampleSize: number; 
+ meanMovePct: number; 
+ medianMovePct: number; 
+ positiveHitRate: number; 
+ negativeHitRate: number; 
+} 
+ 
+export interface ReactionRecord { 
+ eventId: string; 
+ title: string; 
+ family: string; 
+ scheduledAt: string; 
+ country: string; 
+ currency: string; 
+ href: string; 
+ windows: { [key: string]: number }; 
+} 
+ 
+export interface ReactionsPayload { 
+ filters: { family: string; asset: string; country: string; currency: string }; 
+ familyOptions: string[]; 
+ assetOptions: string[]; 
+ summary: { sampleSize: number; directionDistribution: { positive: number; negative: number; flat: number }; windowStats: ReactionWindowStat[]; note: string; freshness: SourceMetadata }; 
+ records: ReactionRecord[]; 
+ calendar: { mode: string; freshness: string; note: string }; 
+} 
+ 
+export interface TrackRecordByAsset { asset: string; sampleSize: number; hitRate: number; magnitudeErrorPct: number } 
+export interface TrackRecordBySignal { signalType: string; sampleSize: number; hitRate?: number } 
+export interface TrackRecordByRegime { regime: string; sampleSize: number; hitRate: number } 
+export interface TrackRecordRecord { symbol: string; asOf: string; stance: string; expectedMove5dPct: number; realizedMove5dPct: number; outcome: string; signalType: string; family?: string; href?: string; regime?: string } 
+export interface TrackRecordPayload { mode: string; label: string; sampleSize: number; hitRate?: number; magnitudeErrorPct?: number; bySignalType: TrackRecordBySignal[]; byAsset: TrackRecordByAsset[]; byEventFamily: { family: string; sampleSize: number; hitRate: number }[]; byRegime?: TrackRecordByRegime[]; recentRecords: TrackRecordRecord[]; note: string; freshness: SourceMetadata } 
+ 
+export interface WeeklyReport { id: string; slug: string; title: string; status: string; mode: string; weekStart: string; weekEnd: string; summary: string; body: { [key: string]: unknown }; sourceMeta: SourceMetadata[]; createdAt: string }

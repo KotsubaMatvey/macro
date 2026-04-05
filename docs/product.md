@@ -20,3 +20,13 @@ Macro Access is a dark, desk-oriented macro intelligence workstation for event-d
 - Dense board-based desktop hierarchy
 - Honest live/fallback/provider labeling
 - Direct drill-down into event detail routes
+
+## Expanded real-data layer
+- Dashboard market strip now comes from a provider-backed market adapter rather than seeded pseudo-prices.
+- Calendar and catalyst surfaces can switch to a live TradingEconomics-backed schedule while preserving explicit fallback or demo labeling.
+- Reactions is now a dedicated research surface, Bias adds factor or influence detail, Track Record has its own replay evaluation page, and Reports archives weekly briefs.
+
+## Integrity rules
+- Do not imply live coverage when the adapter falls back.
+- Do not imply audited live track record when the product is showing replay analytics.
+- Do not let optional LLM narrative override numeric source-backed sections in reports.

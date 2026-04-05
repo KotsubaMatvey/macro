@@ -456,7 +456,7 @@ def _build_dashboard_payload(user):
 	series_failures = {}
 	live_news, news_status = _load_live_news()
 	series_map = {}
-	for symbol in ['SPX', 'BTC', 'XAU', 'DXY', 'EURUSD', 'US2Y', 'US10Y', 'VIX', 'WALCL', 'FEDFUNDS', 'SOFR', 'NFCI']:
+	for symbol in ['SPX', 'BTC', 'XAU', 'DXY', 'EURUSD', 'US2Y', 'US10Y', 'VIX', 'WALCL', 'FEDFUNDS', 'SOFR', 'NFCI', 'RRPONTSYD', 'WTREGEN', 'WRESBAL', 'DFII10', 'BAA10Y']:
 		try:
 			series_map[symbol] = _load_series(symbol)
 		except ProviderError as exc:
@@ -604,3 +604,93 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
 	return _build_dashboard_payload(user)
 
 
+ 
+ 
+from .market_data import MARKET_INSTRUMENTS, load_market_series 
+from .services import market_bias_payload as _market_bias_payload_service, track_record_payload as _track_record_payload_service 
+ 
+SERIES.update({ 
+    'RRPONTSYD': {'seriesId': 'RRPONTSYD', 'title': 'ON RRP', 'sourceUrl': 'https://fred.stlouisfed.org/series/RRPONTSYD'}, 
+    'WTREGEN': {'seriesId': 'WTREGEN', 'title': 'Treasury General Account', 'sourceUrl': 'https://fred.stlouisfed.org/series/WTREGEN'}, 
+    'WRESBAL': {'seriesId': 'WRESBAL', 'title': 'Reserve Balances', 'sourceUrl': 'https://fred.stlouisfed.org/series/WRESBAL'}, 
+    'DFII10': {'seriesId': 'DFII10', 'title': '10Y Real Yield', 'sourceUrl': 'https://fred.stlouisfed.org/series/DFII10'}, 
+    'BAA10Y': {'seriesId': 'BAA10Y', 'title': 'BAA Spread', 'sourceUrl': 'https://fred.stlouisfed.org/series/BAA10Y'}, 
+}) 
+ 
+def _load_series(symbol): 
+    if symbol in MARKET_INSTRUMENTS: 
+        return load_market_series(symbol, interval='1d', period='18mo') 
+    config = SERIES[symbol] 
+    return load_fred_series(config['seriesId'], config['sourceUrl'], ttl=settings.macro_series_ttl_seconds) 
+ 
+def _build_asset_view(symbol, series_payload, regime_context): 
+    values = _values(series_payload) 
+    change_1d = _pct_change(values, 1) 
+    change_30d = _pct_change(values, 20) 
+    expected_move = _expected_move(values) 
+    buckets = _scenario_buckets(values) 
+    confidence = _confidence(change_30d, expected_move) 
+    market_config = MARKET_INSTRUMENTS.get(symbol) 
+    title = market_config['title'] if market_config else SERIES[symbol]['title'] 
+    source_symbol = market_config['ticker'] if market_config else SERIES[symbol]['seriesId'] 
+    return { 
+        'symbol': symbol, 
+        'title': title, 
+        'subtitle': 'Source-derived price and model-derived edge estimate', 
+        'sourceSymbol': source_symbol, 
+        'price': _format_price(symbol, values[-1]), 
+        'change1dPct': round(change_1d, 2), 
+        'change30dPct': round(change_30d, 2), 
+        'expectedMove5dPct': round(expected_move, 2), 
+        'stance': _stance(change_30d, expected_move), 
+        'skew': _skew_label(buckets), 
+        'confidence': round(confidence, 2), 
+        'sampleCount': len(_window_returns(values, 5)), 
+        'regimeContext': regime_context, 
+        'sourceFacts': ['1d move ' + format(change_1d, '.2f') + '%', '30d move ' + format(change_30d, '.2f') + '%', 'Last print ' + _format_price(symbol, values[-1])], 
+        'modelFacts': ['Expected 5d move ' + format(expected_move, '.2f') + '%', 'Confidence ' + str(int(confidence * 100)) + '%', 'Distribution skew ' + _skew_label(buckets)], 
+        'scenarioBuckets': buckets, 
+        'sparkline': _sparkline(series_payload), 
+        'freshness': _source_meta('Price tape', series_payload['source'], series_payload.get('sourceUrl', ''), series_payload, series_payload.get('mode', 'live'), series_payload.get('note', '')), 
+    } 
+ 
+def _liquidity_inputs(series_map): 
+    needed = {'WALCL', 'RRPONTSYD', 'WTREGEN', 'WRESBAL', 'US2Y', 'DXY'} 
+    if not needed.issubset(series_map.keys()): 
+        return [] 
+    values = {key: _values(series_map[key]) for key in needed} 
+    return [ 
+        {'label': 'Balance sheet', 'value': _liquidity_input_value('WALCL', values['WALCL'][-1]), 'detail': format(_pct_change(values['WALCL'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['WALCL'], 8) >= 0 else 'Restrictive'}, 
+        {'label': 'ON RRP', 'value': '$' + format(values['RRPONTSYD'][-1] / 1000.0, '.2f') + 'T', 'detail': format(_pct_change(values['RRPONTSYD'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['RRPONTSYD'], 8) <= 0 else 'Restrictive'}, 
+        {'label': 'TGA', 'value': '$' + format(values['WTREGEN'][-1] / 1000.0, '.2f') + 'T', 'detail': format(_pct_change(values['WTREGEN'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['WTREGEN'], 8) <= 0 else 'Restrictive'}, 
+        {'label': 'Reserves', 'value': '$' + format(values['WRESBAL'][-1] / 1000.0, '.2f') + 'T', 'detail': format(_pct_change(values['WRESBAL'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['WRESBAL'], 8) >= 0 else 'Restrictive'}, 
+        {'label': 'US 2Y', 'value': _liquidity_input_value('US2Y', values['US2Y'][-1]), 'detail': format(_abs_change(values['US2Y'], 20), '+.2f') + ' / 20d', 'tone': 'Supportive' if _abs_change(values['US2Y'], 20) <= 0 else 'Restrictive'}, 
+        {'label': 'Dollar', 'value': _liquidity_input_value('DXY', values['DXY'][-1]), 'detail': format(_pct_change(values['DXY'], 20), '+.2f') + '% / 20d', 'tone': 'Restrictive' if _pct_change(values['DXY'], 20) >= 0 else 'Supportive'}, 
+    ]
+ 
+def _dashboard_track_record(): 
+    payload = _track_record_payload_service() 
+    return {'status': 'Replay only', 'evaluationMode': 'replay', 'sampleSize': payload['sampleSize'], 'hitRate': payload['hitRate'], 'magnitudeErrorPct': payload['magnitudeErrorPct'], 'note': payload['note'], 'records': [{'symbol': item['symbol'], 'asOf': item['asOf'], 'stance': item['stance'], 'expectedMove5dPct': item['expectedMove5dPct'], 'realizedMove5dPct': item['realizedMove5dPct'], 'outcome': item['outcome'], 'linkedEventTitle': None, 'linkedEventHref': None} for item in payload['recentRecords'][:6]], 'freshness': payload['freshness']} 
+ 
+def dashboard_payload(user, prefer_cache=False, force_refresh=False): 
+    if prefer_cache and not force_refresh: 
+        cached = read_live_dashboard_cache(user['id']) 
+        if cached and cached.get('payload'): 
+            return cached['payload'] 
+    payload = _build_dashboard_payload(user) 
+    bias_payload = _market_bias_payload_service() 
+    consensus_assets = [{'symbol': item['symbol'], 'direction': item['direction'], 'score': item['score'], 'confidence': item['confidence'], 'change30dPct': item['change30d'], 'note': item['note']} for item in bias_payload['assets'][:6]] 
+    payload['marketConsensus'] = {'label': bias_payload['summary']['label'], 'score': round(sum((item['score'] - 50.0) for item in consensus_assets) / max(len(consensus_assets), 1), 2), 'trend30d': payload['marketConsensus']['trend30d'], 'confidence': bias_payload['summary']['confidence'], 'sampleSize': len(consensus_assets), 'note': bias_payload['summary']['note'], 'href': '/app/market-bias', 'assets': consensus_assets, 'freshness': bias_payload['summary']['freshness']} 
+    payload['trackRecord'] = _dashboard_track_record() 
+    market_live = len([item for item in payload['hero']['assets'] if item['freshness']['mode'] == 'live']) 
+    market_fallback = max(0, len(payload['hero']['assets']) - market_live) 
+    providers = [row for row in payload['utility']['providers'] if row['name'] not in ['FRED market tape', 'Catalyst calendar']] 
+    providers.insert(0, {'name': 'Market data', 'status': 'live' if market_live and market_fallback == 0 else 'degraded' if market_live else 'fallback', 'detail': str(market_live) + ' live / ' + str(market_fallback) + ' fallback instruments', 'mode': 'live' if market_live else 'fallback'}) 
+    catalyst_id = payload['keyCatalyst']['href'].split('/')[-1] if payload['keyCatalyst'].get('href') else '' 
+    catalyst = next((item for item in list_events() if item['id'] == catalyst_id), None) 
+    if catalyst and catalyst.get('freshness'): 
+        payload['keyCatalyst']['freshness'] = catalyst['freshness'] 
+        providers.append({'name': 'Catalyst calendar', 'status': 'live' if catalyst['freshness']['mode'] == 'live' else 'fallback', 'detail': catalyst['freshness']['note'], 'mode': catalyst['freshness']['mode']}) 
+    payload['utility']['providers'] = providers 
+    cache_live_dashboard(user['id'], payload) 
+    return payload 
