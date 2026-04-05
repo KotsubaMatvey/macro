@@ -12,21 +12,9 @@ interface DashboardPageProps {
  searchParams?: Promise<DashboardRouteSearchParams | undefined>
 }
 
-const MODULE_LINKS = [
- { label: "Dashboard", href: "/app/dashboard" },
- { label: "Calendar", href: "/app/macro-calendar" },
- { label: "Regime", href: "/app/regime-monitor" },
- { label: "Bias", href: "/app/market-bias" },
- { label: "Reactions", href: "/app/live-reactions" },
- { label: "Alerts", href: "/app/alerts" },
-]
+const MODULE_LINKS = [] as { label: string; href: string }[]
 
-const BOARD_RAIL = [
- { id: "regime-board", short: "RG", label: "Regime", note: "State" },
- { id: "catalyst-board", short: "CT", label: "Catalysts", note: "Map" },
- { id: "calendar-board", short: "CAL", label: "Calendar", note: "Tape" },
- { id: "market-board", short: "MKT", label: "Market", note: "Strip" },
-]
+const BOARD_RAIL = [] as { id: string; short: string; label: string; note: string }[]
 
 function showPercent(value: number, digits = 2) {
  const prefix = Math.sign(value) === 1 ? "+" : ""
@@ -249,6 +237,8 @@ export default async function DashboardPage(props: DashboardPageProps) {
  const {
   activeAsset,
   alertLead,
+  availableCategories,
+  availableRegions,
   biasCards,
   briefingLead,
   catalysts,
@@ -267,7 +257,7 @@ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalend
     return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard" }, h("div", { className: "space-y-3" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
  h("div", { key: "modules", className: "terminal-strip" }, [
- h("div", { key: "links", className: "flex flex-wrap items-center gap-2" }, ([h("span", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, "Desk modules")] as ReactNode[]).concat(MODULE_LINKS.map(function (item) { return h(Link, { key: item.href, href: item.href, className: item.href === "/app/dashboard" ? "desk-tab desk-tab-active" : "desk-tab" }, item.label) }))),
+ h("div", { key: "links", className: "flex flex-wrap items-center gap-2" }, ([h("span", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, "Desk context")] as ReactNode[]).concat(MODULE_LINKS.map(function (item) { return h(Link, { key: item.href, href: item.href, className: item.href === "/app/dashboard" ? "desk-tab desk-tab-active" : "desk-tab" }, item.label) }))),
  h("div", { key: "meta", className: "flex flex-wrap items-center gap-2" }, [
  h("span", { key: "date", className: "terminal-meta" }, ["Date ", h("strong", { key: "value" }, formatDeskDate(payload.generatedAt))]),
  h("span", { key: "utc", className: "terminal-meta" }, ["UTC ", h("strong", { key: "value" }, formatDeskTime(payload.generatedAt).replace(" UTC", ""))]),
@@ -281,14 +271,8 @@ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalend
  h("span", { key: "refresh", className: "terminal-meta" }, ["Refresh ", h("strong", { key: "value" }, formatDeskTime(payload.utility.refreshedAt).replace(" UTC", ""))]),
  ])),
  ]),
- h("div", { key: "workspace", className: "grid gap-3 xl:grid-cols-[58px_minmax(0,1fr)]" }, [
- h("nav", { key: "rail", className: "hidden xl:grid gap-2 self-start rounded-[15px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.018),rgba(255,255,255,0.006))] px-2 py-2 shadow-[0_12px_26px_rgba(0,0,0,0.24)]" }, BOARD_RAIL.map(function (item) {
- return h("a", { key: item.id, href: "#" + item.id, className: "group rounded-[11px] border border-white/[0.05] bg-white/[0.02] px-2 py-2 text-center transition hover:border-white/[0.12] hover:bg-white/[0.04]" }, [
- h("div", { key: "short", className: "text-[10px] font-semibold uppercase tracking-[0.22em] text-white" }, item.short),
- h("div", { key: "label", className: "mt-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500 group-hover:text-slate-300" }, item.label),
- h("div", { key: "note", className: "mt-1 text-[9px] text-slate-600 group-hover:text-slate-400" }, item.note),
- ])
- })),
+ h("div", { key: "workspace", className: "space-y-3" }, [
+ null,
  h("div", { key: "panels", className: "space-y-3" }, [
  h("div", { key: "boards", className: "grid gap-3 xl:grid-cols-[minmax(0,1.22fr)_minmax(360px,0.78fr)]" }, [
  h("div", { key: "regime-wrap", id: "regime-board" }, h(Panel, { title: "Regime & Bias", subtitle: "Current macro state, cross-asset posture, liquidity layers, and regime memory in a single workstation board.", actions: h(Link, { href: payload.marketConsensus.href, className: "terminal-link text-[11px] font-medium" }, "Open bias board") }, h("div", { className: "space-y-3" }, [
@@ -372,14 +356,18 @@ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalend
  ]),
  h("div", { key: "calendar-wrap", id: "calendar-board" }, h(Panel, { title: "Macro Calendar -- " + formatMonthLabel(payload.generatedAt), subtitle: "Terminal calendar surface with dense event rows, impact filters, and direct drill-down into event detail.", actions: h(Link, { href: "/app/macro-calendar", className: "terminal-link text-[11px] font-medium" }, "Open full calendar") }, h("div", { className: "space-y-3" }, [
  h("div", { key: "toolbar", className: "flex flex-wrap items-center justify-between gap-2" }, [
- h("div", { key: "filters", className: "flex flex-wrap gap-2" }, IMPACT_OPTIONS.map(function (option) { return h(Link, { key: option.value, href: dashboardHref(state, { impact: option.value }), className: state.impact === option.value ? "desk-tab desk-tab-active" : "desk-tab" }, option.label) })),
+ h("div", { key: "filters", className: "grid gap-2" }, [
+ h("div", { key: "impact", className: "flex flex-wrap gap-2" }, IMPACT_OPTIONS.map(function (option) { return h(Link, { key: option.value, href: dashboardHref(state, { impact: option.value }), className: state.impact === option.value ? "desk-tab desk-tab-active" : "desk-tab" }, option.label) })),
+ h("div", { key: "region", className: "flex flex-wrap items-center gap-2" }, ([h("span", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, "Region")] as ReactNode[]).concat([h(Link, { key: "all", href: dashboardHref(state, { region: undefined }), className: state.region === "" ? "desk-tab desk-tab-active" : "desk-tab" }, "All")]).concat(availableRegions.map(function (option) { return h(Link, { key: option, href: dashboardHref(state, { region: option }), className: state.region === option ? "desk-tab desk-tab-active" : "desk-tab" }, option) }))),
+ h("div", { key: "category", className: "flex flex-wrap items-center gap-2" }, ([h("span", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, "Category")] as ReactNode[]).concat([h(Link, { key: "all", href: dashboardHref(state, { category: undefined }), className: state.category === "" ? "desk-tab desk-tab-active" : "desk-tab" }, "All")]).concat(availableCategories.slice(0, 4).map(function (option) { return h(Link, { key: option, href: dashboardHref(state, { category: option }), className: state.category === option ? "desk-tab desk-tab-active" : "desk-tab" }, option) }))),
+]),
  h("div", { key: "stats", className: "flex flex-wrap gap-2" }, [
  h("span", { key: "high", className: "terminal-meta" }, ["High ", h("strong", { key: "value" }, String(highVisible))]),
  h("span", { key: "upcoming", className: "terminal-meta" }, ["Upcoming ", h("strong", { key: "value" }, String(upcomingVisible))]),
  h("span", { key: "source", className: "terminal-meta" }, ["Calendar ", h("strong", { key: "value" }, payload.keyCatalyst.freshness.mode)]),
  ]),
  ]),
- h(DataTable, { headers: ["Time", "Region", "Event", "Impact", "Actual", "Forecast", "Previous"], rows: calendarRows, dense: true, numericColumns: [4, 5, 6] }),
+ h(DataTable, { headers: ["Time", "Region", "Event", "Impact", "Actual", "Forecast", "Previous"], rows: calendarRows, dense: true, numericColumns: [4, 5, 6], stickyHeader: true, ariaLabel: "Dashboard macro calendar" }),
  h("div", { key: "footer", className: "grid gap-2 md:grid-cols-3" }, [
  signalTile("Filter", state.impact === "all" ? "All impact" : compactImpactLabel(state.impact), String(visibleCalendar.length) + " rows loaded"),
  signalTile("Catalyst map", String(catalysts.length), "Next board remains synced with desk window"),

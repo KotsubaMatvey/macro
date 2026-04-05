@@ -129,4 +129,14 @@ describe('DashboardPage', function () {
   expect(within(marketPanel).getByRole('link', { name: /EURUSD/ })).toHaveAttribute('href', '/app/dashboard?asset=EURUSD')
  }, 15000)
 
+ it('applies region and category filters inside the calendar board', async function () {
+  api.getDashboard.mockResolvedValue(payload)
+  api.getEvents.mockResolvedValue(events)
+  const view = await DashboardPage({ searchParams: Promise.resolve({ impact: 'Medium', region: 'Eurozone', category: 'Central bank' }) })
+  render(view)
+  const calendarPanel = screen.getByRole('heading', { name: 'Macro Calendar -- APR 2026' }).closest('section') as HTMLElement
+  expect(within(calendarPanel).getByText('ECB Rate Decision')).toBeInTheDocument()
+  expect(within(calendarPanel).queryByText('Initial Jobless Claims')).not.toBeInTheDocument()
+  expect(within(calendarPanel).getByRole('link', { name: 'Eurozone' })).toBeInTheDocument()
+ }, 15000)
 })

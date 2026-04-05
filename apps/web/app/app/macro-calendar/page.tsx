@@ -127,7 +127,7 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  ]),
  h("div", { key: "grid", className: "ws-two-panel" }, [
  h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "tape", title: "Calendar tape", subtitle: "Compact event board for release timing, values, verdict, and watch focus." }, h(DataTable, { headers: ["Time", "CCY", "Event", "Actual", "Forecast", "Previous", "Verdict", "Watch"], rows: rows.length !== 0 ? rows : [["-", "-", "No events match the current filters", "-", "-", "-", "-", "-"]], numericColumns: [3, 4, 5], dense: true })),
+ h(Panel, { key: "tape", title: "Calendar tape", subtitle: "Compact event board for release timing, values, verdict, and watch focus." }, h(DataTable, { headers: ["Time", "CCY", "Event", "Actual", "Forecast", "Previous", "Verdict", "Watch"], rows: rows.length !== 0 ? rows : [["-", "-", "No events match the current filters", "-", "-", "-", "-", "-"]], numericColumns: [3, 4, 5], dense: true, stickyHeader: true, ariaLabel: "Standalone macro calendar" })),
  ]),
  h("div", { key: "right", className: "space-y-5" }, [
  h(Panel, { key: "focus", title: "Desk focus", subtitle: "Quick read on the current filter state and watch overlap." }, h(KeyValueList, { items: [{ label: "Rows visible", value: String(filtered.length) }, { label: "Tracked symbols", value: String(watchSymbols.length) }, { label: "High impact rows", value: String(highImpact.length), tone: "High" }, { label: "Search", value: filters.search ? filters.search : "No search" }] })),
