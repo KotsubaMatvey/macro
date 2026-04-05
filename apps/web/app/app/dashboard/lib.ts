@@ -62,19 +62,47 @@ export interface DashboardViewModel {
 }
 
 const BIAS_SLOTS = [
-  { label: 'Equities', symbols: ['SPX', 'NDX'] },
+  { label: 'Equities', symbols: ['SPX'] },
   { label: 'Rates', symbols: ['US10Y', 'US2Y'] },
   { label: 'Dollar', symbols: ['DXY', 'EURUSD'] },
   { label: 'Alternatives', symbols: ['BTC', 'XAU'] },
 ] as const
 
-const MARKET_STRIP_ORDER = ['SPX', 'NDX', 'DXY', 'US10Y', 'BTC', 'XAU', 'EURUSD', 'US2Y'] as const
+const MARKET_STRIP_ORDER = ['SPX', 'DXY', 'US10Y', 'BTC', 'XAU', 'EURUSD', 'US2Y'] as const
 
 function parseTime(value?: string) {
-  if (!value) return null
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return null
-  return parsed
+	if (!value) return null
+	const parsed = new Date(value)
+	if (Number.isNaN(parsed.getTime())) return null
+	return parsed
+}
+
+function eventTime(item: EventRelease) {
+	return parseTime(item.scheduledAt)?.getTime() ?? Number.POSITIVE_INFINITY
+}
+
+function statusRank(item: EventRelease) {
+	if (item.status === 'Live') return 0
+	if (item.status === 'Upcoming') return 1
+	if (item.status === 'Released') return 2
+	return 3
+}
+
+function isActionableCatalyst(item: EventRelease) {
+	return item.status === 'Live' || item.status === 'Upcoming'
+}
+
+function compareCatalysts(left: EventRelease, right: EventRelease) {
+	const statusDelta = statusRank(left) - statusRank(right)
+	if (statusDelta !== 0) return statusDelta
+	const timeDelta = eventTime(left) - eventTime(right)
+	if (timeDelta !== 0) return timeDelta
+	return impactRank(left) - impactRank(right)
+}
+
+function isLiveMarketAsset(item: DashboardAssetView) {
+	if (item.freshness.mode !== 'live') return false
+	return item.freshness.freshness !== 'stale' && item.freshness.freshness !== 'degraded'
 }
 
 export function readParam(value: unknown) {
@@ -199,37 +227,24 @@ function impactRank(item: EventRelease) {
 }
 
 function selectCatalysts(events: EventRelease[], reference: string, windowMode: DashboardWindowMode) {
-  const now = parseTime(reference) ?? new Date()
-  const lowerBound = new Date(now.getTime() - 6 * 60 * 60 * 1000)
-  const horizonHours = windowMode === '1w' ? 168 : 48
-  const upperBound = new Date(now.getTime() + horizonHours * 60 * 60 * 1000)
+	const now = parseTime(reference) ?? new Date()
+	const lowerBound = new Date(now.getTime() - 6 * 60 * 60 * 1000)
+	const horizonHours = windowMode === '1w' ? 168 : 48
+	const upperBound = new Date(now.getTime() + horizonHours * 60 * 60 * 1000)
 
-  const activeWindow = events
-    .filter(function (item) {
-      const scheduled = parseTime(item.scheduledAt)
-      if (!scheduled) return false
-      if (scheduled < lowerBound || scheduled > upperBound) return false
-      if (item.status === 'Released' && scheduled < lowerBound) return false
-      return true
-    })
-    .sort(function (left, right) {
-      const impactDelta = impactRank(left) - impactRank(right)
-      if (impactDelta !== 0) return impactDelta
-      const leftTime = parseTime(left.scheduledAt)
-      const rightTime = parseTime(right.scheduledAt)
-      return (leftTime ? leftTime.getTime() : 0) - (rightTime ? rightTime.getTime() : 0)
-    })
-    .slice(0, 6)
+	const windowed = events.filter(function (item) {
+		const scheduled = parseTime(item.scheduledAt)
+		if (!scheduled) return false
+		return scheduled >= lowerBound && scheduled <= upperBound
+	})
 
-  if (activeWindow.length !== 0) return activeWindow
+	const actionable = windowed.filter(isActionableCatalyst).sort(compareCatalysts).slice(0, 6)
+	if (actionable.length !== 0) return actionable
 
-  const unresolved = events
-    .filter(function (item) {
-      return item.status !== 'Released'
-    })
-    .slice(0, 6)
+	const unresolved = events.filter(isActionableCatalyst).sort(compareCatalysts).slice(0, 6)
+	if (unresolved.length !== 0) return unresolved
 
-  return unresolved.length !== 0 ? unresolved : events.slice(0, 6)
+	return windowed.slice().sort(compareCatalysts).slice(0, 6)
 }
 
 function filterCalendar(events: EventRelease[], state: DashboardQueryState) {
@@ -243,9 +258,7 @@ function filterCalendar(events: EventRelease[], state: DashboardQueryState) {
 
 function sortEvents(events: EventRelease[]) {
   return events.slice().sort(function (left, right) {
-    const leftTime = parseTime(left.scheduledAt)
-    const rightTime = parseTime(right.scheduledAt)
-    return (leftTime ? leftTime.getTime() : 0) - (rightTime ? rightTime.getTime() : 0)
+    return eventTime(left) - eventTime(right)
   })
 }
 
@@ -300,9 +313,7 @@ export function buildDashboardView(payload: DashboardPayload, events: EventRelea
   const liquidityInputs = payload.liquidityInputs.length !== 0 ? payload.liquidityInputs : fallbackLiquidityInputs(payload)
   const providers = providerCounts(payload)
   const marketAssets = orderedMarketAssets(payload)
-  const marketLive = marketAssets.filter(function (item) {
-    return item.freshness.mode === 'live'
-  }).length
+  const marketLive = marketAssets.filter(isLiveMarketAsset).length
   const marketFallback = Math.max(0, marketAssets.length - marketLive)
   const highVisible = visibleCalendar.filter(function (item) {
     return canonicalImpact(item.impact) === 'High'

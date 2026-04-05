@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import math
 import statistics
 
@@ -36,8 +36,15 @@ def _parse_dt(value):
 	if not value:
 		return None
 	if isinstance(value, datetime):
-		return value
-	return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+		parsed = value
+	else:
+		try:
+			parsed = datetime.fromisoformat(str(value).replace('Z', ' +00:00'))
+		except ValueError:
+			return None
+	if parsed.tzinfo is None:
+		return parsed.replace(tzinfo=timezone.utc)
+	return parsed.astimezone(timezone.utc)
 
 def _clamp(value, low=-1.0, high=1.0):
 	return max(low, min(high, value))
@@ -162,14 +169,17 @@ def _source_meta(label, source, source_url='', payload=None, mode='live', note='
 	if payload:
 		fetched_at = payload.get('fetchedAt', fetched_at)
 		last_updated = payload.get('lastUpdated')
-	if last_updated:
-		age_hours = (utc_now() - _parse_dt(last_updated)).total_seconds() / 3600.0
+	parsed_last_updated = _parse_dt(last_updated) if last_updated else None
+	if parsed_last_updated:
+		age_hours = (utc_now() - parsed_last_updated).total_seconds() / 3600.0
 		if age_hours > 72:
 			freshness = 'stale'
 		elif age_hours > 24:
 			freshness = 'aging'
 		else:
 			freshness = 'fresh'
+	elif last_updated:
+		freshness = 'degraded'
 	return {
 		'label': label,
 		'source': source,
@@ -202,7 +212,7 @@ def _load_live_news():
 				})
 		except ProviderError as exc:
 			statuses.append({'name': feed['label'], 'status': 'degraded', 'detail': str(exc), 'mode': 'fallback'})
-	items.sort(key=lambda item: item['publishedAt'], reverse=True)
+	items.sort(key=lambda item: _parse_dt(item['publishedAt']) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
 	return items[:6], statuses
 
 def _session_strip():

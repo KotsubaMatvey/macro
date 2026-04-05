@@ -139,4 +139,20 @@ describe('DashboardPage', function () {
   expect(within(calendarPanel).queryByText('Initial Jobless Claims')).not.toBeInTheDocument()
   expect(within(calendarPanel).getByRole('link', { name: 'Eurozone' })).toBeInTheDocument()
  }, 15000)
+
+ it('treats degraded live assets as fallback in strip totals', async function () {
+  const marketPayload = JSON.parse(JSON.stringify(payload))
+  marketPayload.hero.assets = marketPayload.hero.assets.map(function (item: any) {
+   if (item.symbol !== 'US10Y') return item
+   return { ...item, freshness: { ...item.freshness, mode: 'live', freshness: 'degraded' } }
+  })
+  api.getDashboard.mockResolvedValue(marketPayload)
+  api.getEvents.mockResolvedValue(events)
+  const view = await DashboardPage({})
+  render(view)
+  const marketPanel = screen.getByRole('heading', { name: 'Market strip' }).closest('section') as HTMLElement
+  expect(marketPanel.textContent).toContain('Live 6')
+  expect(marketPanel.textContent).toContain('Fallback 1')
+ }, 15000)
+
 })

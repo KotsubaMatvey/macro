@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 import os
 
 
@@ -9,6 +9,7 @@ class Settings:
  demo_reference_now: str = os.getenv('DEMO_REFERENCE_NOW', '2026-03-31T12:00:00+00:00')
  api_origin: str = os.getenv('WEB_ORIGIN', 'http://localhost:3000')
  database_url: str = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/macro_access')
+ database_connect_timeout_seconds: int = int(os.getenv('DATABASE_CONNECT_TIMEOUT_SECONDS', '2'))
  redis_url: str = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
  session_cookie: str = os.getenv('SESSION_COOKIE_NAME', 'macro_access_session')
  session_ttl_hours: int = int(os.getenv('SESSION_TTL_HOURS', '72'))

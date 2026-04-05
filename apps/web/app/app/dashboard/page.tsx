@@ -12,10 +12,6 @@ interface DashboardPageProps {
  searchParams?: Promise<DashboardRouteSearchParams | undefined>
 }
 
-const MODULE_LINKS = [] as { label: string; href: string }[]
-
-const BOARD_RAIL = [] as { id: string; short: string; label: string; note: string }[]
-
 function showPercent(value: number, digits = 2) {
  const prefix = Math.sign(value) === 1 ? "+" : ""
  return prefix + value.toFixed(digits) + "%"
@@ -253,16 +249,14 @@ export default async function DashboardPage(props: DashboardPageProps) {
   upcomingVisible,
   visibleCalendar,
  } = view
+ const shellMode = providers.live !== 0 && providers.fallback === 0 ? "live" : providers.live !== 0 ? "mixed" : "fallback"
 const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
-    return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard" }, h("div", { className: "space-y-3" }, [
+    return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard", mode: shellMode }, h("div", { className: "space-y-3" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
- h("div", { key: "modules", className: "terminal-strip" }, [
- h("div", { key: "links", className: "flex flex-wrap items-center gap-2" }, ([h("span", { key: "label", className: "text-[8px] font-semibold uppercase tracking-[0.22em] text-slate-500" }, "Desk context")] as ReactNode[]).concat(MODULE_LINKS.map(function (item) { return h(Link, { key: item.href, href: item.href, className: item.href === "/app/dashboard" ? "desk-tab desk-tab-active" : "desk-tab" }, item.label) }))),
- h("div", { key: "meta", className: "flex flex-wrap items-center gap-2" }, [
+ h("div", { key: "desk", className: "terminal-strip flex-wrap gap-2" }, [
  h("span", { key: "date", className: "terminal-meta" }, ["Date ", h("strong", { key: "value" }, formatDeskDate(payload.generatedAt))]),
  h("span", { key: "utc", className: "terminal-meta" }, ["UTC ", h("strong", { key: "value" }, formatDeskTime(payload.generatedAt).replace(" UTC", ""))]),
  h("span", { key: "session", className: "terminal-meta" }, ["Session ", h("strong", { key: "value" }, payload.utility.activeSession)]),
- ]),
  ]),
  h("div", { key: "status", className: "terminal-strip justify-end" }, payload.utility.sessions.map(function (session) {
  return h("div", { key: session.code, className: session.active ? "session-dot session-dot-active text-[10px] font-semibold uppercase tracking-[0.18em]" : "session-dot text-[10px] font-semibold uppercase tracking-[0.18em]" }, session.code)
@@ -272,7 +266,6 @@ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalend
  ])),
  ]),
  h("div", { key: "workspace", className: "space-y-3" }, [
- null,
  h("div", { key: "panels", className: "space-y-3" }, [
  h("div", { key: "boards", className: "grid gap-3 xl:grid-cols-[minmax(0,1.22fr)_minmax(360px,0.78fr)]" }, [
  h("div", { key: "regime-wrap", id: "regime-board" }, h(Panel, { title: "Regime & Bias", subtitle: "Current macro state, cross-asset posture, liquidity layers, and regime memory in a single workstation board.", actions: h(Link, { href: payload.marketConsensus.href, className: "terminal-link text-[11px] font-medium" }, "Open bias board") }, h("div", { className: "space-y-3" }, [

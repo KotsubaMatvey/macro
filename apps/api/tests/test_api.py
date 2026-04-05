@@ -3,12 +3,29 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fastapi.testclient import TestClient 
- 
-from app.main import app 
-from app.seed import seed_demo_database 
- 
-client = TestClient(app) 
+import psycopg
+import pytest
+
+from app.settings import settings
+
+def database_available():
+    try:
+        with psycopg.connect(settings.database_url, connect_timeout=1):
+            return True
+    except Exception:
+        return False
+
+_DB_AVAILABLE = database_available()
+pytestmark = pytest.mark.skipif(not _DB_AVAILABLE, reason='Postgres unavailable for API integration tests')
+
+if _DB_AVAILABLE:
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.seed import seed_demo_database
+
+    client = TestClient(app)
+else:
+    client = None
  
 def reset_demo(): 
     seed_demo_database() 
@@ -142,43 +159,43 @@ def test_watchlist_mutation_invalidates_workstation_cache():
     assert len(second['watchlists']) == before + 1
 
 def test_worker_job_types_transition_to_completed(monkeypatch):
-    reset_demo()
-    import importlib.util
-    from pathlib import Path
-    from app.db import fetch_one
-    from app.services import create_job
+	reset_demo()
+	import importlib.util
+	from pathlib import Path
+	from app.db import fetch_one
+	from app.services import create_job
 
-    worker_path = Path(__file__).resolve().parents[2] / 'worker' / 'main.py'
-    spec = importlib.util.spec_from_file_location('worker_main', worker_path)
-    assert spec and spec.loader
-    worker = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(worker)
+	worker_path = Path(__file__).resolve().parents[2] / 'worker' / 'main.py'
+	spec = importlib.util.spec_from_file_location('worker_main', worker_path)
+	assert spec and spec.loader
+	worker = importlib.util.module_from_spec(spec)
+	spec.loader.exec_module(worker)
 
-    calls = []
-    monkeypatch.setattr(worker, 'invalidate_provider_payload', lambda key: calls.append(('provider', key)))
-    monkeypatch.setattr(worker, 'workstation_payload', lambda user, prefer_cache=False, force_refresh=False: calls.append(('workstation', user['id'], force_refresh)))
-    monkeypatch.setattr(worker, 'dashboard_payload', lambda user, prefer_cache=False, force_refresh=False: calls.append(('dashboard', user['id'], force_refresh)))
+	calls = []
+	monkeypatch.setattr(worker, 'invalidate_provider_payload', lambda key: calls.append(('provider', key)))
+	monkeypatch.setattr(worker, 'workstation_payload', lambda user, prefer_cache=False, force_refresh=False: calls.append(('workstation', user['id'], force_refresh)))
+	monkeypatch.setattr(worker, 'dashboard_payload', lambda user, prefer_cache=False, force_refresh=False: calls.append(('dashboard', user['id'], force_refresh)))
 
-    refresh_job_id = create_job('refresh_demo_market_state', {'source': 'test', 'userId': 'user-demo'}, run_now=False)
-    worker.run_job(refresh_job_id)
-    refresh_done = fetch_one('select status, started_at, finished_at from ingestion_jobs where id = %s', (refresh_job_id,))
-    assert refresh_done['status'] == 'completed'
-    assert refresh_done['started_at'] is not None
-    assert refresh_done['finished_at'] is not None
-    provider_keys = [item[1] for item in calls if item[0] == 'provider']
-    assert 'fred:SP500' in provider_keys
-    assert 'rss:fed' in provider_keys
-    scoped_users = {item[1] for item in calls if item[0] in {'workstation', 'dashboard'}}
-    assert scoped_users == {'user-demo'}
+	refresh_job_id = create_job('refresh_demo_market_state', {'source': 'test', 'userId': 'user-demo'}, run_now=False)
+	worker.run_job(refresh_job_id)
+	refresh_done = fetch_one('select status, started_at, finished_at from ingestion_jobs where id = %s', (refresh_job_id,))
+	assert refresh_done['status'] == 'completed'
+	assert refresh_done['started_at'] is not None
+	assert refresh_done['finished_at'] is not None
+	provider_keys = [item[1] for item in calls if item[0] == 'provider']
+	assert 'fred:SP500' in provider_keys
+	assert 'rss:fed' in provider_keys
+	assert not [item for item in calls if item[0] == 'workstation']
+	assert ('dashboard', 'user-demo', True) in calls
 
-    calls.clear()
-    recompute_job_id = create_job('recompute_market_bias', {'source': 'test', 'userId': 'user-demo'}, run_now=False)
-    worker.run_job(recompute_job_id)
-    recompute_done = fetch_one('select status from ingestion_jobs where id = %s', (recompute_job_id,))
-    assert recompute_done['status'] == 'completed'
-    assert not [item for item in calls if item[0] == 'provider']
-    assert ('workstation', 'user-demo', True) in calls
-    assert ('dashboard', 'user-demo', True) in calls
+	calls.clear()
+	recompute_job_id = create_job('recompute_market_bias', {'source': 'test', 'userId': 'user-demo'}, run_now=False)
+	worker.run_job(recompute_job_id)
+	recompute_done = fetch_one('select status from ingestion_jobs where id = %s', (recompute_job_id,))
+	assert recompute_done['status'] == 'completed'
+	assert not [item for item in calls if item[0] == 'provider']
+	assert ('workstation', 'user-demo', True) in calls
+	assert ('dashboard', 'user-demo', True) in calls
 
 def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
  reset_demo()

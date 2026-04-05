@@ -6,11 +6,11 @@ from psycopg.rows import dict_row
 
 from .settings import settings
 
-MIGRATIONS_DIR = Path(__file__).resolve().parent / "sql"
+MIGRATIONS_DIR = Path(__file__).resolve().parent / 'sql'
 
 @contextmanager
 def get_connection():
-    conn = psycopg.connect(settings.database_url, row_factory=dict_row)
+    conn = psycopg.connect(settings.database_url, row_factory=dict_row, connect_timeout=settings.database_connect_timeout_seconds)
     try:
         yield conn
         conn.commit()
@@ -23,14 +23,14 @@ def get_connection():
 def apply_migrations():
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("create table if not exists schema_migrations (version text primary key, applied_at timestamptz not null default now())")
-            for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            cur.execute('create table if not exists schema_migrations (version text primary key, applied_at timestamptz not null default now())')
+            for path in sorted(MIGRATIONS_DIR.glob('*.sql')):
                 version = path.name
-                cur.execute("select version from schema_migrations where version = %s", (version,))
+                cur.execute('select version from schema_migrations where version = %s', (version,))
                 if cur.fetchone():
                     continue
-                cur.execute(path.read_text(encoding="utf-8"))
-                cur.execute("insert into schema_migrations (version) values (%s)", (version,))
+                cur.execute(path.read_text(encoding='utf-8'))
+                cur.execute('insert into schema_migrations (version) values (%s)', (version,))
 
 def fetch_all(query, params=None):
     with get_connection() as conn:
@@ -48,5 +48,3 @@ def execute(query, params=None):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(query, params or ())
-
-
