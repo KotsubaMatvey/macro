@@ -144,24 +144,6 @@ def _liquidity_input_value(symbol, value):
 		return format(value, '.2f')
 	return _format_price(symbol, value)
 
-def _liquidity_inputs(series_map):
-	if not {'WALCL', 'US2Y', 'FEDFUNDS', 'DXY', 'NFCI'}.issubset(series_map.keys()):
-		return []
-	values = {
-		'WALCL': _values(series_map['WALCL']),
-		'US2Y': _values(series_map['US2Y']),
-		'FEDFUNDS': _values(series_map['FEDFUNDS']),
-		'DXY': _values(series_map['DXY']),
-		'NFCI': _values(series_map['NFCI']),
-	}
-	return [
-		{'label': 'Balance sheet', 'value': _liquidity_input_value('WALCL', values['WALCL'][-1]), 'detail': format(_pct_change(values['WALCL'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['WALCL'], 8) >= 0 else 'Restrictive'},
-		{'label': 'US 2Y', 'value': _liquidity_input_value('US2Y', values['US2Y'][-1]), 'detail': format(_abs_change(values['US2Y'], 20), '+.2f') + ' / 20d', 'tone': 'Supportive' if _abs_change(values['US2Y'], 20) <= 0 else 'Restrictive'},
-		{'label': 'Fed funds', 'value': _liquidity_input_value('FEDFUNDS', values['FEDFUNDS'][-1]), 'detail': format(_abs_change(values['FEDFUNDS'], 20), '+.2f') + ' / 20d', 'tone': 'Neutral'},
-		{'label': 'Dollar', 'value': _liquidity_input_value('DXY', values['DXY'][-1]), 'detail': format(_pct_change(values['DXY'], 20), '+.2f') + '% / 20d', 'tone': 'Restrictive' if _pct_change(values['DXY'], 20) >= 0 else 'Supportive'},
-		{'label': 'NFCI', 'value': _liquidity_input_value('NFCI', values['NFCI'][-1]), 'detail': format(_abs_change(values['NFCI'], 8), '+.2f') + ' / 8w', 'tone': 'Supportive' if _abs_change(values['NFCI'], 8) <= 0 else 'Restrictive'},
-	]
-
 def _source_meta(label, source, source_url='', payload=None, mode='live', note=''):
 	fetched_at = utc_now().isoformat()
 	last_updated = None
@@ -190,10 +172,6 @@ def _source_meta(label, source, source_url='', payload=None, mode='live', note='
 		'mode': mode,
 		'note': note,
 	}
-
-def _load_series(symbol):
-	config = SERIES[symbol]
-	return load_fred_series(config['seriesId'], config['sourceUrl'])
 
 def _load_live_news():
 	items = []
@@ -237,42 +215,6 @@ def _edge_symbols(user_id):
 		if symbol not in symbols:
 			symbols.append(symbol)
 	return symbols[:7]
-
-def _build_asset_view(symbol, series_payload, regime_context):
-	values = _values(series_payload)
-	change_1d = _pct_change(values, 1)
-	change_30d = _pct_change(values, 20)
-	expected_move = _expected_move(values)
-	buckets = _scenario_buckets(values)
-	confidence = _confidence(change_30d, expected_move)
-	return {
-		'symbol': symbol,
-		'title': SERIES[symbol]['title'],
-		'subtitle': 'Source-derived price and model-derived edge estimate',
-		'sourceSymbol': SERIES[symbol]['seriesId'],
-		'price': _format_price(symbol, values[-1]),
-		'change1dPct': round(change_1d, 2),
-		'change30dPct': round(change_30d, 2),
-		'expectedMove5dPct': round(expected_move, 2),
-		'stance': _stance(change_30d, expected_move),
-		'skew': _skew_label(buckets),
-		'confidence': round(confidence, 2),
-		'sampleCount': len(_window_returns(values, 5)),
-		'regimeContext': regime_context,
-		'sourceFacts': [
-			'1d move ' + format(change_1d, '.2f') + '%',
-			'30d move ' + format(change_30d, '.2f') + '%',
-			'Last print ' + _format_price(symbol, values[-1]),
-		],
-		'modelFacts': [
-			'Expected 5d move ' + format(expected_move, '.2f') + '%',
-			'Confidence ' + str(int(confidence * 100)) + '%',
-			'Distribution skew ' + _skew_label(buckets),
-		],
-		'scenarioBuckets': buckets,
-		'sparkline': _sparkline(series_payload),
-		'freshness': _source_meta('Price tape', 'FRED', SERIES[symbol]['sourceUrl'], series_payload, 'live', 'Official public series'),
-	}
 
 def _risk_score(series_map, offset=0):
 	score = 0.0
@@ -596,18 +538,8 @@ def _build_dashboard_payload(user):
 	cache_live_dashboard(user['id'], payload)
 	return payload
 
-def dashboard_payload(user, prefer_cache=False, force_refresh=False):
-	if prefer_cache and not force_refresh:
-		cached = read_live_dashboard_cache(user['id'])
-		if cached and cached.get('payload'):
-			return cached['payload']
-	return _build_dashboard_payload(user)
-
-
- 
- 
 from .market_data import MARKET_INSTRUMENTS, load_market_series 
-from .services import market_bias_payload as _market_bias_payload_service, track_record_payload as _track_record_payload_service 
+from .insights_service import build_market_bias_payload, build_track_record_payload 
  
 SERIES.update({ 
     'RRPONTSYD': {'seriesId': 'RRPONTSYD', 'title': 'ON RRP', 'sourceUrl': 'https://fred.stlouisfed.org/series/RRPONTSYD'}, 
@@ -669,7 +601,7 @@ def _liquidity_inputs(series_map):
     ]
  
 def _dashboard_track_record(): 
-    payload = _track_record_payload_service() 
+    payload = build_track_record_payload() 
     return {'status': 'Replay only', 'evaluationMode': 'replay', 'sampleSize': payload['sampleSize'], 'hitRate': payload['hitRate'], 'magnitudeErrorPct': payload['magnitudeErrorPct'], 'note': payload['note'], 'records': [{'symbol': item['symbol'], 'asOf': item['asOf'], 'stance': item['stance'], 'expectedMove5dPct': item['expectedMove5dPct'], 'realizedMove5dPct': item['realizedMove5dPct'], 'outcome': item['outcome'], 'linkedEventTitle': None, 'linkedEventHref': None} for item in payload['recentRecords'][:6]], 'freshness': payload['freshness']} 
  
 def dashboard_payload(user, prefer_cache=False, force_refresh=False): 
@@ -678,7 +610,7 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
         if cached and cached.get('payload'): 
             return cached['payload'] 
     payload = _build_dashboard_payload(user) 
-    bias_payload = _market_bias_payload_service() 
+    bias_payload = build_market_bias_payload() 
     consensus_assets = [{'symbol': item['symbol'], 'direction': item['direction'], 'score': item['score'], 'confidence': item['confidence'], 'change30dPct': item['change30d'], 'note': item['note']} for item in bias_payload['assets'][:6]] 
     payload['marketConsensus'] = {'label': bias_payload['summary']['label'], 'score': round(sum((item['score'] - 50.0) for item in consensus_assets) / max(len(consensus_assets), 1), 2), 'trend30d': payload['marketConsensus']['trend30d'], 'confidence': bias_payload['summary']['confidence'], 'sampleSize': len(consensus_assets), 'note': bias_payload['summary']['note'], 'href': '/app/market-bias', 'assets': consensus_assets, 'freshness': bias_payload['summary']['freshness']} 
     payload['trackRecord'] = _dashboard_track_record() 
@@ -694,3 +626,6 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
     payload['utility']['providers'] = providers 
     cache_live_dashboard(user['id'], payload) 
     return payload 
+
+_market_bias_payload_service = build_market_bias_payload
+_track_record_payload_service = build_track_record_payload

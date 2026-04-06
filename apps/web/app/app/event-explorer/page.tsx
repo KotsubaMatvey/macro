@@ -12,7 +12,7 @@ interface ExplorerSearchParams {
 }
 
 interface EventExplorerPageProps {
- searchParams?: ExplorerSearchParams
+ searchParams?: any
 }
 
 interface FamilySummary {

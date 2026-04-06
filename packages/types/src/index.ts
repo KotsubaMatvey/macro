@@ -82,6 +82,8 @@ export interface EventRelease {
  surprise?: number;
  whyItMatters: string;
  relatedAssets: string[];
+ freshness?: SourceMetadata;
+ providerEventId?: string;
 }
 
 export interface ImpactWindow {

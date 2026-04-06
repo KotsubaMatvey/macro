@@ -1,139 +1,198 @@
-import Link from "next/link"
-import { createElement as h } from "react"
-import type { ReactNode } from "react"
-import type { EventRelease, Watchlist } from "@macroaccess/types"
+import Link from 'next/link'
+import { createElement as h } from 'react'
+import type { ReactNode } from 'react'
+import type { EventRelease, Watchlist } from '@macroaccess/types'
 
-import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
-import { getEvents, getWorkstation } from "@/lib/server/api"
+import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { getEvents, getWorkstation } from '@/lib/server/api'
 
-type CalendarImpactFilter = "" | "High" | "Medium" | "Low"
-
-interface CalendarSearchParams {
- impact?: string | string[]
- currency?: string | string[]
- status?: string | string[]
- search?: string | string[]
-}
+type CalendarImpactFilter = string
 
 interface CalendarFilters {
  impact: CalendarImpactFilter
  currency: string
  status: string
+ region: string
+ category: string
+ family: string
  search: string
 }
 
 interface MacroCalendarPageProps {
- searchParams?: Promise<CalendarSearchParams | undefined>
+ searchParams?: any
 }
 
 function verdict(item: EventRelease) {
- if (item.actual === undefined) return "Pending"
- if (item.forecast === undefined) return "Pending"
+ if (item.actual === undefined) return 'Pending'
+ if (item.forecast === undefined) return 'Pending'
  if (item.surprise !== undefined) {
- const surpriseDirection = Math.sign(item.surprise)
- if (surpriseDirection === -1) return "Miss"
- if (surpriseDirection === 0) return "Inline"
- return "Beat"
+  const surpriseDirection = Math.sign(item.surprise)
+  if (surpriseDirection === -1) return 'Miss'
+  if (surpriseDirection === 0) return 'Inline'
+  return 'Beat'
  }
  const printDirection = Math.sign(item.actual - item.forecast)
- if (printDirection === -1) return "Miss"
- if (printDirection === 0) return "Inline"
- return "Beat"
+ if (printDirection === -1) return 'Miss'
+ if (printDirection === 0) return 'Inline'
+ return 'Beat'
 }
 
 function timeLabel(value: string) {
- return value.replace("T", " ").slice(0, 16)
+ return value.replace('T', ' ').slice(0, 16)
 }
 
-function canonicalImpact(value: string): CalendarImpactFilter {
- if (value.trim().toLowerCase() === "high") return "High"
- if (["medium", "med"].includes(value.trim().toLowerCase())) return "Medium"
- if (value.trim().toLowerCase() === "low") return "Low"
- return ""
+function canonicalImpact(value: string) {
+ if (value.trim().toLowerCase() === 'high') return 'High'
+ if (['medium', 'med'].includes(value.trim().toLowerCase())) return 'Medium'
+ if (value.trim().toLowerCase() === 'low') return 'Low'
+ return ''
 }
 
-function compactImpactLabel(value: CalendarImpactFilter) {
- return value === "Medium" ? "Med" : value
+function compactImpactLabel(value: string) {
+ return canonicalImpact(value) === 'Medium' ? 'Med' : canonicalImpact(value)
 }
 
-function readParam(value: unknown) {
+function readParam(value: any) {
  if (Array.isArray(value)) return value[0]
- if (typeof value === "string") return value
- return ""
+ if (typeof value === 'string') return value
+ return ''
+}
+
+function eventMode(item: EventRelease) {
+ return item.freshness ? item.freshness.mode : 'fallback'
+}
+
+function eventSource(item: EventRelease) {
+ return item.freshness ? item.freshness.source : 'Unknown source'
+}
+
+function eventFreshness(item: EventRelease) {
+ return item.freshness ? item.freshness.freshness : 'degraded'
+}
+
+function calendarHref(filters: CalendarFilters, overrides: { [key: string]: string }) {
+ const next = { impact: filters.impact, currency: filters.currency, status: filters.status, region: filters.region, category: filters.category, family: filters.family, search: filters.search, ...overrides }
+ const params = new URLSearchParams()
+ if (next.impact) params.set('impact', next.impact)
+ if (next.currency) params.set('currency', next.currency)
+ if (next.status) params.set('status', next.status)
+ if (next.region) params.set('region', next.region)
+ if (next.category) params.set('category', next.category)
+ if (next.family) params.set('family', next.family)
+ if (next.search) params.set('search', next.search)
+ const query = params.toString()
+ return query ? '/app/macro-calendar?' + query : '/app/macro-calendar'
 }
 
 function filterEvents(events: EventRelease[], filters: CalendarFilters) {
  return events.filter(function (item: EventRelease) {
- if (filters.impact) {
- if (canonicalImpact(item.impact) !== filters.impact) return false
- }
- if (filters.currency) {
- if (item.currency !== filters.currency) return false
- }
- if (filters.status) {
- if (item.status !== filters.status) return false
- }
- if (filters.search) {
- const needle = filters.search.toLowerCase()
- const text = [item.title, item.family, item.country, item.category].join(" ").toLowerCase()
- if (!text.includes(needle)) return false
- }
- return true
+  if (filters.search) {
+   const needle = filters.search.toLowerCase()
+   const text = [item.title, item.family, item.country, item.category].join(' ').toLowerCase()
+   if (!text.includes(needle)) return false
+  }
+  return true
  })
 }
+
+function applyCalendarFilters(events: EventRelease[], filters: CalendarFilters) {
+ const seeded = filterEvents(events, filters)
+ return seeded.filter(function (item: EventRelease) {
+  if (filters.impact) {
+   if (canonicalImpact(item.impact) !== filters.impact) return false
+  }
+  if (filters.currency) {
+   if (item.currency !== filters.currency) return false
+  }
+  if (filters.status) {
+   if (item.status !== filters.status) return false
+  }
+  if (filters.region) {
+   if (item.country !== filters.region) {
+    if (item.currency !== filters.region) return false
+   }
+  }
+  if (filters.category) {
+   if (item.category !== filters.category) return false
+  }
+  if (filters.family) {
+   if (item.family !== filters.family) return false
+  }
+  return true
+ })
+}
+
 export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  const events = await getEvents()
  const payload = await getWorkstation()
  const searchParams = props.searchParams ? await props.searchParams : undefined
  const filters: CalendarFilters = {
- impact: canonicalImpact(readParam(searchParams ? searchParams.impact : undefined)),
- currency: readParam(searchParams ? searchParams.currency : undefined),
- status: readParam(searchParams ? searchParams.status : undefined),
- search: readParam(searchParams ? searchParams.search : undefined),
+  impact: canonicalImpact(readParam(searchParams ? searchParams.impact : undefined)),
+  currency: readParam(searchParams ? searchParams.currency : undefined),
+  status: readParam(searchParams ? searchParams.status : undefined),
+  region: readParam(searchParams ? searchParams.region : undefined),
+  category: readParam(searchParams ? searchParams.category : undefined),
+  family: readParam(searchParams ? searchParams.family : undefined),
+  search: readParam(searchParams ? searchParams.search : undefined),
  }
- const filtered = filterEvents(events, filters)
+ const filtered = applyCalendarFilters(events, filters)
  const watchSymbols = Array.from(new Set((payload.watchlists ? payload.watchlists : []).flatMap(function (list: Watchlist) { return list.items.map(function (item) { return item.symbol }) })))
- const currencies = Array.from(new Set(events.map(function (item: EventRelease) { return item.currency })))
+ const currencies = Array.from(new Set(events.map(function (item: EventRelease) { return item.currency }))).slice(0, 6)
+ const regions = Array.from(new Set(events.map(function (item: EventRelease) { return item.country }))).slice(0, 6)
+ const categories = Array.from(new Set(events.map(function (item: EventRelease) { return item.category }))).slice(0, 6)
+ const families = Array.from(new Set(events.map(function (item: EventRelease) { return item.family }))).slice(0, 6)
+ const liveRows = filtered.filter(function (item: EventRelease) { return eventMode(item) === 'live' }).length
+ const fallbackRows = filtered.length - liveRows
+ const sourceLabels = Array.from(new Set(filtered.map(function (item: EventRelease) { return eventSource(item) }))).slice(0, 4)
  const metrics = [
- { label: "Tracked releases", value: String(events.length), note: "Calendar rows across the demo tape" },
- { label: "Filtered rows", value: String(filtered.length), note: "Rows matching the current control deck" },
- { label: "High impact", value: String(events.filter(function (item: EventRelease) { return canonicalImpact(item.impact) === "High" }).length), note: "Catalysts worth pre-positioning" },
- { label: "Watch context", value: String(watchSymbols.length), note: "Symbols already tracked by watchlists" },
+  { label: 'Tracked releases', value: String(events.length), note: 'Calendar rows loaded into the standalone tape' },
+  { label: 'Filtered rows', value: String(filtered.length), note: 'Rows matching the current standalone control deck' },
+  { label: 'Live rows', value: String(liveRows), note: 'Rows backed by a live provider in the current view' },
+  { label: 'Fallback rows', value: String(fallbackRows), note: 'Demo or fallback rows still visible in the tape' },
  ]
  const rows: ReactNode[][] = filtered.map(function (item: EventRelease) {
- const watchedAssets = item.relatedAssets.filter(function (asset) { return watchSymbols.includes(asset) })
- return [timeLabel(item.scheduledAt), item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.country + " / " + item.category }), item.actual !== undefined ? String(item.actual) : "-", item.forecast !== undefined ? String(item.forecast) : "-", item.previous !== undefined ? String(item.previous) : "-", verdict(item), watchedAssets.length !== 0 ? watchedAssets.join(", ") : "Open"]
+  const watchedAssets = item.relatedAssets.filter(function (asset) { return watchSymbols.includes(asset) })
+  return [timeLabel(item.scheduledAt), item.country + ' / ' + item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.category + ' / ' + eventMode(item) + ' / ' + eventFreshness(item) }, item.title), compactImpactLabel(item.impact), item.status, item.actual !== undefined ? String(item.actual) : '-', item.forecast !== undefined ? String(item.forecast) : '-', verdict(item), eventSource(item), watchedAssets.length !== 0 ? watchedAssets.join(', ') : 'Open']
  })
- const highImpact = events.filter(function (item: EventRelease) { return canonicalImpact(item.impact) === "High" }).slice(0, 6)
- const workflowRows: ReactNode[][] = [
- [h(Link, { href: "/app/alerts", className: "text-sky-300 transition hover:text-sky-200" }, "Open alerts"), "Turn the filtered board into scheduled reminders before the print."],
- [h(Link, { href: "/app/watchlists", className: "text-sky-300 transition hover:text-sky-200" }, "Open watchlists"), "Use tracked baskets to focus on the rows that already matter to the desk."],
- [h(Link, { href: "/app/event-explorer", className: "text-sky-300 transition hover:text-sky-200" }, "Open event explorer"), "Move from one row into family-level archive and surprise context."],
+ const sourceRows: ReactNode[][] = [
+  ['Calendar mode', liveRows !== 0 ? fallbackRows !== 0 ? 'mixed' : 'live' : 'fallback'],
+  ['Source labels', sourceLabels.length !== 0 ? sourceLabels.join(', ') : 'No rows in view'],
+  ['Filter scope', filters.region ? filters.region : filters.category ? filters.category : filters.family ? filters.family : 'All regions / categories / families'],
  ]
- return h(PageShell, { title: "Macro Calendar", subtitle: "Dense event board with direct routing into the dynamic event detail surface.", active: "macro-calendar" }, h("div", { className: "space-y-5" }, [
- h(MetricGrid, { key: "metrics", items: metrics }),
- h(Panel, { key: "controls", title: "Control deck", subtitle: "Filter the tape by impact, currency, and event state without leaving the board." }, [
- h("div", { key: "toolbar", className: "ws-toolbar" }, [
- h(Link, { key: "today", href: "/app/macro-calendar", className: "ws-toolbar-chip" }, "Today"),
- h(Link, { key: "high", href: "/app/macro-calendar?impact=High", className: "ws-toolbar-chip" }, "High impact"),
- h(Link, { key: "upcoming", href: "/app/macro-calendar?status=Upcoming", className: "ws-toolbar-chip" }, "Upcoming"),
- currencies.slice(0, 6).map(function (currency: string) { return h(Link, { key: currency, href: "/app/macro-calendar?currency=" + currency, className: "ws-toolbar-chip" }, currency) }),
- ]),
- h("div", { key: "status", className: "mt-4 flex flex-wrap gap-2" }, [
- h(Badge, { key: "impact" }, filters.impact ? compactImpactLabel(filters.impact) : "All impact"),
- h(Badge, { key: "currency" }, filters.currency ? filters.currency : "All currencies"),
- h(Badge, { key: "status" }, filters.status ? filters.status : "All states"),
- ]),
- ]),
- h("div", { key: "grid", className: "ws-two-panel" }, [
- h("div", { key: "left", className: "space-y-5" }, [
- h(Panel, { key: "tape", title: "Calendar tape", subtitle: "Compact event board for release timing, values, verdict, and watch focus." }, h(DataTable, { headers: ["Time", "CCY", "Event", "Actual", "Forecast", "Previous", "Verdict", "Watch"], rows: rows.length !== 0 ? rows : [["-", "-", "No events match the current filters", "-", "-", "-", "-", "-"]], numericColumns: [3, 4, 5], dense: true, stickyHeader: true, ariaLabel: "Standalone macro calendar" })),
- ]),
- h("div", { key: "right", className: "space-y-5" }, [
- h(Panel, { key: "focus", title: "Desk focus", subtitle: "Quick read on the current filter state and watch overlap." }, h(KeyValueList, { items: [{ label: "Rows visible", value: String(filtered.length) }, { label: "Tracked symbols", value: String(watchSymbols.length) }, { label: "High impact rows", value: String(highImpact.length), tone: "High" }, { label: "Search", value: filters.search ? filters.search : "No search" }] })),
- h(Panel, { key: "high-board", title: "High impact board", subtitle: "The events most likely to set the tone for the session." }, highImpact.length !== 0 ? h("div", { className: "grid gap-3" }, highImpact.map(function (item: EventRelease) { return h(EventLink, { key: item.id, eventId: item.id, slug: item.slug, title: item.title, meta: item.status + " / " + timeLabel(item.scheduledAt) }) })) : h("div", { className: "text-sm text-slate-500" }, "No high-impact releases loaded.")),
- h(Panel, { key: "workflow", title: "Workflow use", subtitle: "Natural next steps after filtering the board." }, h(DataTable, { headers: ["Module", "Use"], rows: workflowRows, dense: true })),
- ]),
- ]),
+ const familyRows: ReactNode[][] = families.map(function (family) { return [h(Link, { href: calendarHref(filters, { family: family }), className: 'text-sky-300 transition hover:text-sky-200' }, family), String(events.filter(function (item: EventRelease) { return item.family === family }).length)] })
+ const highImpact = applyCalendarFilters(events, { impact: 'High', currency: filters.currency, status: filters.status, region: filters.region, category: filters.category, family: filters.family, search: filters.search }).slice(0, 6)
+ const workflowRows: ReactNode[][] = [
+  [h(Link, { href: '/app/alerts', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open alerts'), 'Turn the filtered board into scheduled reminders before the print.'],
+  [h(Link, { href: '/app/watchlists', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open watchlists'), 'Use tracked baskets to focus on the rows that already matter to the desk.'],
+  [h(Link, { href: '/app/event-explorer', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open event explorer'), 'Move from one row into family-level archive and surprise context.'],
+ ]
+ const sourceNote = filtered[0] ? filtered[0].freshness ? filtered[0].freshness.note : 'Source note unavailable' : 'Source note unavailable'
+ sourceRows.push(['Source note', sourceNote])
+ return h(PageShell, { title: 'Macro Calendar', subtitle: 'Standalone terminal calendar with dashboard-grade filters, direct routing, and explicit source honesty.', active: 'macro-calendar', mode: liveRows !== 0 ? 'live' : 'fallback' }, h('div', { className: 'space-y-5' }, [
+  h(MetricGrid, { key: 'metrics', items: metrics }),
+  h(Panel, { key: 'controls', title: 'Control deck', subtitle: 'Filter the tape by impact, currency, region, category, and family without leaving the board.' }, [
+   h('div', { key: 'toolbar', className: 'ws-toolbar' }, [
+    h(Link, { key: 'reset', href: calendarHref(filters, { impact: '', currency: '', status: '', region: '', category: '', family: '', search: filters.search }), className: 'ws-toolbar-chip' }, 'Reset'),
+    h(Link, { key: 'high', href: calendarHref(filters, { impact: 'High' }), className: 'ws-toolbar-chip' }, 'High impact'),
+    h(Link, { key: 'upcoming', href: calendarHref(filters, { status: 'Upcoming' }), className: 'ws-toolbar-chip' }, 'Upcoming'),
+    currencies.map(function (currency: string) { return h(Link, { key: currency, href: calendarHref(filters, { currency: currency }), className: 'ws-toolbar-chip' }, currency) }),
+   ]),
+   h('div', { key: 'regions', className: 'ws-toolbar mt-3' }, [h(Link, { key: 'all-regions', href: calendarHref(filters, { region: '' }), className: 'ws-toolbar-chip' }, 'All regions'), regions.map(function (region: string) { return h(Link, { key: region, href: calendarHref(filters, { region: region }), className: 'ws-toolbar-chip' }, region) })]),
+   h('div', { key: 'categories', className: 'ws-toolbar mt-3' }, [h(Link, { key: 'all-categories', href: calendarHref(filters, { category: '' }), className: 'ws-toolbar-chip' }, 'All categories'), categories.map(function (category: string) { return h(Link, { key: category, href: calendarHref(filters, { category: category }), className: 'ws-toolbar-chip' }, category) })]),
+   h('div', { key: 'families', className: 'ws-toolbar mt-3' }, [h(Link, { key: 'all-families', href: calendarHref(filters, { family: '' }), className: 'ws-toolbar-chip' }, 'All families'), families.map(function (family: string) { return h(Link, { key: family, href: calendarHref(filters, { family: family }), className: 'ws-toolbar-chip' }, family) })]),
+   h('div', { key: 'status', className: 'mt-4 flex flex-wrap gap-2' }, [h(Badge, { key: 'impact' }, filters.impact ? compactImpactLabel(filters.impact) : 'All impact'), h(Badge, { key: 'currency' }, filters.currency ? filters.currency : 'All currencies'), h(Badge, { key: 'status' }, filters.status ? filters.status : 'All states'), h(Badge, { key: 'region' }, filters.region ? filters.region : 'All regions'), h(Badge, { key: 'category' }, filters.category ? filters.category : 'All categories'), h(Badge, { key: 'family' }, filters.family ? filters.family : 'All families')]),
+  ]),
+  h('div', { key: 'grid', className: 'ws-two-panel' }, [
+   h('div', { key: 'left', className: 'space-y-5' }, [
+    h(Panel, { key: 'tape', title: 'Calendar tape', subtitle: 'Dense release board with impact, source, freshness, and watch overlap.' }, h(DataTable, { headers: ['Time', 'Region', 'Event', 'Impact', 'Status', 'Actual', 'Forecast', 'Verdict', 'Source', 'Watch'], rows: rows.length !== 0 ? rows : [['-', '-', 'No events match the current filters', '-', '-', '-', '-', '-', '-', '-']], numericColumns: [5, 6], dense: true, stickyHeader: true, ariaLabel: 'Standalone macro calendar' })),
+   ]),
+   h('div', { key: 'right', className: 'space-y-5' }, [
+    h(Panel, { key: 'focus', title: 'Desk focus', subtitle: 'Quick read on the current filter state and watch overlap.' }, h(KeyValueList, { items: [{ label: 'Rows visible', value: String(filtered.length) }, { label: 'Tracked symbols', value: String(watchSymbols.length) }, { label: 'Live rows', value: String(liveRows) }, { label: 'Fallback rows', value: String(fallbackRows) }, { label: 'Search', value: filters.search ? filters.search : 'No search' }] })),
+    h(Panel, { key: 'source', title: 'Source / freshness', subtitle: 'Standalone calendar now exposes the same live and fallback honesty as the dashboard board.' }, h(DataTable, { headers: ['Field', 'Value'], rows: sourceRows, dense: true })),
+    h(Panel, { key: 'families', title: 'Family board', subtitle: 'Event families with direct pivots into the current tape.' }, h(DataTable, { headers: ['Family', 'Rows'], rows: familyRows.length !== 0 ? familyRows : [['No families', '0']], dense: true })),
+    h(Panel, { key: 'high-board', title: 'High impact board', subtitle: 'The releases most likely to set the tone for the session.' }, highImpact.length !== 0 ? h('div', { className: 'grid gap-3' }, highImpact.map(function (item: EventRelease) { return h(EventLink, { key: item.id, eventId: item.id, slug: item.slug, title: item.title, meta: item.status + ' / ' + timeLabel(item.scheduledAt) }) })) : h('div', { className: 'text-sm text-slate-500' }, 'No high-impact releases loaded.')),
+    h(Panel, { key: 'workflow', title: 'Workflow use', subtitle: 'Natural next steps after filtering the board.' }, h(DataTable, { headers: ['Module', 'Use'], rows: workflowRows, dense: true })),
+   ]),
+  ]),
  ]))
 }

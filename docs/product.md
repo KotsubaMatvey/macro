@@ -4,7 +4,7 @@
 Macro Access is a dark, desk-oriented macro intelligence workstation for event-driven operators.
 
 ## Current runtime
-- Provider-backed today: dashboard market tape from FRED public series and official RSS feeds when reachable
+- Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with FRED fallback proxies, plus official RSS feeds when reachable
 - Seeded today: auth/demo accounts, macro calendar/events, briefings, watchlists, alerts, community, and admin workflows
 - Replay today: track record is a retrospective model replay, not a live audited blotter
 
@@ -29,4 +29,4 @@ Macro Access is a dark, desk-oriented macro intelligence workstation for event-d
 ## Integrity rules
 - Do not imply live coverage when the adapter falls back.
 - Do not imply audited live track record when the product is showing replay analytics.
-- Do not let optional LLM narrative override numeric source-backed sections in reports.
+- Do not let report prose drift beyond the structured source-backed sections that generated it.

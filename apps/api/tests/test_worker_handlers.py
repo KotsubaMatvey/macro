@@ -18,7 +18,7 @@ def demo_user():
     return {'id': 'user-demo', 'email': 'demo@macroaccess.local', 'name': 'Demo', 'role': 'user', 'onboardingCompleted': True, 'emailVerified': True}
 
 
-def test_refresh_demo_market_state_invalidates_provider_payloads_and_only_refreshes_live_dashboard(monkeypatch):
+def test_refresh_demo_market_state_invalidates_provider_payloads_and_refreshes_workstation_and_live_dashboard(monkeypatch):
     worker = load_worker_module()
     calls = []
 
@@ -28,7 +28,7 @@ def test_refresh_demo_market_state_invalidates_provider_payloads_and_only_refres
 
     worker._refresh_demo_market_state('refresh_demo_market_state', {'userId': 'user-demo'})
 
-    assert calls == [('invalidate',), ('refresh', ['user-demo'], False, True)]
+    assert calls == [('invalidate',), ('refresh', ['user-demo'], True, True)]
 
 
 def test_refresh_dashboard_cache_job_only_rebuilds_live_dashboard(monkeypatch):
