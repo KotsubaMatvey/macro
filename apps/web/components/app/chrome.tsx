@@ -43,6 +43,8 @@ interface PageShellProps {
  active: string
  children?: Child
  mode?: 'live' | 'demo' | 'fallback' | 'mixed'
+ hideTopbar?: boolean
+ contentClassName?: string
 }
 
 function badgeClass(accent?: boolean) {
@@ -141,9 +143,20 @@ function navShortCode(slug: string) {
  if (slug === 'market-bias') return 'BIAS'
  if (slug === 'advanced-charts') return 'CH'
  if (slug === 'education') return 'EDU'
+ if (slug === 'geoboard') return 'GEO'
  if (slug === 'settings') return 'SET'
  if (slug === 'admin') return 'ADM'
  return slug.slice(0, 3).toUpperCase()
+}
+
+function navGlyph(icon?: string) {
+ if (icon !== 'globe') return null
+ return h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', className: 'h-3.5 w-3.5' }, [
+ h('circle', { key: 'ring', cx: 12, cy: 12, r: 8.5 }),
+ h('path', { key: 'lat', d: 'M3.5 12h17' }),
+ h('path', { key: 'lon-a', d: 'M12 3.5c2.6 2.6 4.1 5.4 4.1 8.5S14.6 17.9 12 20.5' }),
+ h('path', { key: 'lon-b', d: 'M12 3.5c-2.6 2.6-4.1 5.4-4.1 8.5s1.5 5.9 4.1 8.5' }),
+ ])
 }
 
 export async function PageShell(props: PageShellProps) {
@@ -175,7 +188,7 @@ export async function PageShell(props: PageShellProps) {
     const active = directActive || sectionHasActiveChild(item, props.active)
     return h('div', { key: item.slug, className: 'grid gap-1' }, [
      h(Link, { href: '/app/' + item.slug, 'aria-current': directActive ? 'page' : undefined, className: cx('group flex items-center gap-3 rounded-[10px] px-3 py-2 text-[11px] leading-5 transition', active ? 'bg-white/[0.05] text-white shadow-[inset_2px_0_0_rgba(77,171,247,0.72)]' : 'text-slate-400 hover:bg-white/[0.025] hover:text-slate-100') }, [
-      h('span', { key: 'icon', className: cx('inline-flex min-w-[34px] items-center justify-center rounded-[8px] border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.16em]', active ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/[0.06] bg-white/[0.015] text-slate-500 group-hover:border-white/[0.12] group-hover:text-slate-200') }, navShortCode(item.slug)),
+      h('span', { key: 'icon', className: cx('inline-flex min-w-[34px] items-center justify-center rounded-[8px] border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.16em]', active ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/[0.06] bg-white/[0.015] text-slate-500 group-hover:border-white/[0.12] group-hover:text-slate-200') }, item.icon ? navGlyph(item.icon) : navShortCode(item.slug)),
       h('span', { key: 'title', className: 'truncate font-medium' }, item.title),
      ]),
      active && item.children && item.children.length !== 0 ? h('div', { key: 'submenu', className: 'ml-7 grid gap-0.5 border-l border-white/[0.06] pl-3' }, item.children.map(function (child) {
@@ -203,8 +216,8 @@ export async function PageShell(props: PageShellProps) {
     ]),
    ]),
   ])),
-  h('div', { key: 'content', className: 'min-w-0 px-4 py-4 md:px-5 xl:px-6' }, [
-   h('div', { key: 'topbar', className: 'mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] pb-3' }, [
+  h('div', { key: 'content', className: cx('min-w-0 px-4 py-4 md:px-5 xl:px-6', props.contentClassName) }, [
+   !props.hideTopbar ? h('div', { key: 'topbar', className: 'mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] pb-3' }, [
     h('div', { key: 'copy', className: 'min-w-0' }, [
      h('div', { key: 'eyebrow', className: 'text-[8px] font-semibold uppercase tracking-[0.24em] text-slate-500' }, 'Macro desk'),
      h('h1', { key: 'title', className: 'mt-0.5 text-[22px] font-semibold tracking-tight text-white' }, props.title),
@@ -214,7 +227,7 @@ export async function PageShell(props: PageShellProps) {
      h(Badge, { key: 'role' }, session.role),
      h(Badge, { key: 'mode', accent: mode === 'live' }, mode),
     ]),
-   ]),
+ ]) : null,
    props.children ? props.children : null,
   ]),
  ]))

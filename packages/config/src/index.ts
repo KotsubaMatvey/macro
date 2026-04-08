@@ -45,6 +45,12 @@ export const APP_SECTIONS: NavSection[] = [
  ],
  },
  {
+ slug: 'geoboard',
+ title: 'GEOBOARD',
+ description: 'Global macro AOR',
+ icon: 'globe',
+ },
+ {
  slug: 'settings',
  title: 'Settings',
  description: 'Profile and billing',

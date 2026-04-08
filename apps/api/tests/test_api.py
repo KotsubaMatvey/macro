@@ -222,3 +222,23 @@ def test_dashboard_endpoint_surfaces_live_and_fallback_metadata(monkeypatch):
  market_row = next(item for item in body['utility']['providers'] if item['name'] == 'Market data')
  assert market_row['status'] == 'live'
  assert not any(item['name'] == 'SPX' for item in body['utility']['providers'])
+ 
+def test_dashboard_endpoint_falls_back_when_bias_overlay_fails(monkeypatch): 
+ reset_demo() 
+ sign_in() 
+ from app import dashboard_service 
+ from app.providers import ProviderError 
+ sample_points = [{'date': '2026-02-01', 'value': 100.0}, {'date': '2026-02-15', 'value': 102.0}, {'date': '2026-03-01', 'value': 103.0}, {'date': '2026-03-15', 'value': 104.0}, {'date': '2026-03-20', 'value': 105.0}, {'date': '2026-03-21', 'value': 106.0}, {'date': '2026-03-22', 'value': 104.5}, {'date': '2026-03-23', 'value': 105.5}, {'date': '2026-03-24', 'value': 107.0}, {'date': '2026-03-25', 'value': 108.5}, {'date': '2026-03-26', 'value': 109.2}, {'date': '2026-03-27', 'value': 109.9}, {'date': '2026-03-28', 'value': 110.4}, {'date': '2026-03-29', 'value': 111.0}, {'date': '2026-03-30', 'value': 111.8}, {'date': '2026-03-31', 'value': 112.3}, {'date': '2026-04-01', 'value': 113.1}, {'date': '2026-04-02', 'value': 114.0}, {'date': '2026-04-03', 'value': 114.6}, {'date': '2026-04-04', 'value': 115.4}, {'date': '2026-04-05', 'value': 116.0}, {'date': '2026-04-06', 'value': 116.4}, {'date': '2026-04-07', 'value': 116.8}, {'date': '2026-04-08', 'value': 117.1}, {'date': '2026-04-09', 'value': 117.7}, {'date': '2026-04-10', 'value': 118.1}, {'date': '2026-04-11', 'value': 118.5}, {'date': '2026-04-12', 'value': 118.9}, {'date': '2026-04-13', 'value': 119.3}, {'date': '2026-04-14', 'value': 119.8}, {'date': '2026-04-15', 'value': 120.1}, {'date': '2026-04-16', 'value': 120.6}, {'date': '2026-04-17', 'value': 121.0}, {'date': '2026-04-18', 'value': 121.5}, {'date': '2026-04-19', 'value': 121.9}, {'date': '2026-04-20', 'value': 122.3}, {'date': '2026-04-21', 'value': 122.7}, {'date': '2026-04-22', 'value': 123.1}, {'date': '2026-04-23', 'value': 123.5}, {'date': '2026-04-24', 'value': 124.0}, {'date': '2026-04-25', 'value': 124.4}] 
+ monkeypatch.setattr(dashboard_service, '_load_series', lambda symbol: {'seriesId': symbol, 'source': 'FRED', 'sourceUrl': 'https://example.com', 'fetchedAt': '2026-04-25T08:00:00+00:00', 'lastUpdated': '2026-04-25T00:00:00+00:00', 'points': sample_points}) 
+ monkeypatch.setattr(dashboard_service, '_load_live_news', lambda: ([{'title': 'Fed headline', 'subtitle': 'Official note', 'href': 'https://example.com', 'mode': 'live', 'publishedAt': '2026-04-25T07:00:00+00:00'}], [{'name': 'Federal Reserve press feed', 'status': 'live', 'detail': 'Official feed connected', 'mode': 'live'}])) 
+ monkeypatch.setattr(dashboard_service, '_market_bias_payload_service', lambda: (_ for _ in ()).throw(ProviderError('factor overlay unavailable'))) 
+ monkeypatch.setattr(dashboard_service, '_dashboard_track_record', lambda: (_ for _ in ()).throw(ProviderError('track overlay unavailable'))) 
+ response = client.get('/api/v1/dashboard') 
+ assert response.status_code == 200, response.text 
+ body = response.json() 
+ assert body['marketConsensus']['freshness']['mode'] == 'fallback' 
+ assert 'falling back to the dashboard asset basket' in body['marketConsensus']['note'] 
+ assert body['trackRecord']['evaluationMode'] == 'fallback' 
+ market_row = next(item for item in body['utility']['providers'] if item['name'] == 'Market data') 
+ assert market_row['status'] in ['degraded', 'fallback'] 
+ assert 'bias overlay fallback' in market_row['detail']

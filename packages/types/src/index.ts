@@ -15,6 +15,7 @@ export interface NavSection {
  slug: string;
  title: string;
  description: string;
+ icon?: string;
  adminOnly?: boolean;
  children?: NavChildDestination[];
 }

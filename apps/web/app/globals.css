@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'mapbox-gl/dist/mapbox-gl.css';
 
 :root {
  --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
@@ -432,3 +433,26 @@ button, input, textarea, select {
  background: #4dabf7;
 }
 
+
+.geoboard-root {
+ font-family: 'JetBrains Mono', var(--mono);
+ letter-spacing: 0.02em;
+}
+
+@keyframes geoboard-ticker {
+ from { transform: translateX(0); }
+ to { transform: translateX(-50%); }
+}
+
+@keyframes geoboard-pulse {
+ 0%, 100% { opacity: 0.45; }
+ 50% { opacity: 1; }
+}
+
+.geoboard-ticker-track {
+ animation: geoboard-ticker 60s linear infinite;
+}
+
+.geoboard-pulse-dot {
+ animation: geoboard-pulse 1.8s ease-in-out infinite;
+}

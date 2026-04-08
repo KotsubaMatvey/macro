@@ -1,0 +1,18 @@
+'use client'
+
+import type { HoverState } from './types'
+
+function line(label: string, value: string) {
+ return <div className='flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.1em] text-[#7a9ab8]'><span>{label}</span><span className='text-right text-[#c8d8e8]'>{value}</span></div>
+}
+
+export function GeoboardPopup(props: { hover: HoverState | null }) {
+ if (!props.hover) return null
+ const baseClass = 'pointer-events-none fixed z-[1000] min-w-[240px] border border-[#1a2535] bg-[rgba(6,10,15,0.95)] px-3 py-2 text-[11px] text-[#c8d8e8] backdrop-blur-xl'
+ const style = { left: props.hover.x + 16, top: props.hover.y + 16 }
+ if (props.hover.layer === 'cb') { const item = props.hover.object; return <div className={baseClass} style={style}><div className='text-[11px] font-semibold uppercase tracking-[0.12em] text-[#22d3ee]'>{item.name}</div><div className='mt-2 grid gap-1'>{line('RATE', item.rate)}{line('NEXT', item.nextMeeting)}{line('BIAS', item.bias)}{line('SIGNAL', item.signal)}</div></div> }
+ if (props.hover.layer === 'geo') { const item = props.hover.object; return <div className={baseClass} style={style}><div className='text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f43f5e]'>{item.title}</div><div className='mt-1 text-[10px] uppercase tracking-[0.08em] text-[#7a9ab8]'>{item.source}</div><div className='mt-2 grid gap-1'>{line('TONE', item.tone.toFixed(1))}{line('DATE', item.date.slice(0, 16) + ' UTC')}{line('ASSETS', item.affectedAssets.join(' / '))}</div></div> }
+ if (props.hover.layer === 'trade') { const item = props.hover.object; return <div className={baseClass} style={style}><div className='text-[11px] font-semibold uppercase tracking-[0.12em] text-[#f59e0b]'>{item.name}</div><div className='mt-2 grid gap-1'>{line('STATUS', item.status)}{line('VOLUME', item.volume)}{line('RISK', item.riskLevel)}{line('IMPACT', item.impact.join(' / '))}</div></div> }
+ const item = props.hover.object
+ return <div className={baseClass} style={style}><div className='text-[11px] font-semibold uppercase tracking-[0.12em] text-[#a78bfa]'>{item.name}</div><div className='mt-1 text-[10px] uppercase tracking-[0.08em] text-[#7a9ab8]'>{item.country}</div><div className='mt-2 grid gap-1'>{line('DATE', item.date.slice(0, 16) + ' UTC')}{line('FORECAST', item.forecast === null ? '--' : String(item.forecast))}{line('PREVIOUS', item.previous === null ? '--' : String(item.previous))}{line('REACTION', item.expectedReaction)}</div></div>
+}

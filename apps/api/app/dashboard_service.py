@@ -604,20 +604,49 @@ def _dashboard_track_record():
     payload = build_track_record_payload() 
     return {'status': 'Replay only', 'evaluationMode': 'replay', 'sampleSize': payload['sampleSize'], 'hitRate': payload['hitRate'], 'magnitudeErrorPct': payload['magnitudeErrorPct'], 'note': payload['note'], 'records': [{'symbol': item['symbol'], 'asOf': item['asOf'], 'stance': item['stance'], 'expectedMove5dPct': item['expectedMove5dPct'], 'realizedMove5dPct': item['realizedMove5dPct'], 'outcome': item['outcome'], 'linkedEventTitle': None, 'linkedEventHref': None} for item in payload['recentRecords'][:6]], 'freshness': payload['freshness']} 
  
+
+def _fallback_consensus(existing_payload, error_note): 
+    fallback = dict(existing_payload) 
+    fallback['note'] = existing_payload['note'] + ' Live factor overlay is unavailable, so the desk is falling back to the dashboard asset basket.' 
+    fallback['freshness'] = _source_meta('Consensus', 'Dashboard asset basket', mode='fallback', note=error_note) 
+    return fallback 
+ 
+def _fallback_track_record(existing_payload, error_note): 
+    fallback = dict(existing_payload) 
+    fallback['status'] = 'Replay only' 
+    fallback['evaluationMode'] = 'fallback' 
+    fallback['note'] = existing_payload['note'] + ' Live replay overlay is unavailable, so the desk is falling back to the dashboard replay set.' 
+    fallback['freshness'] = _source_meta('Track record', 'Dashboard replay', mode='fallback', note=error_note) 
+    return fallback 
+ 
 def dashboard_payload(user, prefer_cache=False, force_refresh=False): 
     if prefer_cache and not force_refresh: 
         cached = read_live_dashboard_cache(user['id']) 
         if cached and cached.get('payload'): 
             return cached['payload'] 
     payload = _build_dashboard_payload(user) 
-    bias_payload = build_market_bias_payload() 
-    consensus_assets = [{'symbol': item['symbol'], 'direction': item['direction'], 'score': item['score'], 'confidence': item['confidence'], 'change30dPct': item['change30d'], 'note': item['note']} for item in bias_payload['assets'][:6]] 
-    payload['marketConsensus'] = {'label': bias_payload['summary']['label'], 'score': round(sum((item['score'] - 50.0) for item in consensus_assets) / max(len(consensus_assets), 1), 2), 'trend30d': payload['marketConsensus']['trend30d'], 'confidence': bias_payload['summary']['confidence'], 'sampleSize': len(consensus_assets), 'note': bias_payload['summary']['note'], 'href': '/app/market-bias', 'assets': consensus_assets, 'freshness': bias_payload['summary']['freshness']} 
-    payload['trackRecord'] = _dashboard_track_record() 
+    bias_error = None 
+    try: 
+        bias_payload = _market_bias_payload_service() 
+    except ProviderError as exc: 
+        bias_payload = None 
+        bias_error = 'Market bias overlay fallback: ' + str(exc) 
+    if bias_payload:
+        consensus_assets = [{'symbol': item['symbol'], 'direction': item['direction'], 'score': item['score'], 'confidence': item['confidence'], 'change30dPct': item['change30d'], 'note': item['note']} for item in bias_payload['assets'][:6]] 
+        payload['marketConsensus'] = {'label': bias_payload['summary']['label'], 'score': round(sum((item['score'] - 50.0) for item in consensus_assets) / max(len(consensus_assets), 1), 2), 'trend30d': payload['marketConsensus']['trend30d'], 'confidence': bias_payload['summary']['confidence'], 'sampleSize': len(consensus_assets), 'note': bias_payload['summary']['note'], 'href': '/app/market-bias', 'assets': consensus_assets, 'freshness': bias_payload['summary']['freshness']} 
+    else: 
+        payload['marketConsensus'] = _fallback_consensus(payload['marketConsensus'], bias_error or 'Market bias overlay unavailable') 
+    try: 
+        payload['trackRecord'] = _dashboard_track_record() 
+    except ProviderError as exc: 
+        payload['trackRecord'] = _fallback_track_record(payload['trackRecord'], 'Track record overlay fallback: ' + str(exc)) 
     market_live = len([item for item in payload['hero']['assets'] if item['freshness']['mode'] == 'live']) 
     market_fallback = max(0, len(payload['hero']['assets']) - market_live) 
     providers = [row for row in payload['utility']['providers'] if row['name'] not in ['FRED market tape', 'Catalyst calendar']] 
-    providers.insert(0, {'name': 'Market data', 'status': 'live' if market_live and market_fallback == 0 else 'degraded' if market_live else 'fallback', 'detail': str(market_live) + ' live / ' + str(market_fallback) + ' fallback instruments', 'mode': 'live' if market_live else 'fallback'}) 
+    market_detail = str(market_live) + ' live / ' + str(market_fallback) + ' fallback instruments' 
+    if bias_error: 
+        market_detail += ' / bias overlay fallback' 
+    providers.insert(0, {'name': 'Market data', 'status': 'live' if market_live and market_fallback == 0 and not bias_error else 'degraded' if market_live else 'fallback', 'detail': market_detail, 'mode': 'live' if market_live else 'fallback'}) 
     catalyst_id = payload['keyCatalyst']['href'].split('/')[-1] if payload['keyCatalyst'].get('href') else '' 
     catalyst = next((item for item in list_events() if item['id'] == catalyst_id), None) 
     if catalyst and catalyst.get('freshness'): 

@@ -367,3 +367,31 @@ class DashboardPayload(BaseModel):
  linkedIntelligence: DashboardLinkedIntelligence
  utility: DashboardUtilityStrip
 
+
+
+class GeoboardGeoEvent(BaseModel):
+ id: str
+ title: str
+ source: str
+ lat: float
+ lon: float
+ tone: float
+ date: str
+ url: str
+ affectedAssets: list[str]
+ mode: str
+
+class GeoboardMacroEvent(BaseModel):
+ id: str
+ name: str
+ country: str
+ countryCode: str
+ lat: float
+ lon: float
+ date: str
+ forecast: Optional[float] = None
+ previous: Optional[float] = None
+ impactLevel: str
+ expectedReaction: str
+ relatedAssets: list[str]
+ mode: str
