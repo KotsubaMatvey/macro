@@ -1,4 +1,4 @@
-export type UserRole = "user" | "analyst" | "admin";
+﻿export type UserRole = "user" | "analyst" | "admin";
 
 export type EventImpact = string;
 export type EventStatus = string;
@@ -453,13 +453,14 @@ export interface ReactionsPayload {
  assetOptions: string[]; 
  summary: { sampleSize: number; directionDistribution: { positive: number; negative: number; flat: number }; windowStats: ReactionWindowStat[]; note: string; freshness: SourceMetadata }; 
  records: ReactionRecord[]; 
- calendar: { mode: string; freshness: string; note: string }; 
+ calendar: { mode: DataMode; freshness: FreshnessState; note: string }; 
 } 
  
 export interface TrackRecordByAsset { asset: string; sampleSize: number; hitRate: number; magnitudeErrorPct: number } 
 export interface TrackRecordBySignal { signalType: string; sampleSize: number; hitRate?: number } 
 export interface TrackRecordByRegime { regime: string; sampleSize: number; hitRate: number } 
 export interface TrackRecordRecord { symbol: string; asOf: string; stance: string; expectedMove5dPct: number; realizedMove5dPct: number; outcome: string; signalType: string; family?: string; href?: string; regime?: string } 
-export interface TrackRecordPayload { mode: string; label: string; sampleSize: number; hitRate?: number; magnitudeErrorPct?: number; bySignalType: TrackRecordBySignal[]; byAsset: TrackRecordByAsset[]; byEventFamily: { family: string; sampleSize: number; hitRate: number }[]; byRegime?: TrackRecordByRegime[]; recentRecords: TrackRecordRecord[]; note: string; freshness: SourceMetadata } 
+export interface TrackRecordPayload { mode: 'replay'; label: string; sampleSize: number; hitRate?: number; magnitudeErrorPct?: number; bySignalType: TrackRecordBySignal[]; byAsset: TrackRecordByAsset[]; byEventFamily: { family: string; sampleSize: number; hitRate: number }[]; byRegime?: TrackRecordByRegime[]; recentRecords: TrackRecordRecord[]; note: string; freshness: SourceMetadata } 
  
-export interface WeeklyReport { id: string; slug: string; title: string; status: string; mode: string; weekStart: string; weekEnd: string; summary: string; body: { [key: string]: unknown }; sourceMeta: SourceMetadata[]; createdAt: string }
+export interface WeeklyReport { id: string; slug: string; title: string; status: string; mode: DataMode | 'deterministic' | 'replay'; weekStart: string; weekEnd: string; summary: string; body: { [key: string]: unknown }; sourceMeta: SourceMetadata[]; createdAt: string }
+

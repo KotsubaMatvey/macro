@@ -1,4 +1,4 @@
-import { createElement as h } from 'react'
+﻿import { createElement as h } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -38,7 +38,7 @@ const payload = {
  { symbol: 'US2Y', title: 'US 2Y Yield', price: '4.67%', change1dPct: 0.05, change30dPct: 0.31, expectedMove5dPct: 0.12, stance: 'Bearish', confidence: 0.59, regimeContext: 'Front-end remains tight', freshness: { label: 'US2Y', source: 'FRED', freshness: 'fresh', mode: 'live', note: 'Desk tape' } },
  ],
  },
- keyCatalyst: { title: 'Core CPI (MoM)', status: 'Upcoming', scheduledAt: '2026-04-01T12:30:00+00:00', countdownLabel: '4h 30m', impact: 'High', country: 'United States', currency: 'USD', relatedAssets: ['SPX', 'US10Y', 'BTC'], threshold: 'Prev 0.4% · Est 0.3%', sensitivity: 'Inflation reprices rates.', whyItMatters: 'Inflation reprices rates.', context: ['Risk regime supports the current tape', 'Liquidity is still mixed beneath the surface', 'Desk note linked into the catalyst board'], href: '/app/events/event-cpi-mar', freshness: { label: 'Catalyst calendar', source: 'Internal calendar', freshness: 'aging', mode: 'demo', note: 'Live provider missing' } },
+ keyCatalyst: { title: 'Core CPI (MoM)', status: 'Upcoming', scheduledAt: '2026-04-01T12:30:00+00:00', countdownLabel: '4h 30m', impact: 'High', country: 'United States', currency: 'USD', relatedAssets: ['SPX', 'US10Y', 'BTC'], threshold: 'Prev 0.4% В· Est 0.3%', sensitivity: 'Inflation reprices rates.', whyItMatters: 'Inflation reprices rates.', context: ['Risk regime supports the current tape', 'Liquidity is still mixed beneath the surface', 'Desk note linked into the catalyst board'], href: '/app/events/event-cpi-mar', freshness: { label: 'Catalyst calendar', source: 'Internal calendar', freshness: 'aging', mode: 'demo', note: 'Live provider missing' } },
  riskRegime: { label: 'Risk-on', score: 24.1, delta: 3.2, trend: 'Improving', interpretation: 'Risk appetite is supportive.', drivers: ['SPX and BTC momentum anchor the risk side', 'Dollar pressure only partly offsets the tape'], history: [{ label: '1', value: 10 }, { label: '2', value: 18 }, { label: '3', value: 24 }], freshness: { label: 'Risk regime', source: 'FRED composite', freshness: 'fresh', mode: 'live', note: 'Real regime' } },
  liquidityRegime: { label: 'Neutral', score: 2.4, delta: -1.1, trend: 'Stable', interpretation: 'Liquidity remains mixed.', drivers: ['WALCL is supportive but front-end yields remain tight', 'Dollar strength acts as a liquidity tax'], history: [{ label: '1', value: 8 }, { label: '2', value: 4 }, { label: '3', value: 2 }], freshness: { label: 'Liquidity regime', source: 'FRED composite', freshness: 'fresh', mode: 'live', note: 'Real liquidity' } },
  marketConsensus: { label: 'Risk is being rewarded', score: 8.2, trend30d: 'Improving', confidence: 0.68, sampleSize: 7, note: 'Consensus is aggregated from live assets.', href: '/app/market-bias', assets: [{ symbol: 'SPX', direction: 'Bullish', confidence: 0.74, change30dPct: 3.4, note: 'Equities remain bid' }, { symbol: 'US10Y', direction: 'Bearish', confidence: 0.68, change30dPct: 0.44, note: 'Rates stay restrictive' }, { symbol: 'DXY', direction: 'Bullish', confidence: 0.61, change30dPct: 1.8, note: 'Dollar still firm' }, { symbol: 'BTC', direction: 'Bullish', confidence: 0.72, change30dPct: 8.4, note: 'Risk assets lead' }], freshness: { label: 'Consensus', source: 'FRED composite', freshness: 'fresh', mode: 'live', note: 'Derived from live series' } },
@@ -155,5 +155,20 @@ describe('DashboardPage', function () {
   expect(marketPanel.textContent).toContain('Live 6')
   expect(marketPanel.textContent).toContain('Fallback 1')
  }, 15000)
+ it('reports calendar dataset and filtered view modes separately', async function () {
+  const mixedEvents = [
+   { ...events[0], freshness: { label: 'Catalyst calendar', source: 'TradingEconomics', freshness: 'fresh', mode: 'live', note: 'Live row' } },
+   { ...events[1], freshness: { label: 'Catalyst calendar', source: 'Seeded macro calendar', freshness: 'degraded', mode: 'demo', note: 'Fallback row' } },
+  ]
+  api.getDashboard.mockResolvedValue(payload)
+  api.getEvents.mockResolvedValue(mixedEvents)
+  const view = await DashboardPage({ searchParams: Promise.resolve({ impact: 'High' }) })
+  render(view)
+  const calendarPanel = screen.getByRole('heading', { name: 'Macro Calendar -- APR 2026' }).closest('section') as HTMLElement
+  expect(calendarPanel.textContent).toContain('Dataset mixed (1/1/0)')
+  expect(calendarPanel.textContent).toContain('View live (1/0/0)')
+ }, 15000)
 
 })
+
+

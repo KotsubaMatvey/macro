@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 import sys
 import time
 
@@ -148,7 +148,7 @@ def _refresh_demo_market_state(job_type, payload):
 
 
 def _refresh_dashboard_cache(job_type, payload):
- _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
 
 
 def _refresh_market_prices(job_type, payload):
@@ -157,7 +157,7 @@ def _refresh_market_prices(job_type, payload):
  _invalidate_provider_prefixes(["insights:market-bias", "insights:reactions:", "insights:track-record", "insights:reports"])
  load_market_bundle(symbols, interval="1d", period="18mo")
  build_market_bias_payload()
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
 
 
 def _refresh_calendar_events(job_type, payload):
@@ -167,10 +167,11 @@ def _refresh_calendar_events(job_type, payload):
 
 
 def _recompute_regime(job_type, payload):
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
 
 
 def _recompute_market_bias(job_type, payload):
+ _invalidate_provider_names(["insights:market-bias"])
  _invalidate_provider_prefixes(["insights:reports"])
  build_market_bias_payload()
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)

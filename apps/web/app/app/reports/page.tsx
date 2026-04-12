@@ -1,4 +1,4 @@
-import { createElement as h } from 'react' 
+﻿import { createElement as h } from 'react' 
 import type { ReactNode } from 'react' 
 import type { WeeklyReport } from '@macroaccess/types' 
  
@@ -9,7 +9,14 @@ function watchItems(report: WeeklyReport) {
  const body = report.body as { watchItems?: unknown } 
  return Array.isArray(body.watchItems) ? body.watchItems.slice(0, 3).join(' / ') : '-' 
 } 
- 
+
+function reportSurfaceMode(mode: string | undefined) { 
+ if (mode === 'live') return 'live' as const
+ if (mode === 'demo') return 'demo' as const
+ if (mode === 'deterministic' || mode === 'replay') return 'fallback' as const
+ return 'fallback' as const
+}
+
 export default async function ReportsPage() { 
  const reports = await getReports() 
  const latest = reports[0] 
@@ -21,7 +28,7 @@ export default async function ReportsPage() {
  ] 
  const rows: ReactNode[][] = reports.map(function (item) { return [item.title, item.weekStart + ' / ' + item.weekEnd, item.mode, item.status, watchItems(item)] }) 
  const cards = reports.slice(0, 4).map(function (item) { return h('div', { key: item.id, className: 'ws-feed-card' }, [h('div', { key: 'meta', className: 'text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500' }, item.weekStart + ' / ' + item.mode), h('div', { key: 'title', className: 'mt-2 text-sm font-medium text-white' }, item.title), h('p', { key: 'body', className: 'mt-2 text-sm leading-6 text-slate-400' }, item.summary), h('div', { key: 'watch', className: 'mt-3 text-[11px] uppercase tracking-[0.16em] text-slate-500' }, watchItems(item))]) }) 
- return h(PageShell, { title: 'Reports', subtitle: 'Weekly macro brief archive grounded in the current data stack and explicit source freshness.', active: 'reports', mode: latest ? latest.mode === 'deterministic' ? 'fallback' : 'live' : 'fallback' }, h('div', { className: 'space-y-5' }, [ 
+ return h(PageShell, { title: 'Reports', subtitle: 'Weekly macro brief archive grounded in the current data stack and explicit source freshness.', active: 'reports', mode: reportSurfaceMode(latest ? latest.mode : undefined) }, h('div', { className: 'space-y-5' }, [ 
   h(MetricGrid, { key: 'metrics', items: metrics }), 
   h('div', { key: 'grid', className: 'ws-two-panel' }, [ 
    h('div', { key: 'left', className: 'space-y-5' }, [ 
@@ -33,3 +40,4 @@ export default async function ReportsPage() {
   ]), 
  ]))
 }
+

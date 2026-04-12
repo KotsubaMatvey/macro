@@ -1,4 +1,4 @@
-import { createElement as h } from 'react'
+﻿import { createElement as h } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -51,5 +51,17 @@ describe('MacroCalendarPage', function () {
   expect(within(tape).getByText('Core CPI (MoM)')).toBeInTheDocument()
   expect(within(tape).queryByText('ECB Rate Decision')).not.toBeInTheDocument()
  }, 15000)
+
+ it('keeps dataset mode honest while showing filtered view mode', async function () {
+  api.getEvents.mockResolvedValue(events)
+  api.getWorkstation.mockResolvedValue(workstation)
+  const view = await MacroCalendarPage({ searchParams: Promise.resolve({ impact: ['High'], currency: ['USD'] }) })
+  render(view)
+  expect(screen.getByTestId('page-shell')).toHaveAttribute('data-mode', 'mixed')
+  const sourcePanel = screen.getByRole('heading', { name: 'Source / freshness' }).closest('section') as HTMLElement
+  expect(within(sourcePanel).getByText('View mode (filtered)')).toBeInTheDocument()
+  expect(within(sourcePanel).getByText('1 / 0 / 0')).toBeInTheDocument()
+ }, 15000)
 })
+
 

@@ -1,8 +1,8 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').trim().replace(/\/+$/, '')
+﻿const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').trim().replace(/\/+$/, '')
  
 interface JsonBody { 
  detail?: string 
- [key: string]: any 
+ [key: string]: unknown 
 } 
  
 async function parseJson(response: Response) { 
@@ -52,3 +52,4 @@ export async function postJson(path: string, payload: unknown) {
   throw new Error('Network request failed') 
  } 
 }
+

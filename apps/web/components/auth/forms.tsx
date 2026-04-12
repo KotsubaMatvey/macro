@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import Link from 'next/link'
 import { createElement as h, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -13,6 +13,10 @@ function field(label: string, value: string, setValue: (value: string) => void, 
 
 function authShell(title: string, children: any, footer: any = null) {
   return h('main', { className: 'flex min-h-screen items-center justify-center bg-[var(--bg)] px-6 py-8' }, h(Panel, { title, className: 'w-full max-w-md' }, [children, footer]))
+}
+
+function asString(value: unknown) {
+  return typeof value === 'string' ? value : ''
 }
 
 export function SignInForm() {
@@ -44,8 +48,10 @@ export function SignUpForm() {
     try {
       setError('')
       const result = await postJson('/api/v1/auth/sign-up', { name, email, password })
-      setMessage(result.token ? 'Verification token: ' + result.token : result.detail ?? '')
-      router.push('/verify-email' + (result.token ? '?token=' + encodeURIComponent(result.token) : ''))
+      const token = asString(result.token)
+      const detail = asString(result.detail)
+      setMessage(token ? 'Verification token: ' + token : detail)
+      router.push('/verify-email' + (token ? '?token=' + encodeURIComponent(token) : ''))
     } catch (exc: any) {
       setError(exc.message)
     }
@@ -63,7 +69,7 @@ export function VerifyEmailForm() {
     try {
       setError('')
       const result = await postJson('/api/v1/auth/verify-email', { token })
-      setMessage(result.detail ?? '')
+      setMessage(asString(result.detail))
       router.push('/sign-in')
     } catch (exc: any) {
       setError(exc.message)
@@ -82,8 +88,10 @@ export function ResetPasswordForm() {
   async function requestReset() {
     try {
       const result = await postJson('/api/v1/auth/request-password-reset', { email })
-      setToken(result.token ?? '')
-      setMessage(result.token ? 'Reset token: ' + result.token : result.detail ?? '')
+      const resetToken = asString(result.token)
+      const detail = asString(result.detail)
+      setToken(resetToken)
+      setMessage(resetToken ? 'Reset token: ' + resetToken : detail)
     } catch (exc: any) {
       setError(exc.message)
     }
@@ -91,7 +99,7 @@ export function ResetPasswordForm() {
   async function completeReset() {
     try {
       const result = await postJson('/api/v1/auth/reset-password', { token, password })
-      setMessage(result.detail ?? '')
+      setMessage(asString(result.detail))
     } catch (exc: any) {
       setError(exc.message)
     }
@@ -118,4 +126,5 @@ export function OnboardingForm() {
   }
   return authShell('Onboarding', h('div', { className: 'grid gap-4' }, [field('Desk', desk, setDesk), field('Timezone', timezone, setTimezone), field('Region', region, setRegion), field('Density', density, setDensity), field('Bio', bio, setBio), error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'button', onClick: submit, className: surfaces.button }, 'Save preferences')]))
 }
+
 

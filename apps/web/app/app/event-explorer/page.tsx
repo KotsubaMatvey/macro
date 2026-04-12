@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import type { EventDetail, EventRelease } from "@macroaccess/types"
@@ -6,13 +6,15 @@ import type { EventDetail, EventRelease } from "@macroaccess/types"
 import { Badge, DataTable, EventLink, MetricGrid, PageShell, Panel } from "@/components/app/chrome"
 import { getEventDetail, getEvents } from "@/lib/server/api"
 
+type ExplorerSearchParamValue = string | readonly string[] | undefined
+
 interface ExplorerSearchParams {
- family?: string
- release?: string
+ family?: ExplorerSearchParamValue
+ release?: ExplorerSearchParamValue
 }
 
 interface EventExplorerPageProps {
- searchParams?: any
+ searchParams?: Promise<ExplorerSearchParams | undefined>
 }
 
 interface FamilySummary {
@@ -31,8 +33,8 @@ interface FamilyMap {
  [key: string]: FamilySummary
 }
 
-function readParam(value: unknown) {
- if (Array.isArray(value)) return value[0]
+function readParam(value: ExplorerSearchParamValue) {
+ if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : ""
  if (typeof value === "string") return value
  return ""
 }
@@ -155,3 +157,4 @@ export default async function EventExplorerPage(props: EventExplorerPageProps) {
  ]),
  ]))
 }
+

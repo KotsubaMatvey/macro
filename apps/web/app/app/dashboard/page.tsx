@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import type { DashboardAssetView, DashboardLiquidityInput, DashboardPayload, DashboardRegimeBlock, DashboardSparkPoint, EventRelease, SourceMetadata } from "@macroaccess/types"
@@ -266,14 +266,19 @@ export default async function DashboardPage(props: DashboardPageProps) {
   state,
   trackValue,
   upcomingVisible,
+  calendarDataset,
   visibleCalendar,
  } = view
  const shellMode = providers.live !== 0 ? providers.fallback === 0 ? "live" : "mixed" : "fallback"
- const calendarLive = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "live" }).length
- const calendarDemo = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "demo" }).length
- const calendarFallback = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "fallback" }).length
- const calendarMode = calendarBoardMode(visibleCalendar)
-const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
+ const datasetCalendarLive = calendarDataset.filter(function (item) { return calendarItemMode(item) === "live" }).length
+ const datasetCalendarDemo = calendarDataset.filter(function (item) { return calendarItemMode(item) === "demo" }).length
+ const datasetCalendarFallback = calendarDataset.filter(function (item) { return calendarItemMode(item) === "fallback" }).length
+ const viewCalendarLive = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "live" }).length
+ const viewCalendarDemo = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "demo" }).length
+ const viewCalendarFallback = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "fallback" }).length
+ const datasetCalendarMode = calendarBoardMode(calendarDataset)
+ const viewCalendarMode = calendarBoardMode(visibleCalendar)
+ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
     return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard", mode: shellMode }, h("div", { className: "space-y-3" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
  h("div", { key: "desk", className: "terminal-strip flex-wrap gap-2" }, [
@@ -380,7 +385,8 @@ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalend
  h("div", { key: "stats", className: "flex flex-wrap gap-2" }, [
  h("span", { key: "high", className: "terminal-meta" }, ["High ", h("strong", { key: "value" }, String(highVisible))]),
  h("span", { key: "upcoming", className: "terminal-meta" }, ["Upcoming ", h("strong", { key: "value" }, String(upcomingVisible))]),
- h("span", { key: "source", className: "terminal-meta" }, ["Calendar ", h("strong", { key: "value" }, calendarMode + " (" + String(calendarLive) + "/" + String(calendarDemo) + "/" + String(calendarFallback) + ")")]),
+ h("span", { key: "calendar-dataset", className: "terminal-meta" }, ["Dataset ", h("strong", { key: "value" }, datasetCalendarMode + " (" + String(datasetCalendarLive) + "/" + String(datasetCalendarDemo) + "/" + String(datasetCalendarFallback) + ")")]),
+ h("span", { key: "calendar-view", className: "terminal-meta" }, ["View ", h("strong", { key: "value" }, viewCalendarMode + " (" + String(viewCalendarLive) + "/" + String(viewCalendarDemo) + "/" + String(viewCalendarFallback) + ")")]),
  ]),
  ]),
  h(DataTable, { headers: ["Time", "Region", "Event", "Impact", "Actual", "Forecast", "Previous"], rows: calendarRows, dense: true, numericColumns: [4, 5, 6], stickyHeader: true, ariaLabel: "Dashboard macro calendar" }),
@@ -417,3 +423,8 @@ const IMPACT_OPTIONS = [
  { label: "Med", value: "Medium" },
  { label: "Low", value: "Low" },
 ]
+
+
+
+
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
@@ -10,6 +10,7 @@ from .providers import ProviderError, load_fred_series, load_rss_feed
 from .security import reference_now, utc_now
 from .services import list_alerts, list_briefings, list_events, list_watchlists
 from .settings import settings
+from .source_meta import build_source_metadata
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def _parse_dt(value):
 		parsed = value
 	else:
 		try:
-			parsed = datetime.fromisoformat(str(value).replace('Z', ' +00:00'))
+			parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
 		except ValueError:
 			return None
 	if parsed.tzinfo is None:
@@ -177,34 +178,14 @@ def _liquidity_input_value(symbol, value):
 	return _format_price(symbol, value)
 
 def _source_meta(label, source, source_url='', payload=None, mode='live', note=''):
-	fetched_at = utc_now().isoformat()
-	last_updated = None
-	freshness = 'degraded' if mode != 'live' else 'fresh'
-	if payload:
-		fetched_at = payload.get('fetchedAt', fetched_at)
-		last_updated = payload.get('lastUpdated')
-	parsed_last_updated = _parse_dt(last_updated) if last_updated else None
-	if parsed_last_updated:
-		age_hours = (utc_now() - parsed_last_updated).total_seconds() / 3600.0
-		if age_hours > 72:
-			freshness = 'stale'
-		elif age_hours > 24:
-			freshness = 'aging'
-		else:
-			freshness = 'fresh'
-	elif last_updated:
-		freshness = 'degraded'
-	return {
-		'label': label,
-		'source': source,
-		'sourceUrl': source_url or None,
-		'fetchedAt': fetched_at,
-		'lastUpdated': last_updated,
-		'freshness': freshness,
-		'mode': mode,
-		'note': note,
-	}
-
+	return build_source_metadata(
+		label,
+		source,
+		payload=payload,
+		source_url=source_url or None,
+		mode=mode,
+		note=note,
+	)
 def _load_live_news():
     items = []
     statuses = []
@@ -340,8 +321,10 @@ def _pick_catalyst(events):
     source = active if active else normalized
     return source[0] if source else None
 
-def _linked_mode():
-	return 'demo' if settings.app_mode == 'demo' else 'live'
+def _linked_mode(default='live'):
+	if settings.app_mode == 'demo':
+		return 'demo'
+	return default
 
 def _match_event(event_date, symbol, events):
 	target = _parse_dt(event_date)
@@ -430,17 +413,22 @@ def _linked_intelligence(user_id, live_news, events):
 		for item in list_briefings()[:3]
 	]
 	watchlists = [
-		{'title': item['name'], 'subtitle': str(item['itemCount']) + ' instruments / ' + str(item['alertCount']) + ' alerts', 'href': '/app/watchlists', 'mode': 'live'}
+		{'title': item['name'], 'subtitle': str(item['itemCount']) + ' instruments / ' + str(item['alertCount']) + ' alerts', 'href': '/app/watchlists', 'mode': _linked_mode('live')}
 		for item in list_watchlists(user_id)[:3]
 	]
 	alerts = [
-		{'title': item['name'], 'subtitle': item['status'] + ' / ' + item['deliveryChannel'], 'href': '/app/alerts', 'mode': 'live'}
+		{'title': item['name'], 'subtitle': item['status'] + ' / ' + item['deliveryChannel'], 'href': '/app/alerts', 'mode': _linked_mode('live')}
 		for item in list_alerts(user_id)[:3]
 	]
-	catalysts = [
-		{'title': item['title'], 'subtitle': item['impact'] + ' / ' + item['status'], 'href': '/app/events/' + item['id'], 'mode': _linked_mode()}
-		for item in events[:3]
-	]
+	catalysts = []
+	for item in events[:3]:
+		mode = _linked_mode()
+		freshness = item.get('freshness') if isinstance(item, dict) else None
+		if isinstance(freshness, dict):
+			mode = freshness.get('mode', mode)
+		if mode not in {'live', 'demo', 'fallback'}:
+			mode = 'fallback'
+		catalysts.append({'title': item['title'], 'subtitle': item['impact'] + ' / ' + item['status'], 'href': '/app/events/' + item['id'], 'mode': mode})
 	return {
 		'briefings': briefings,
 		'news': live_news[:4],
@@ -448,7 +436,6 @@ def _linked_intelligence(user_id, live_news, events):
 		'alerts': alerts,
 		'catalysts': catalysts,
 	}
-
 def _build_dashboard_payload(user):
 	series_failures = {}
 	live_news, news_status = _load_live_news()
@@ -715,7 +702,7 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
         payload['trackRecord'] = _dashboard_track_record() 
     except ProviderError as exc: 
         payload['trackRecord'] = _fallback_track_record(payload['trackRecord'], 'Track record overlay fallback: ' + str(exc)) 
-    market_live = len([item for item in payload['hero']['assets'] if item['freshness']['mode'] == 'live']) 
+    market_live = len([item for item in payload['hero']['assets'] if item['freshness']['mode'] == 'live' and item['freshness'].get('freshness') not in ['stale', 'degraded']]) 
     market_fallback = max(0, len(payload['hero']['assets']) - market_live) 
     providers = [row for row in payload['utility']['providers'] if row['name'] not in ['FRED market tape', 'Catalyst calendar']] 
     market_detail = str(market_live) + ' live / ' + str(market_fallback) + ' fallback instruments' 
@@ -725,12 +712,19 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
     catalyst_id = payload['keyCatalyst']['href'].split('/')[-1] if payload['keyCatalyst'].get('href') else '' 
     events = list_events() or []
     catalyst = next((item for item in events if isinstance(item, dict) and item.get('id') == catalyst_id), None) 
-    if catalyst and catalyst.get('freshness'): 
-        payload['keyCatalyst']['freshness'] = catalyst['freshness'] 
-        providers.append({'name': 'Catalyst calendar', 'status': 'live' if catalyst['freshness']['mode'] == 'live' else 'fallback', 'detail': catalyst['freshness']['note'], 'mode': catalyst['freshness']['mode']}) 
+    if catalyst and catalyst.get('freshness'):
+        payload['keyCatalyst']['freshness'] = catalyst['freshness']
+        catalyst_mode = catalyst['freshness'].get('mode', 'fallback')
+        catalyst_status = 'live' if catalyst_mode == 'live' else 'demo' if catalyst_mode == 'demo' else 'fallback'
+        providers.append({'name': 'Catalyst calendar', 'status': catalyst_status, 'detail': catalyst['freshness'].get('note', 'Catalyst source note unavailable'), 'mode': catalyst_mode})
+    else:
+        catalyst_mode = payload['keyCatalyst']['freshness'].get('mode', 'fallback')
+        catalyst_status = 'live' if catalyst_mode == 'live' else 'demo' if catalyst_mode == 'demo' else 'fallback'
+        providers.append({'name': 'Catalyst calendar', 'status': catalyst_status, 'detail': payload['keyCatalyst']['freshness'].get('note', 'Catalyst source note unavailable'), 'mode': catalyst_mode})
     payload['utility']['providers'] = providers 
     cache_live_dashboard(user['id'], payload) 
     return payload 
 
 _market_bias_payload_service = build_market_bias_payload
 _track_record_payload_service = build_track_record_payload
+

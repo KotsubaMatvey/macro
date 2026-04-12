@@ -1,4 +1,4 @@
-# Macro Access
+﻿# Macro Access
 
 Track macro events. Read the regime. Trade the reaction.
 
@@ -59,9 +59,10 @@ Track macro events. Read the regime. Trade the reaction.
 ## Cache and Jobs
 - Redis TTLs: market tape 5 minutes, intraday market windows 5 minutes, upcoming calendar 15 minutes, calendar history 1 hour, macro or FRED series 1 hour, dashboard live payload 5 minutes, reactions 15 minutes, track record 15 minutes, reports 30 minutes.
 - Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
-- Worker job scope today: market refresh jobs invalidate market and dependent insights caches; calendar refresh jobs target calendar plus reactions or reports dependencies; replay or report jobs rebuild only replay or report surfaces.
+- Worker job scope today: market refresh jobs invalidate market plus dependent insights and rebuild live dashboard caches (not workstation caches); calendar refresh jobs target calendar plus reactions or reports dependencies and rebuild workstation and live dashboard caches; replay or report jobs rebuild only replay or report surfaces.
 - Reports are deterministic structured summaries today. There is no live LLM report path wired into the runtime, and the structured source-backed sections remain authoritative.
 
 ## Reactions and Replay Integrity
 - Reactions use real market history windows only when the available data resolution supports them. Intraday windows are not fabricated.
 - Track Record remains replay-only product analytics. It is not an audited live discretionary blotter or realized PnL record.
+

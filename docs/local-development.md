@@ -1,4 +1,4 @@
-# Local Development
+﻿# Local Development
 
 ## Prerequisites
 - Node.js 20+
@@ -21,6 +21,7 @@
 - The dashboard will use Yahoo Finance via yfinance for live market tape, fall back to FRED public series when needed, and use official RSS feeds when your network allows them; otherwise it will degrade honestly.
 - Calendar and catalyst data are seeded fallback by default in local development; when TradingEconomics credentials are configured and reachable, those surfaces switch to provider-backed live rows. Watchlist, alert, community, and admin data remain seeded.
 - If jobs are not progressing, verify Redis and the worker process are running.
+- Worker scope: market refresh jobs rebuild live dashboard caches and dependent insight caches without rebuilding workstation caches; calendar refresh jobs rebuild both workstation and live dashboard caches because event surfaces exist in both.
 
 ## Verification
 - `npm run lint`
@@ -46,3 +47,6 @@
 ## Product honesty
 - TradingEconomics and Yahoo Finance via yfinance are optional. If they are missing or unreachable, the UI should surface fallback or degraded mode instead of claiming live coverage.
 - Track Record is replay-only. Reports are deterministic structured summaries today; there is no optional LLM summarization path wired into runtime.
+
+
+

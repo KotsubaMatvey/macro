@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   DashboardAssetView,
   DashboardLiquidityInput,
   DashboardLinkedItem,
@@ -58,6 +58,7 @@ export interface DashboardViewModel {
   state: DashboardQueryState
   trackValue: string
   upcomingVisible: number
+  calendarDataset: EventRelease[]
   visibleCalendar: EventRelease[]
 }
 
@@ -340,7 +341,9 @@ export function buildDashboardView(payload: DashboardPayload, events: EventRelea
     state,
     trackValue,
     upcomingVisible,
+    calendarDataset: orderedEvents,
     visibleCalendar,
   }
 }
+
 
