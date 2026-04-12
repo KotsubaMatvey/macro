@@ -48,6 +48,7 @@ export interface DashboardViewModel {
   availableRegions: string[]
   biasCards: DashboardBiasCard[]
   briefingLead?: DashboardLinkedItem
+  newsLead?: DashboardLinkedItem
   catalysts: EventRelease[]
   highVisible: number
   liquidityInputs: DashboardLiquidityInput[]
@@ -331,6 +332,7 @@ export function buildDashboardView(payload: DashboardPayload, events: EventRelea
     availableRegions: availableRegions(orderedEvents),
     biasCards,
     briefingLead: payload.linkedIntelligence.briefings[0],
+    newsLead: payload.linkedIntelligence.news[0],
     catalysts,
     highVisible,
     liquidityInputs,
@@ -345,5 +347,7 @@ export function buildDashboardView(payload: DashboardPayload, events: EventRelea
     visibleCalendar,
   }
 }
+
+
 
 

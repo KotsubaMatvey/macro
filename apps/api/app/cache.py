@@ -1,4 +1,4 @@
-from collections import deque
+﻿from collections import deque
 import json
 from datetime import timedelta
 
@@ -129,8 +129,11 @@ def enqueue_job(job_id):
 def dequeue_job(timeout=3):
  client = get_redis()
  if client:
-  result = client.blpop(settings.jobs_queue_key, timeout=timeout)
-  return result[1] if result else None
+  try:
+   result = client.blpop(settings.jobs_queue_key, timeout=timeout)
+   return result[1] if result else None
+  except redis.RedisError:
+   return None
  if _LOCAL_QUEUE:
   return _LOCAL_QUEUE.popleft()
  return None

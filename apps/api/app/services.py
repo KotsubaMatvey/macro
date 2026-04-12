@@ -1,4 +1,4 @@
-import json
+﻿import json
 import math
 import uuid
 from datetime import timedelta
@@ -7,6 +7,7 @@ from .cache import bump_rate_limit, cache_dashboard, invalidate_dashboard_cache,
 from .db import fetch_all, fetch_one, get_connection
 from .event_service import event_detail, list_events
 from .insights_service import build_market_bias_payload, build_reactions_payload, build_track_record_payload, generate_weekly_report, list_reports
+from .news_service import list_news_feed, list_news_for_workstation
 from .job_service import JOB_TYPES, create_job, list_jobs, reset_demo_jobs
 from .security import hash_password, session_expiry, token_pair, utc_now, verify_password
 from .settings import settings
@@ -226,12 +227,38 @@ def list_briefings():
  ]
 
 
-def list_news():
- rows = fetch_all("select id, slug, title, source, published_at, summary, category, sentiment, event_id from news_items order by published_at desc")
- return [
-  {"id": item["id"], "slug": item["slug"], "title": item["title"], "source": item["source"], "publishedAt": item["published_at"].isoformat(), "summary": item["summary"], "category": item["category"], "sentiment": item["sentiment"], "relatedEventId": item["event_id"]}
-  for item in rows
- ]
+def list_news(
+ user_id,
+ mode="wire",
+ limit=80,
+ search="",
+ source_type="",
+ region="",
+ topic="",
+ category="",
+ currency="",
+ asset="",
+ event_family="",
+ min_urgency=0.0,
+ official_only=False,
+ watchlist_only=False,
+):
+ return list_news_feed(
+  user_id,
+  mode=mode,
+  limit=limit,
+  search=search,
+  source_type=source_type,
+  region=region,
+  topic=topic,
+  category=category,
+  currency=currency,
+  asset=asset,
+  event_family=event_family,
+  min_urgency=min_urgency,
+  official_only=official_only,
+  watchlist_only=watchlist_only,
+ )
 
 
 def list_watchlists(user_id):
@@ -357,7 +384,7 @@ def _build_workstation_payload(user):
   "biases": biases,
   "nextEvents": list_events()[:10],
   "briefings": list_briefings()[:8],
-  "news": list_news()[:10],
+  "news": list_news_for_workstation(limit=10),
   "watchlists": list_watchlists(user["id"]),
   "alerts": list_alerts(user["id"]),
   "posts": list_posts()[:8],
@@ -396,3 +423,7 @@ def reports_payload(limit=12):
 
 def generate_report_now():
  return generate_weekly_report(persist=True)
+
+
+
+

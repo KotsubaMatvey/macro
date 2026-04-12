@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 from .cache import get_redis
 from .db import apply_migrations, get_connection
@@ -92,12 +92,14 @@ def seed_demo_database():
             for row in briefings:
                 cur.execute('insert into briefings (id, slug, kind, title, summary, body, analyst_user_id, published_at, event_id, asset_symbols, takeaways) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)', row)
             news_rows = [
-                ('news-fed', 'fed-patient', 'Fed speakers stay patient as inflation normalizes', 'Macro Access Wire', 'Officials continue to argue for data dependence while labor stays firm.', 'Central Banks', 'Neutral', '2026-03-29T06:00:00+00:00', 'event-cpi-mar'),
-                ('news-china', 'china-credit-pulse', 'China credit pulse improves in March release', 'Macro Access Wire', 'Incremental stabilization supports industrial cyclicals but the impulse remains narrow.', 'Growth', 'Bullish', '2026-03-29T07:15:00+00:00', None),
+                ('news-fed', 'fed-patient', 'Fed speakers stay patient as inflation normalizes', 'Federal Reserve', 'Officials continue to argue for data dependence while labor stays firm.', 'Central bank', 'Neutral', '2026-03-29T06:00:00+00:00', 'event-cpi-mar', 'official', 'primary', 'https://www.federalreserve.gov/newsevents/pressreleases.htm', 'Central banks', 'US', 'United States', 'USD', 'FOMC', json.dumps(['US2Y', 'US10Y', 'DXY', 'SPX']), 0.88, 0.72, 0.86, 'live', 'fresh', 'Federal Reserve press feed', 'Primary official source feed.', 'fed', 'Policy guidance can reprice front-end rates and dollar expectations.', 'us-cpi-mar', 'US2Y', json.dumps({'providerLabel': 'Federal Reserve press feed', 'sourceType': 'official', 'seeded': True})),
+                ('news-ecb', 'ecb-guidance', 'ECB officials stress caution on easing pace', 'European Central Bank', 'ECB communication keeps terminal-rate assumptions two-sided for EUR rates.', 'Central bank', 'Neutral', '2026-03-29T07:35:00+00:00', 'event-ecb-apr', 'official', 'primary', 'https://www.ecb.europa.eu/press/html/index.en.html', 'Central banks', 'Europe', 'Euro Area', 'EUR', 'ECB Rate Decision', json.dumps(['EURUSD', 'US10Y', 'DXY']), 0.84, 0.68, 0.84, 'live', 'fresh', 'ECB press feed', 'Primary official source feed.', 'ecb', 'ECB guidance often transmits first through EUR curves and EURUSD.', 'ecb-rate-apr', 'EURUSD', json.dumps({'providerLabel': 'ECB press feed', 'sourceType': 'official', 'seeded': True})),
+                ('news-payroll-preview', 'payrolls-preview', 'Payrolls preview points to firm labor backdrop', 'Reuters', 'Consensus keeps labor resilient, limiting aggressive near-term easing pricing.', 'Labor', 'Neutral', '2026-03-29T08:10:00+00:00', 'event-nfp-apr', 'discovery', 'secondary', 'https://www.reuters.com/world/us/', 'Labor', 'US', 'United States', 'USD', 'US Payrolls', json.dumps(['SPX', 'US10Y', 'DXY']), 0.76, 0.64, 0.64, 'live', 'fresh', 'Reuters business feed', 'Discovery feed: secondary signal until corroborated by official sources.', 'reuters-finance', 'Labor surprises reprice rates path and equity breadth quickly.', 'us-payrolls-apr', 'SPX', json.dumps({'providerLabel': 'Reuters business feed', 'sourceType': 'discovery', 'seeded': True})),
+                ('news-liquidity', 'liquidity-watch', 'Funding and reserve trends remain mixed into month-end', 'Macro Access Wire', 'Liquidity conditions are stable but still sensitive to treasury cash and funding usage.', 'Liquidity', 'Neutral', '2026-03-29T08:45:00+00:00', None, 'seeded', 'secondary', None, 'Liquidity', 'Global', 'Global', 'USD', 'Liquidity', json.dumps(['SPX', 'BTC', 'DXY']), 0.68, 0.58, 0.58, 'demo', 'degraded', 'Seeded desk feed', 'Seeded fallback row for local demo continuity.', 'seed', 'Liquidity tone matters for high-beta assets and dollar pressure.', None, 'SPX', json.dumps({'providerLabel': 'Seeded desk feed', 'sourceType': 'seeded', 'seeded': True})),
+                ('news-reg', 'regulatory-window', 'SEC consultation period opens for market structure package', 'US SEC', 'Regulatory timeline may shift risk appetite for specific sectors and market-making flows.', 'Regulation', 'Neutral', '2026-03-29T09:05:00+00:00', None, 'official', 'primary', 'https://www.sec.gov/news', 'Policy', 'US', 'United States', 'USD', 'Regulation', json.dumps(['SPX', 'NDX']), 0.66, 0.52, 0.78, 'live', 'aging', 'SEC releases', 'Primary official source feed.', 'sec', 'Regulatory cadence can alter liquidity and sector-level positioning.', None, 'SPX', json.dumps({'providerLabel': 'SEC releases', 'sourceType': 'official', 'seeded': True})),
             ]
             for row in news_rows:
-                cur.execute('insert into news_items (id, slug, title, source, summary, category, sentiment, published_at, event_id) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)', row)
-
+                cur.execute('insert into news_items (id, slug, title, source, summary, category, sentiment, published_at, event_id, source_type, source_tier, source_url, topic, region, country, currency, event_family, affected_assets, importance_score, urgency_score, confidence_score, mode, freshness, source_label, source_note, provider_key, why_it_matters, related_event_slug, related_dashboard_asset, provider_payload) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)', row)
             watchlists = [('watch-rates', 'user-demo', 'Rates Desk', 'Rates and dollar focus'), ('watch-crypto', 'user-demo', 'Crypto Macro', 'Liquidity and event basket')]
             for row in watchlists:
                 cur.execute('insert into watchlists (id, user_id, name, description) values (%s, %s, %s, %s)', row)
@@ -122,4 +124,5 @@ def seed_demo_database():
                 cur.execute('insert into feature_flags (key, description, enabled) values (%s, %s, %s)', (key, description, enabled))
     reset_demo_jobs()
     return {'status': 'ok'}
+
 

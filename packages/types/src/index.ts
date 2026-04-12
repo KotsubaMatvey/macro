@@ -111,12 +111,107 @@ export interface NewsItem {
  id: string;
  slug: string;
  title: string;
+ headline?: string;
  source: string;
+ sourceType?: "official" | "discovery" | "seeded";
+ sourceTier?: "primary" | "secondary";
+ sourceUrl?: string;
  publishedAt: string;
  summary: string;
+ topic?: string;
  sentiment: string;
  category: string;
+ region?: string;
+ country?: string;
+ currency?: string;
+ eventFamily?: string;
+ affectedAssets?: string[];
+ assetSymbols?: string[];
+ importanceScore?: number;
+ urgencyScore?: number;
+ confidenceScore?: number;
+ rankingScore?: number;
+ mode?: DataMode;
+ freshness?: FreshnessState;
+ clusterId?: string;
+ clusterCount?: number;
+ canonical?: boolean;
+ whyItMatters?: string;
  relatedEventId?: string;
+ relatedEventSlug?: string;
+ relatedDashboardAsset?: string;
+ providerKey?: string;
+ providerMeta?: Record<string, unknown>;
+ watchOverlap?: number;
+ sourceMeta?: SourceMetadata;
+ links?: {
+  event?: string | null;
+  calendar?: string | null;
+  reactions?: string | null;
+  bias?: string | null;
+  reports?: string | null;
+  news?: string | null;
+  source?: string | null;
+ };
+}
+
+export interface NewsSourceStatus {
+ providerKey: string;
+ sourceType: "official" | "discovery" | "seeded";
+ status: "live" | "degraded" | "fallback";
+ mode: DataMode;
+ detail: string;
+}
+
+export interface NewsFeedSummary {
+ total: number;
+ official: number;
+ discovery: number;
+ linkedEvents: number;
+ watchlistHits: number;
+ clusters: number;
+}
+
+export interface NewsFeedAvailable {
+ modes: Array<"wire" | "macro" | "watchlist">;
+ sourceTypes: Array<"official" | "discovery" | "seeded">;
+ categories: string[];
+ regions: string[];
+ topics: string[];
+ currencies: string[];
+ assets: string[];
+}
+
+export interface NewsFeedPayload {
+ mode: "wire" | "macro" | "watchlist";
+ modeLabel: string;
+ shellMode: DataMode | "mixed";
+ freshness: FreshnessState;
+ sourceMeta: SourceMetadata;
+ items: NewsItem[];
+ rails: {
+  topNow: NewsItem[];
+  centralBanks: NewsItem[];
+  calendarLinked: NewsItem[];
+  watchlistNews: NewsItem[];
+  highUrgency: NewsItem[];
+  sourceStatus: NewsSourceStatus[];
+ };
+ summary: NewsFeedSummary;
+ filters: {
+  search: string;
+  sourceType: string;
+  region: string;
+  topic: string;
+  category: string;
+  currency: string;
+  asset: string;
+  eventFamily: string;
+  officialOnly: boolean;
+  watchlistOnly: boolean;
+  minUrgency: number;
+ };
+ available: NewsFeedAvailable;
 }
 
 export interface EventDetail extends EventRelease {
@@ -463,4 +558,5 @@ export interface TrackRecordRecord { symbol: string; asOf: string; stance: strin
 export interface TrackRecordPayload { mode: 'replay'; label: string; sampleSize: number; hitRate?: number; magnitudeErrorPct?: number; bySignalType: TrackRecordBySignal[]; byAsset: TrackRecordByAsset[]; byEventFamily: { family: string; sampleSize: number; hitRate: number }[]; byRegime?: TrackRecordByRegime[]; recentRecords: TrackRecordRecord[]; note: string; freshness: SourceMetadata } 
  
 export interface WeeklyReport { id: string; slug: string; title: string; status: string; mode: DataMode | 'deterministic' | 'replay'; weekStart: string; weekEnd: string; summary: string; body: { [key: string]: unknown }; sourceMeta: SourceMetadata[]; createdAt: string }
+
 

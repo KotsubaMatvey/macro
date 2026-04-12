@@ -1,4 +1,4 @@
-import json
+﻿import json
 import uuid
 
 from .cache import enqueue_job
@@ -9,6 +9,12 @@ JOB_TYPES = (
  "refresh_dashboard_cache",
  "refresh_market_prices",
  "refresh_calendar_events",
+ "ingest_official_news",
+ "ingest_discovery_news",
+ "cluster_news_items",
+ "enrich_news_items",
+ "refresh_news_cache",
+ "rebuild_news_rankings",
  "recompute_regime",
  "recompute_market_bias",
  "recompute_reactions",
@@ -49,3 +55,4 @@ def reset_demo_jobs(default_payload=None):
  for job_type in JOB_TYPES:
   create_job(job_type, payload)
  return list(JOB_TYPES)
+

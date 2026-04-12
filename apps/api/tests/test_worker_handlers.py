@@ -191,3 +191,37 @@ def test_generate_weekly_report_rebuilds_reports_without_user_refresh(monkeypatc
     assert ('prefixes', ['insights:reports']) in calls
     assert ('report', True) in calls
     assert not any(item[0] == 'refresh' for item in calls)
+
+
+def test_ingest_official_news_invalidates_only_official_feeds_and_refreshes_both_views(monkeypatch):
+    worker = load_worker_module()
+    calls = []
+
+    monkeypatch.setattr(worker, '_invalidate_news_provider_cache', lambda include_official=True, include_discovery=True: calls.append(('invalidate_news', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'ingest_news_sources', lambda include_official=True, include_discovery=True, item_limit=12: calls.append(('ingest', include_official, include_discovery)))
+    monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
+    monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
+
+    worker._ingest_official_news('ingest_official_news', {'userId': 'user-demo'})
+
+    assert ('invalidate_news', True, False) in calls
+    assert ('ingest', True, False) in calls
+    assert ('refresh', True, True) in calls
+
+
+def test_refresh_news_cache_runs_full_news_pipeline_with_targeted_refresh(monkeypatch):
+    worker = load_worker_module()
+    calls = []
+
+    monkeypatch.setattr(worker, '_invalidate_news_provider_cache', lambda include_official=True, include_discovery=True: calls.append(('invalidate_news', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'ingest_news_sources', lambda include_official=True, include_discovery=True, item_limit=12: calls.append(('ingest', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'rebuild_news_rankings_service', lambda lookback_hours=120: calls.append(('rankings', lookback_hours)))
+    monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
+    monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
+
+    worker._refresh_news_cache('refresh_news_cache', {'userId': 'user-demo'})
+
+    assert ('invalidate_news', True, True) in calls
+    assert ('ingest', True, True) in calls
+    assert ('rankings', 120) in calls
+    assert ('refresh', True, True) in calls

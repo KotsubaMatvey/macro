@@ -1,6 +1,7 @@
-from .calendar_data import get_calendar_event, list_calendar_events
+﻿from .calendar_data import get_calendar_event, list_calendar_events
 from .db import fetch_all
 from .insights_service import build_reactions_payload
+from .news_service import list_news_for_workstation
 
 
 def list_events(search=None, family=None, days_back=30, days_forward=60):
@@ -48,24 +49,26 @@ def _briefings(item, asset):
 
 
 def _news(item):
- rows = fetch_all(
-  "select id, slug, title, source, published_at, summary, category, sentiment, event_id from news_items where event_id = %s or category = %s order by published_at desc",
-  (item["id"], item["category"]),
- )
- return [
-  {
-   "id": row["id"],
-   "slug": row["slug"],
-   "title": row["title"],
-   "source": row["source"],
-   "publishedAt": row["published_at"].isoformat(),
-   "summary": row["summary"],
-   "category": row["category"],
-   "sentiment": row["sentiment"],
-   "relatedEventId": row["event_id"],
-  }
-  for row in rows
- ]
+ rows = list_news_for_workstation(limit=60)
+ linked = []
+ for row in rows:
+  related_event_id = row.get("relatedEventId")
+  row_category = row.get("category")
+  if related_event_id == item["id"] or row_category == item["category"]:
+   linked.append(
+    {
+     "id": row["id"],
+     "slug": row["slug"],
+     "title": row["title"],
+     "source": row["source"],
+     "publishedAt": row["publishedAt"],
+     "summary": row["summary"],
+     "category": row["category"],
+     "sentiment": row.get("sentiment", "Neutral"),
+     "relatedEventId": row.get("relatedEventId"),
+    }
+   )
+ return linked[:12]
 
 
 def event_detail(event_id):
@@ -88,3 +91,6 @@ def event_detail(event_id):
  detail["linkedBriefings"] = _briefings(item, asset)
  detail["linkedNews"] = _news(item)
  return detail
+
+
+

@@ -256,6 +256,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
   availableRegions,
   biasCards,
   briefingLead,
+  newsLead,
   catalysts,
   highVisible,
   liquidityInputs,
@@ -336,7 +337,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  ]),
  ]),
  ]),
- h("div", { key: "footer", className: "grid gap-2 md:grid-cols-3" }, [
+ h("div", { key: "footer", className: "grid gap-2 md:grid-cols-4" }, [
  signalTile("Consensus", payload.marketConsensus.label, String(Math.round(payload.marketConsensus.confidence * 100)) + "% confidence / " + String(payload.marketConsensus.sampleSize) + " assets"),
  signalTile("Track record", trackValue, String(payload.trackRecord.sampleSize) + " replays / " + payload.trackRecord.evaluationMode),
  linkCard("active-tape", "Active tape", activeAsset ? activeAsset.symbol : "No asset", activeAsset ? activeAsset.price + " / 5d edge " + showPercent(activeAsset.expectedMove5dPct) : "No market print", dashboardHref(state, { asset: activeAsset ? activeAsset.symbol : undefined }), "Focus"),
@@ -368,9 +369,10 @@ export default async function DashboardPage(props: DashboardPageProps) {
  ]),
  ]),
  h("div", { key: "rows", className: "grid gap-2" }, catalysts.map(function (item) { return catalystCard(item, payload.generatedAt) })),
- h("div", { key: "footer", className: "grid gap-2 md:grid-cols-3" }, [
+ h("div", { key: "footer", className: "grid gap-2 md:grid-cols-4" }, [
  signalTile("Window", state.window === "1w" ? "1W" : "48H", String(catalysts.length) + " catalysts in view"),
  briefingLead ? linkCard("briefing", "Briefing", briefingLead.title, briefingLead.subtitle + " / " + briefingLead.mode, briefingLead.href) : signalTile("Briefing", "Pending", "No linked briefing loaded"),
+ newsLead ? linkCard("news", "News", newsLead.title, newsLead.subtitle + " / " + newsLead.mode, newsLead.href) : signalTile("News", "Pending", "No ranked news item loaded"),
  alertLead ? linkCard("alert", "Alert", alertLead.title, alertLead.subtitle + " / " + alertLead.mode, alertLead.href) : signalTile("Alert", "Pending", "No live alert attached"),
  ]),
  ]))),
@@ -390,7 +392,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  ]),
  ]),
  h(DataTable, { headers: ["Time", "Region", "Event", "Impact", "Actual", "Forecast", "Previous"], rows: calendarRows, dense: true, numericColumns: [4, 5, 6], stickyHeader: true, ariaLabel: "Dashboard macro calendar" }),
- h("div", { key: "footer", className: "grid gap-2 md:grid-cols-3" }, [
+ h("div", { key: "footer", className: "grid gap-2 md:grid-cols-4" }, [
  signalTile("Filter", state.impact === "all" ? "All impact" : compactImpactLabel(state.impact), String(visibleCalendar.length) + " rows loaded"),
  signalTile("Catalyst map", String(catalysts.length), "Next board remains synced with desk window"),
  linkCard("calendar-focus", "Focus asset", activeAsset ? activeAsset.symbol : "No asset", activeAsset ? activeAsset.regimeContext : "No market context loaded", dashboardHref(state, { asset: activeAsset ? activeAsset.symbol : undefined }), "Focus"),
@@ -406,7 +408,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  ]),
  ]),
  h("div", { key: "strip", className: "flex gap-2 overflow-x-auto pb-1" }, marketAssets.map(function (item) { return marketCard(item, state) })),
- h("div", { key: "footer", className: "grid gap-2 md:grid-cols-3" }, [
+ h("div", { key: "footer", className: "grid gap-2 md:grid-cols-4" }, [
  signalTile("Hero source", payload.hero.sourceNote, payload.hero.modelNote),
  signalTile("Consensus", payload.marketConsensus.label, payload.marketConsensus.note),
  linkCard("event-link", "Key event", payload.keyCatalyst.title, payload.keyCatalyst.threshold, payload.keyCatalyst.href, "Open"),
@@ -423,6 +425,8 @@ const IMPACT_OPTIONS = [
  { label: "Med", value: "Medium" },
  { label: "Low", value: "Low" },
 ]
+
+
 
 
 

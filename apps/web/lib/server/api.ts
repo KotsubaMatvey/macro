@@ -1,4 +1,4 @@
-import { cache } from "react"
+﻿import { cache } from "react"
 import { cookies } from "next/headers"
 import type {
  AdminSummary,
@@ -8,7 +8,7 @@ import type {
  EventRelease,
  FeatureFlag,
  JobRun,
- NewsItem,
+ NewsFeedPayload,
  SessionUser,
  WorkstationPayload,
 } from "@macroaccess/types"
@@ -73,9 +73,38 @@ export const getBriefings = cache(async function getBriefings() {
 	return payload as Briefing[]
 })
 
-export const getNews = cache(async function getNews() {
-	const payload = await load('/api/v1/news')
-	return payload as NewsItem[]
+export const getNews = cache(async function getNews(params: {
+ mode?: "wire" | "macro" | "watchlist"
+ search?: string
+ sourceType?: string
+ region?: string
+ topic?: string
+ category?: string
+ currency?: string
+ asset?: string
+ eventFamily?: string
+ officialOnly?: boolean
+ watchlistOnly?: boolean
+ minUrgency?: number
+ limit?: number
+} = {}) {
+ const query = new URLSearchParams()
+ if (params.mode) query.set('mode', params.mode)
+ if (params.search) query.set('search', params.search)
+ if (params.sourceType) query.set('source_type', params.sourceType)
+ if (params.region) query.set('region', params.region)
+ if (params.topic) query.set('topic', params.topic)
+ if (params.category) query.set('category', params.category)
+ if (params.currency) query.set('currency', params.currency)
+ if (params.asset) query.set('asset', params.asset)
+ if (params.eventFamily) query.set('event_family', params.eventFamily)
+ if (params.officialOnly) query.set('official_only', 'true')
+ if (params.watchlistOnly) query.set('watchlist_only', 'true')
+ if (params.minUrgency !== undefined) query.set('min_urgency', String(params.minUrgency))
+ if (params.limit !== undefined) query.set('limit', String(params.limit))
+ const suffix = query.toString()
+ const payload = await load('/api/v1/news' + (suffix ? '?' + suffix : ''))
+ return payload as NewsFeedPayload
 })
 
 export const getAdminSummary = cache(async function getAdminSummary() {
@@ -117,3 +146,4 @@ export const getReports = cache(async function getReports(limit = 12) {
  const payload = await load('/api/v1/reports?limit=' + String(limit)) 
  return payload as import('@macroaccess/types').WeeklyReport[] 
 })
+

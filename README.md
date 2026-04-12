@@ -12,7 +12,7 @@ Track macro events. Read the regime. Trade the reaction.
 - `docs`: architecture, auth, product and runbooks
 
 ## Runtime model
-- Hybrid runtime: provider-backed dashboard market and news surfaces through Yahoo Finance via yfinance with FRED fallback proxies and official RSS feeds, with honest degraded or fallback states when providers fail
+- Hybrid runtime: provider-backed market tape through Yahoo Finance via yfinance with FRED fallback proxies, plus a ranked news pipeline that prioritizes official macro sources and labels discovery feeds explicitly.
 - Seeded workstation domain data for auth, calendar/events, briefings, watchlists, alerts, community, and admin flows
 - Session auth with secure token hashing and cookie sessions
 - Redis used for queue/cache/rate-limits (with worker queue consumption and dashboard cache warming)
@@ -23,7 +23,7 @@ Track macro events. Read the regime. Trade the reaction.
 - Macro Calendar: filterable event tape with drill-down into dynamic event detail
 - Event Explorer and Impact Lab: family history and reaction context
 - Market Bias and Liquidity Regime: cross-asset consensus and regime layers
-- News, Briefings, Watchlists, Alerts, Community, Admin: connected operator workflows
+- News (Wire, Macro Only, Watchlist), Briefings, Watchlists, Alerts, Community, Admin: connected operator workflows
 
 ## Quick start
 1. Copy `.env.example` to `.env`.
@@ -47,7 +47,7 @@ Track macro events. Read the regime. Trade the reaction.
 - `npm run build`
 
 ## Live vs fallback
-- Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with honest FRED fallback proxies, plus official RSS news feeds when reachable
+- Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with honest FRED fallback proxies, plus official-source news ingestion with discovery-layer augmentation and explicit source labels
 - Fallback/demo today: demo accounts, watchlists/alerts/community/admin content, and seeded calendar or catalyst rows whenever TradingEconomics is missing or degraded
 - Replay/simulated today: track-record windows are retrospective model replays, not logged discretionary calls
 
@@ -58,11 +58,12 @@ Track macro events. Read the regime. Trade the reaction.
 
 ## Cache and Jobs
 - Redis TTLs: market tape 5 minutes, intraday market windows 5 minutes, upcoming calendar 15 minutes, calendar history 1 hour, macro or FRED series 1 hour, dashboard live payload 5 minutes, reactions 15 minutes, track record 15 minutes, reports 30 minutes.
-- Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
+- Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, ingest_official_news, ingest_discovery_news, cluster_news_items, enrich_news_items, refresh_news_cache, rebuild_news_rankings, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
 - Worker job scope today: market refresh jobs invalidate market plus dependent insights and rebuild live dashboard caches (not workstation caches); calendar refresh jobs target calendar plus reactions or reports dependencies and rebuild workstation and live dashboard caches; replay or report jobs rebuild only replay or report surfaces.
-- Reports are deterministic structured summaries today. There is no live LLM report path wired into the runtime, and the structured source-backed sections remain authoritative.
+- Reports are deterministic structured summaries today. There is no live LLM report path wired into the runtime, and the structured source-backed sections remain authoritative. News enrichment is deterministic text generation over ingested structured rows; it does not replace source provenance.
 
 ## Reactions and Replay Integrity
 - Reactions use real market history windows only when the available data resolution supports them. Intraday windows are not fabricated.
 - Track Record remains replay-only product analytics. It is not an audited live discretionary blotter or realized PnL record.
+
 

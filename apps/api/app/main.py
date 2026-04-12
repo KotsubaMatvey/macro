@@ -1,4 +1,4 @@
-import time
+﻿import time
 import uuid
 from contextlib import asynccontextmanager
 
@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import apply_migrations
-from .schemas import AlertInput, CommentInput, CommunityPostInput, DashboardPayload, OnboardingRequest, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkstationPayload
+from .schemas import AlertInput, CommentInput, CommunityPostInput, DashboardPayload, OnboardingRequest, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkstationPayload, NewsFeedPayload
 from .dashboard_service import dashboard_payload
 from .seed import seed_demo_database
 from .services import add_watchlist_item, admin_summary, complete_password_reset, create_alert, create_comment, create_post, create_watchlist, current_user_from_token, event_detail, latest_regime, like_post, list_alerts, list_biases, list_briefings, list_events, list_feature_flags, list_jobs, list_news, list_posts, list_watchlists, request_password_reset, sign_in, sign_out, sign_up, update_onboarding, verify_email, workstation_payload, create_job
@@ -137,9 +137,40 @@ def events_detail(event_id: str, user = Depends(current_user)):
 def briefings(user = Depends(current_user)):
     return list_briefings()
 
-@app.get('/api/v1/news')
-def news(user = Depends(current_user)):
-    return list_news()
+@app.get('/api/v1/news', response_model=NewsFeedPayload)
+def news(
+    mode: str = 'wire',
+    limit: int = 80,
+    search: str = '',
+    source_type: str = '',
+    region: str = '',
+    topic: str = '',
+    category: str = '',
+    currency: str = '',
+    asset: str = '',
+    event_family: str = '',
+    min_urgency: float = 0.0,
+    official_only: bool = False,
+    watchlist_only: bool = False,
+    user = Depends(current_user),
+):
+    normalized_mode = mode if mode in {'wire', 'macro', 'watchlist'} else 'wire'
+    return list_news(
+        user['id'],
+        mode=normalized_mode,
+        limit=max(1, min(limit, 200)),
+        search=search,
+        source_type=source_type,
+        region=region,
+        topic=topic,
+        category=category,
+        currency=currency,
+        asset=asset,
+        event_family=event_family,
+        min_urgency=max(0.0, min(min_urgency, 1.0)),
+        official_only=official_only,
+        watchlist_only=watchlist_only,
+    )
 
 @app.get('/api/v1/watchlists')
 def watchlists(user = Depends(current_user)):
@@ -249,3 +280,5 @@ def admin_generate_report(user = Depends(admin_user)):
     from .services import generate_report_now 
     report = generate_report_now() 
     return {'status': 'ok', 'detail': report['slug']}
+
+

@@ -6,10 +6,11 @@ import math
 import statistics
 
 from .cache import cache_live_dashboard, read_live_dashboard_cache
-from .providers import ProviderError, load_fred_series, load_rss_feed
+from .providers import ProviderError, load_fred_series
 from .security import reference_now, utc_now
 from .services import list_alerts, list_briefings, list_events, list_watchlists
 from .settings import settings
+from .news_service import dashboard_news_snapshot, ingest_news_sources
 from .source_meta import build_source_metadata
 
 LOGGER = logging.getLogger(__name__)
@@ -187,28 +188,16 @@ def _source_meta(label, source, source_url='', payload=None, mode='live', note='
 		note=note,
 	)
 def _load_live_news():
-    items = []
-    statuses = []
-    for feed in NEWS_FEEDS:
-        try:
-            payload = load_rss_feed(feed['cache'], feed['label'], feed['url'])
-            feed_items = payload.get('items') if isinstance(payload, dict) else None
-            if not feed_items:
-                statuses.append({'name': feed['label'], 'status': 'degraded', 'detail': 'Feed payload is empty', 'mode': 'fallback'})
-                continue
-            statuses.append({'name': feed['label'], 'status': 'live', 'detail': 'Official feed connected', 'mode': 'live'})
-            for item in feed_items:
-                items.append({
-                    'title': item.get('title', ''),
-                    'subtitle': item.get('summary') or item.get('publishedAt') or '',
-                    'href': item.get('link', ''),
-                    'mode': 'live',
-                    'publishedAt': item.get('publishedAt', ''),
-                })
-        except ProviderError as exc:
-            statuses.append({'name': feed['label'], 'status': 'degraded', 'detail': str(exc), 'mode': 'fallback'})
-    items = [item for item in items if item['title'] and item['href']]
-    items.sort(key=lambda item: _parse_dt(item['publishedAt']) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    items, statuses = dashboard_news_snapshot(limit=6)
+    if items:
+        return items[:6], statuses
+    try:
+        ingest_news_sources(include_official=True, include_discovery=True, item_limit=8)
+        items, statuses = dashboard_news_snapshot(limit=6)
+    except Exception as exc:
+        statuses.append({'name': 'news-ingestion', 'status': 'degraded', 'detail': str(exc), 'mode': 'fallback'})
+    if not items:
+        statuses.append({'name': 'news-wire', 'status': 'fallback', 'detail': 'No canonical news items are available yet', 'mode': 'fallback'})
     return items[:6], statuses
 
 def _session_strip():
@@ -727,4 +716,6 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
 
 _market_bias_payload_service = build_market_bias_payload
 _track_record_payload_service = build_track_record_payload
+
+
 

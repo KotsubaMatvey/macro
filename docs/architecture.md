@@ -1,4 +1,4 @@
-# Architecture
+﻿# Architecture
 
 ## Services
 - Web (`apps/web`): renders public pages and authenticated workstation routes.
@@ -9,7 +9,7 @@
 
 ## Runtime split
 - Workstation payloads remain seeded/Postgres-backed for calendar, content, watchlists, alerts, and admin workflows.
-- Dashboard payloads blend provider-backed market/news data with seeded catalyst/calendar context.
+- Dashboard payloads blend provider-backed market data with ranked news snapshots and seeded or provider-backed catalyst/calendar context.
 - Provider failures degrade honestly: the dashboard keeps rendering with fallback/degraded metadata instead of pretending to be live.
 
 ## Data flow
@@ -17,4 +17,5 @@
 2. Web server components call the API with that cookie.
 3. API resolves session, applies role checks, and returns workstation/admin/dashboard payloads.
 4. Writes persist to Postgres and invalidate the affected cache surfaces.
-5. Worker jobs mark lifecycle in `ingestion_jobs` and refresh only the surfaces their job type targets.
+5. Worker jobs mark lifecycle in `ingestion_jobs` and refresh only the surfaces their job type targets; news ingestion, clustering, enrichment, and ranking jobs stay scoped to news caches and linked surfaces.
+

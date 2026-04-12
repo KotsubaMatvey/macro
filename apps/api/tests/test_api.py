@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -189,7 +189,7 @@ def test_worker_job_types_transition_to_completed(monkeypatch):
 	assert refresh_done['finished_at'] is not None
 	provider_keys = [item[1] for item in calls if item[0] == 'provider']
 	assert 'fred:SP500' in provider_keys
-	assert 'rss:fed' in provider_keys
+	assert 'rss:fed' not in provider_keys
 	assert not [item for item in calls if item[0] == 'workstation']
 	assert ('dashboard', 'user-demo', True) in calls
 
@@ -242,3 +242,4 @@ def test_dashboard_endpoint_falls_back_when_bias_overlay_fails(monkeypatch):
  market_row = next(item for item in body['utility']['providers'] if item['name'] == 'Market data') 
  assert market_row['status'] in ['degraded', 'fallback'] 
  assert 'bias overlay fallback' in market_row['detail']
+

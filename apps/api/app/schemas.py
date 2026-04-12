@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
  
 from pydantic import BaseModel, Field 
  
@@ -80,17 +80,74 @@ class BriefingItem(BaseModel):
     takeaways: list[str] 
     assetSymbols: list[str]
  
-class NewsItem(BaseModel): 
-    id: str 
-    slug: str 
-    title: str 
-    source: str 
-    publishedAt: str 
-    summary: str 
-    category: str 
-    sentiment: str 
-    relatedEventId: Optional[str] = None 
- 
+class NewsItem(BaseModel):
+    id: str
+    slug: str
+    title: str
+    source: str
+    sourceType: str = "discovery"
+    sourceTier: str = "secondary"
+    sourceUrl: Optional[str] = None
+    publishedAt: str
+    summary: str
+    topic: str = "Macro"
+    category: str
+    sentiment: str = "Neutral"
+    region: str = "Global"
+    country: str = "Global"
+    currency: str = ""
+    eventFamily: str = ""
+    affectedAssets: list[str] = Field(default_factory=list)
+    importanceScore: float = 0
+    urgencyScore: float = 0
+    confidenceScore: float = 0
+    mode: str = "fallback"
+    freshness: str = "degraded"
+    clusterId: Optional[str] = None
+    clusterCount: int = 1
+    canonical: bool = True
+    whyItMatters: str = ""
+    relatedEventId: Optional[str] = None
+    relatedEventSlug: Optional[str] = None
+    relatedDashboardAsset: Optional[str] = None
+    providerMeta: dict = Field(default_factory=dict)
+
+class NewsSourceStatus(BaseModel):
+    providerKey: str
+    sourceType: str
+    status: str
+    mode: str
+    detail: str
+
+class NewsFeedSummary(BaseModel):
+    total: int
+    official: int
+    discovery: int
+    linkedEvents: int
+    watchlistHits: int
+    clusters: int
+
+class NewsFeedAvailable(BaseModel):
+    modes: list[str]
+    sourceTypes: list[str]
+    categories: list[str]
+    regions: list[str]
+    topics: list[str]
+    currencies: list[str]
+    assets: list[str]
+
+class NewsFeedPayload(BaseModel):
+    mode: str
+    modeLabel: str
+    shellMode: str
+    freshness: str
+    sourceMeta: dict
+    items: list[NewsItem]
+    rails: dict
+    summary: NewsFeedSummary
+    filters: dict
+    available: NewsFeedAvailable
+
 class EventRelease(BaseModel): 
     id: str 
     family: str 
@@ -395,3 +452,7 @@ class GeoboardMacroEvent(BaseModel):
  expectedReaction: str
  relatedAssets: list[str]
  mode: str
+
+
+
+

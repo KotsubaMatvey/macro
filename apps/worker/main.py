@@ -12,7 +12,7 @@ from app.cache import (
  invalidate_provider_payload_prefix,
 )
 from app.calendar_data import calendar_feed
-from app.dashboard_service import NEWS_FEEDS, SERIES, dashboard_payload
+from app.dashboard_service import SERIES, dashboard_payload
 from app.db import apply_migrations, fetch_all, fetch_one, get_connection
 from app.insights_service import (
  build_market_bias_payload,
@@ -21,6 +21,7 @@ from app.insights_service import (
  generate_weekly_report as build_weekly_report,
 )
 from app.market_data import MARKET_INSTRUMENTS, invalidate_market_bundle, load_market_bundle
+from app.news_service import DISCOVERY_NEWS_PROVIDERS, OFFICIAL_NEWS_PROVIDERS, cluster_news_items as cluster_news_items_service, enrich_news_items as enrich_news_items_service, ingest_news_sources, rebuild_news_rankings as rebuild_news_rankings_service
 from app.services import workstation_payload
 
 USER_COLUMNS = "id, email, name, role, onboarding_completed, email_verified_at"
@@ -123,8 +124,16 @@ def _invalidate_provider_prefixes(prefixes):
 def _invalidate_market_provider_cache():
  for config in SERIES.values():
   invalidate_provider_payload("fred:" + config["seriesId"])
- for feed in NEWS_FEEDS:
-  invalidate_provider_payload("rss:" + feed["cache"])
+
+
+def _invalidate_news_provider_cache(include_official=True, include_discovery=True):
+ providers = []
+ if include_official:
+  providers.extend(OFFICIAL_NEWS_PROVIDERS)
+ if include_discovery:
+  providers.extend(DISCOVERY_NEWS_PROVIDERS)
+ for provider in providers:
+  invalidate_provider_payload("rss:" + provider.provider_key)
 
 
 def _refresh_users(users, refresh_workstation=False, refresh_live_dashboard=False):
@@ -165,6 +174,39 @@ def _refresh_calendar_events(job_type, payload):
  calendar_feed(days_back=30, days_forward=60, prefer_cache=False)
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
+
+def _ingest_official_news(job_type, payload):
+ _invalidate_news_provider_cache(include_official=True, include_discovery=False)
+ ingest_news_sources(include_official=True, include_discovery=False)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _ingest_discovery_news(job_type, payload):
+ _invalidate_news_provider_cache(include_official=False, include_discovery=True)
+ ingest_news_sources(include_official=False, include_discovery=True)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
+
+
+def _cluster_news_items(job_type, payload):
+ cluster_news_items_service()
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _enrich_news_items(job_type, payload):
+ enrich_news_items_service(limit=240)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _refresh_news_cache(job_type, payload):
+ _invalidate_news_provider_cache(include_official=True, include_discovery=True)
+ ingest_news_sources(include_official=True, include_discovery=True)
+ rebuild_news_rankings_service(lookback_hours=120)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _rebuild_news_rankings(job_type, payload):
+ rebuild_news_rankings_service(lookback_hours=120)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 def _recompute_regime(job_type, payload):
  _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
@@ -210,6 +252,12 @@ JOB_HANDLERS = {
  "refresh_dashboard_cache": _refresh_dashboard_cache,
  "refresh_market_prices": _refresh_market_prices,
  "refresh_calendar_events": _refresh_calendar_events,
+ "ingest_official_news": _ingest_official_news,
+ "ingest_discovery_news": _ingest_discovery_news,
+ "cluster_news_items": _cluster_news_items,
+ "enrich_news_items": _enrich_news_items,
+ "refresh_news_cache": _refresh_news_cache,
+ "rebuild_news_rankings": _rebuild_news_rankings,
  "recompute_regime": _recompute_regime,
  "recompute_market_bias": _recompute_market_bias,
  "recompute_reactions": _recompute_reactions,
@@ -218,7 +266,6 @@ JOB_HANDLERS = {
  "evaluate_alerts": _evaluate_alerts,
  "generate_weekly_report": _generate_weekly_report,
 }
-
 
 def run_job(job_id):
  job = fetch_one("select id, job_type, payload from ingestion_jobs where id = %s", (job_id,))
@@ -245,3 +292,12 @@ def run_forever():
 
 if __name__ == "__main__":
  run_forever()
+
+
+
+
+
+
+
+
+
