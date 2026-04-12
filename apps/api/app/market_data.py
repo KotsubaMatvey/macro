@@ -13,7 +13,7 @@ MARKET_INSTRUMENTS = {
  "US10Y": {"ticker": "^TNX", "title": "US 10Y Yield", "sourceUrl": "https://finance.yahoo.com/quote/%5ETNX", "fallbackSeriesId": "DGS10", "note": "Yahoo Finance treasury yield quote"},
  "VIX": {"ticker": "^VIX", "title": "VIX", "sourceUrl": "https://finance.yahoo.com/quote/%5EVIX", "fallbackSeriesId": "VIXCLS", "note": "Yahoo Finance volatility index quote"},
  "EURUSD": {"ticker": "EURUSD=X", "title": "EUR / USD", "sourceUrl": "https://finance.yahoo.com/quote/EURUSD%3DX", "fallbackSeriesId": "DEXUSEU", "note": "Yahoo Finance FX pair quote"},
- "XAU": {"ticker": "GC=F", "title": "Gold", "sourceUrl": "https://finance.yahoo.com/quote/GC%3DF", "fallbackSeriesId": "GOLDAMGBD228NLBM", "note": "COMEX gold futures proxy used for live market tape"},
+ "XAU": {"ticker": "GC=F", "title": "Gold", "sourceUrl": "https://finance.yahoo.com/quote/GC%3DF", "fallbackSeriesId": "", "note": "COMEX gold futures proxy used for live market tape; FRED LBMA gold series was removed in 2022"},
  "BTC": {"ticker": "BTC-USD", "title": "Bitcoin / USD", "sourceUrl": "https://finance.yahoo.com/quote/BTC-USD", "fallbackSeriesId": "CBBTCUSD", "note": "Yahoo Finance crypto quote"},
 }
 
@@ -70,10 +70,16 @@ def _load_yfinance_history(symbol, interval, period):
   raise ProviderError("yfinance is not installed") from exc
  config = MARKET_INSTRUMENTS[symbol]
  ticker = yf.Ticker(config["ticker"])
- history = ticker.history(period=period, interval=interval, auto_adjust=False, actions=False, prepost=False)
+ try:
+  history = ticker.history(period=period, interval=interval, auto_adjust=False, actions=False, prepost=False)
+ except Exception as exc:
+  raise ProviderError("Yahoo Finance request failed for " + symbol + ": " + str(exc)) from exc
  if getattr(history, "empty", False):
   raise ProviderError("Yahoo Finance returned no history for " + symbol)
- points = _frame_points(history)
+ try:
+  points = _frame_points(history)
+ except Exception as exc:
+  raise ProviderError("Yahoo Finance payload parsing failed for " + symbol + ": " + str(exc)) from exc
  return {
   "symbol": symbol,
   "title": config["title"],
@@ -103,6 +109,8 @@ def _load_fred_fallback(symbol, interval, period, error_note):
   raise ProviderError(error_note)
  source_url = _fallback_source_url(fallback_id)
  payload = load_fred_series(fallback_id, source_url, ttl=settings.market_cache_ttl_seconds)
+ if not payload or not payload.get("points"):
+  raise ProviderError(error_note + " FRED fallback series is unavailable.")
  return {
   "symbol": symbol,
   "title": config["title"],

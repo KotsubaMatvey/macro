@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 import math
 import statistics
 
@@ -9,6 +10,8 @@ from .providers import ProviderError, load_fred_series, load_rss_feed
 from .security import reference_now, utc_now
 from .services import list_alerts, list_briefings, list_events, list_watchlists
 from .settings import settings
+
+LOGGER = logging.getLogger(__name__)
 
 SERIES = {
 	'SPX': {'seriesId': 'SP500', 'title': 'SPX Index', 'sourceUrl': 'https://fred.stlouisfed.org/series/SP500'},
@@ -50,7 +53,20 @@ def _clamp(value, low=-1.0, high=1.0):
 	return max(low, min(high, value))
 
 def _values(series_payload):
-	return [item['value'] for item in series_payload['points']]
+    if not isinstance(series_payload, dict):
+        return []
+    points = series_payload.get('points')
+    if not isinstance(points, list):
+        return []
+    values = []
+    for item in points:
+        if not isinstance(item, dict):
+            continue
+        value = item.get('value')
+        if value is None:
+            continue
+        values.append(value)
+    return values
 
 def _pct_change(values, periods, offset=0):
 	end = len(values) - offset
@@ -123,8 +139,24 @@ def _skew_label(buckets):
 	return 'Balanced'
 
 def _sparkline(series_payload, size=12):
-	points = series_payload['points'][-size:]
-	return [{'label': item['date'], 'value': round(item['value'], 4)} for item in points]
+    points = []
+    if isinstance(series_payload, dict):
+        raw_points = series_payload.get('points')
+        if isinstance(raw_points, list):
+            points = raw_points[-size:]
+    rows = []
+    for item in points:
+        if not isinstance(item, dict):
+            continue
+        label = item.get('date')
+        value = item.get('value')
+        if not label or value is None:
+            continue
+        try:
+            rows.append({'label': label, 'value': round(value, 4)})
+        except (TypeError, ValueError):
+            continue
+    return rows
 
 def _format_price(symbol, value):
 	if symbol == 'BTC':
@@ -174,24 +206,29 @@ def _source_meta(label, source, source_url='', payload=None, mode='live', note='
 	}
 
 def _load_live_news():
-	items = []
-	statuses = []
-	for feed in NEWS_FEEDS:
-		try:
-			payload = load_rss_feed(feed['cache'], feed['label'], feed['url'])
-			statuses.append({'name': feed['label'], 'status': 'live', 'detail': 'Official feed connected', 'mode': 'live'})
-			for item in payload['items']:
-				items.append({
-					'title': item['title'],
-					'subtitle': item['summary'] or item['publishedAt'],
-					'href': item['link'],
-					'mode': 'live',
-					'publishedAt': item['publishedAt'],
-				})
-		except ProviderError as exc:
-			statuses.append({'name': feed['label'], 'status': 'degraded', 'detail': str(exc), 'mode': 'fallback'})
-	items.sort(key=lambda item: _parse_dt(item['publishedAt']) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-	return items[:6], statuses
+    items = []
+    statuses = []
+    for feed in NEWS_FEEDS:
+        try:
+            payload = load_rss_feed(feed['cache'], feed['label'], feed['url'])
+            feed_items = payload.get('items') if isinstance(payload, dict) else None
+            if not feed_items:
+                statuses.append({'name': feed['label'], 'status': 'degraded', 'detail': 'Feed payload is empty', 'mode': 'fallback'})
+                continue
+            statuses.append({'name': feed['label'], 'status': 'live', 'detail': 'Official feed connected', 'mode': 'live'})
+            for item in feed_items:
+                items.append({
+                    'title': item.get('title', ''),
+                    'subtitle': item.get('summary') or item.get('publishedAt') or '',
+                    'href': item.get('link', ''),
+                    'mode': 'live',
+                    'publishedAt': item.get('publishedAt', ''),
+                })
+        except ProviderError as exc:
+            statuses.append({'name': feed['label'], 'status': 'degraded', 'detail': str(exc), 'mode': 'fallback'})
+    items = [item for item in items if item['title'] and item['href']]
+    items.sort(key=lambda item: _parse_dt(item['publishedAt']) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return items[:6], statuses
 
 def _session_strip():
 	hour = utc_now().hour
@@ -205,16 +242,24 @@ def _session_strip():
 	return sessions, ' / '.join(active) if active else 'Off hours'
 
 def _edge_symbols(user_id):
-	symbols = []
-	for watchlist in list_watchlists(user_id):
-		for item in watchlist['items']:
-			symbol = item['symbol'].upper()
-			if symbol in DEFAULT_EDGE_SYMBOLS and symbol not in symbols:
-				symbols.append(symbol)
-	for symbol in DEFAULT_EDGE_SYMBOLS:
-		if symbol not in symbols:
-			symbols.append(symbol)
-	return symbols[:7]
+    symbols = []
+    watchlists = list_watchlists(user_id) or []
+    if not watchlists:
+        LOGGER.warning('Watchlists unavailable while resolving edge symbols for user %s', user_id)
+    for watchlist in watchlists:
+        items = watchlist.get('items') if isinstance(watchlist, dict) else None
+        if not items:
+            continue
+        for item in items:
+            symbol = str(item.get('symbol', '')).upper() if isinstance(item, dict) else ''
+            if not symbol:
+                continue
+            if symbol in DEFAULT_EDGE_SYMBOLS and symbol not in symbols:
+                symbols.append(symbol)
+    for symbol in DEFAULT_EDGE_SYMBOLS:
+        if symbol not in symbols:
+            symbols.append(symbol)
+    return symbols[:7]
 
 def _risk_score(series_map, offset=0):
 	score = 0.0
@@ -288,9 +333,12 @@ def _threshold_text(event):
 	return 'No threshold model available'
 
 def _pick_catalyst(events):
-	active = [item for item in events if item['status'] in {'Live', 'Upcoming'}]
-	source = active if active else events
-	return source[0] if source else None
+    if not events:
+        return None
+    normalized = [item for item in events if isinstance(item, dict)]
+    active = [item for item in normalized if item.get('status') in {'Live', 'Upcoming'}]
+    source = active if active else normalized
+    return source[0] if source else None
 
 def _linked_mode():
 	return 'demo' if settings.app_mode == 'demo' else 'live'
@@ -317,8 +365,15 @@ def _track_record(series_map, events):
 		series_payload = series_map.get(symbol)
 		if not series_payload:
 			continue
+		points = series_payload.get('points') if isinstance(series_payload, dict) else None
+		if not isinstance(points, list) or not points:
+			LOGGER.warning('Skipping track record for %s due to empty series payload', symbol)
+			continue
 		values = _values(series_payload)
-		dates = [item['date'] for item in series_payload['points']]
+		dates = [item.get('date') for item in points if isinstance(item, dict) and item.get('date') and item.get('value') is not None]
+		if len(values) != len(dates) or len(values) < 36:
+			LOGGER.warning('Skipping track record for %s due to insufficient aligned history', symbol)
+			continue
 		for index in range(30, len(values) - 5):
 			trailing = values[:index + 1]
 			change_30d = _pct_change(trailing, 20)
@@ -400,10 +455,19 @@ def _build_dashboard_payload(user):
 	series_map = {}
 	for symbol in ['SPX', 'BTC', 'XAU', 'DXY', 'EURUSD', 'US2Y', 'US10Y', 'VIX', 'WALCL', 'FEDFUNDS', 'SOFR', 'NFCI', 'RRPONTSYD', 'WTREGEN', 'WRESBAL', 'DFII10', 'BAA10Y']:
 		try:
-			series_map[symbol] = _load_series(symbol)
+			series_payload = _load_series(symbol)
+			if not series_payload or not _values(series_payload):
+				series_failures[symbol] = 'Provider returned no usable points'
+				LOGGER.warning('Series %s returned no usable points', symbol)
+				continue
+			series_map[symbol] = series_payload
 		except ProviderError as exc:
 			series_failures[symbol] = str(exc)
-	events = list_events()
+			LOGGER.warning('Series %s failed: %s', symbol, exc)
+		except Exception as exc:
+			series_failures[symbol] = str(exc)
+			LOGGER.exception('Unexpected series failure for %s: %s', symbol, exc)
+	events = list_events() or []
 	catalyst = _pick_catalyst(events)
 	if {'SPX', 'BTC', 'XAU', 'DXY', 'US10Y', 'VIX'}.issubset(series_map.keys()):
 		risk_score = _risk_score(series_map)
@@ -425,8 +489,13 @@ def _build_dashboard_payload(user):
 	edge_assets = []
 	for symbol in _edge_symbols(user['id']):
 		series_payload = series_map.get(symbol)
-		if series_payload:
-			edge_assets.append(_build_asset_view(symbol, series_payload, regime_context))
+		if not series_payload:
+			continue
+		asset_view = _build_asset_view(symbol, series_payload, regime_context)
+		if asset_view:
+			edge_assets.append(asset_view)
+		else:
+			series_failures.setdefault(symbol, 'Insufficient market history')
 	consensus_assets = [
 		{
 			'symbol': item['symbol'],
@@ -557,6 +626,9 @@ def _load_series(symbol):
  
 def _build_asset_view(symbol, series_payload, regime_context): 
     values = _values(series_payload) 
+    if not values:
+        LOGGER.warning('Skipping asset view for %s due to empty series payload', symbol)
+        return None
     change_1d = _pct_change(values, 1) 
     change_30d = _pct_change(values, 20) 
     expected_move = _expected_move(values) 
@@ -583,7 +655,7 @@ def _build_asset_view(symbol, series_payload, regime_context):
         'modelFacts': ['Expected 5d move ' + format(expected_move, '.2f') + '%', 'Confidence ' + str(int(confidence * 100)) + '%', 'Distribution skew ' + _skew_label(buckets)], 
         'scenarioBuckets': buckets, 
         'sparkline': _sparkline(series_payload), 
-        'freshness': _source_meta('Price tape', series_payload['source'], series_payload.get('sourceUrl', ''), series_payload, series_payload.get('mode', 'live'), series_payload.get('note', '')), 
+        'freshness': _source_meta('Price tape', series_payload.get('source', 'Unknown source'), series_payload.get('sourceUrl', ''), series_payload, series_payload.get('mode', 'live'), series_payload.get('note', '')), 
     } 
  
 def _liquidity_inputs(series_map): 
@@ -591,6 +663,9 @@ def _liquidity_inputs(series_map):
     if not needed.issubset(series_map.keys()): 
         return [] 
     values = {key: _values(series_map[key]) for key in needed} 
+    if any(not values[key] for key in needed):
+        LOGGER.warning('Liquidity inputs unavailable due to empty series payload')
+        return []
     return [ 
         {'label': 'Balance sheet', 'value': _liquidity_input_value('WALCL', values['WALCL'][-1]), 'detail': format(_pct_change(values['WALCL'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['WALCL'], 8) >= 0 else 'Restrictive'}, 
         {'label': 'ON RRP', 'value': '$' + format(values['RRPONTSYD'][-1] / 1000.0, '.2f') + 'T', 'detail': format(_pct_change(values['RRPONTSYD'], 8), '+.2f') + '% / 8w', 'tone': 'Supportive' if _pct_change(values['RRPONTSYD'], 8) <= 0 else 'Restrictive'}, 
@@ -631,7 +706,7 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
     except ProviderError as exc: 
         bias_payload = None 
         bias_error = 'Market bias overlay fallback: ' + str(exc) 
-    if bias_payload:
+    if isinstance(bias_payload, dict) and isinstance(bias_payload.get('summary'), dict) and isinstance(bias_payload.get('assets'), list):
         consensus_assets = [{'symbol': item['symbol'], 'direction': item['direction'], 'score': item['score'], 'confidence': item['confidence'], 'change30dPct': item['change30d'], 'note': item['note']} for item in bias_payload['assets'][:6]] 
         payload['marketConsensus'] = {'label': bias_payload['summary']['label'], 'score': round(sum((item['score'] - 50.0) for item in consensus_assets) / max(len(consensus_assets), 1), 2), 'trend30d': payload['marketConsensus']['trend30d'], 'confidence': bias_payload['summary']['confidence'], 'sampleSize': len(consensus_assets), 'note': bias_payload['summary']['note'], 'href': '/app/market-bias', 'assets': consensus_assets, 'freshness': bias_payload['summary']['freshness']} 
     else: 
@@ -648,7 +723,8 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
         market_detail += ' / bias overlay fallback' 
     providers.insert(0, {'name': 'Market data', 'status': 'live' if market_live and market_fallback == 0 and not bias_error else 'degraded' if market_live else 'fallback', 'detail': market_detail, 'mode': 'live' if market_live else 'fallback'}) 
     catalyst_id = payload['keyCatalyst']['href'].split('/')[-1] if payload['keyCatalyst'].get('href') else '' 
-    catalyst = next((item for item in list_events() if item['id'] == catalyst_id), None) 
+    events = list_events() or []
+    catalyst = next((item for item in events if isinstance(item, dict) and item.get('id') == catalyst_id), None) 
     if catalyst and catalyst.get('freshness'): 
         payload['keyCatalyst']['freshness'] = catalyst['freshness'] 
         providers.append({'name': 'Catalyst calendar', 'status': 'live' if catalyst['freshness']['mode'] == 'live' else 'fallback', 'detail': catalyst['freshness']['note'], 'mode': catalyst['freshness']['mode']}) 

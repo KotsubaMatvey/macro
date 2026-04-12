@@ -25,7 +25,7 @@ export default async function TrackRecordPage() {
  const bySignalRows: ReactNode[][] = payload.bySignalType.map(function (item) { return [item.signalType, String(item.sampleSize), pct(item.hitRate)] }) 
  const byRegimeRows: ReactNode[][] = (payload.byRegime ? payload.byRegime : []).map(function (item) { return [item.regime, String(item.sampleSize), pct(item.hitRate)] }) 
  const recentRows: ReactNode[][] = payload.recentRecords.map(function (item) { return [item.symbol, item.stance, num(item.expectedMove5dPct), num(item.realizedMove5dPct), item.outcome, item.regime ? item.regime : '-'] })
- return h(PageShell, { title: 'Track Record', subtitle: 'Replay evaluation surface for model posture, hit rate, and magnitude error across the current product history.', active: 'track-record', mode: 'fallback' }, h('div', { className: 'space-y-5' }, [ 
+ return h(PageShell, { title: 'Track Record', subtitle: 'Replay evaluation surface for model posture, hit rate, and magnitude error across the current product history.', active: 'track-record', mode: payload.freshness.mode === 'demo' ? 'demo' : 'fallback' }, h('div', { className: 'space-y-5' }, [ 
   h(MetricGrid, { key: 'metrics', items: metrics }), 
   h('div', { key: 'grid', className: 'ws-two-panel' }, [ 
    h('div', { key: 'left', className: 'space-y-5' }, [ 

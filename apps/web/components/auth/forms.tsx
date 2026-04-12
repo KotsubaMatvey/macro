@@ -44,7 +44,7 @@ export function SignUpForm() {
     try {
       setError('')
       const result = await postJson('/api/v1/auth/sign-up', { name, email, password })
-      setMessage(result.token ? 'Verification token: ' + result.token : result.detail)
+      setMessage(result.token ? 'Verification token: ' + result.token : result.detail ?? '')
       router.push('/verify-email' + (result.token ? '?token=' + encodeURIComponent(result.token) : ''))
     } catch (exc: any) {
       setError(exc.message)
@@ -63,7 +63,7 @@ export function VerifyEmailForm() {
     try {
       setError('')
       const result = await postJson('/api/v1/auth/verify-email', { token })
-      setMessage(result.detail)
+      setMessage(result.detail ?? '')
       router.push('/sign-in')
     } catch (exc: any) {
       setError(exc.message)
@@ -83,7 +83,7 @@ export function ResetPasswordForm() {
     try {
       const result = await postJson('/api/v1/auth/request-password-reset', { email })
       setToken(result.token ?? '')
-      setMessage(result.token ? 'Reset token: ' + result.token : result.detail)
+      setMessage(result.token ? 'Reset token: ' + result.token : result.detail ?? '')
     } catch (exc: any) {
       setError(exc.message)
     }
@@ -91,7 +91,7 @@ export function ResetPasswordForm() {
   async function completeReset() {
     try {
       const result = await postJson('/api/v1/auth/reset-password', { token, password })
-      setMessage(result.detail)
+      setMessage(result.detail ?? '')
     } catch (exc: any) {
       setError(exc.message)
     }

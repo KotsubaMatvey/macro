@@ -3,7 +3,7 @@
 ## What demo mode means
 - Real API/auth/session mechanics over a seeded domain dataset.
 - Dashboard market/news surfaces can still use real providers when FRED/RSS are reachable.
-- Calendar, catalyst, briefing, watchlist, alert, community, and admin state remain seeded or demo-backed.
+- Calendar and catalyst state remain seeded or demo-backed unless TradingEconomics credentials are configured and reachable; briefing, watchlist, alert, community, and admin state remain seeded or demo-backed.
 
 ## Boundaries
 - No fake live-feed claims.

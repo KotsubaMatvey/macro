@@ -3,13 +3,18 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : 'http://localhost:8000'
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : 'http://localhost:8000').trim().replace(/\/+$/, '')
 
 async function proxy(path: string) {
  const cookieHeader = (await cookies()).toString()
- const response = await fetch(API_URL + path, { cache: 'no-store', headers: { cookie: cookieHeader } })
- const body = await response.text()
- return new NextResponse(body, { status: response.status, headers: { 'content-type': response.headers.get('content-type') ? response.headers.get('content-type') as string : 'application/json' } })
+ try {
+  const response = await fetch(API_URL + path, { cache: 'no-store', headers: { cookie: cookieHeader } })
+  const body = await response.text().catch(function (error) { console.error('Dashboard proxy body read failed', path, error); return '' })
+  return new NextResponse(body, { status: response.status, headers: { 'content-type': response.headers.get('content-type') ? response.headers.get('content-type') as string : 'application/json' } })
+ } catch (error) {
+  console.error('Dashboard proxy request failed', path, error)
+  return NextResponse.json({ detail: 'Dashboard upstream unavailable' }, { status: 502 })
+ }
 }
 
 export async function GET() {

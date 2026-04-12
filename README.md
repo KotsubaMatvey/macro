@@ -48,7 +48,7 @@ Track macro events. Read the regime. Trade the reaction.
 
 ## Live vs fallback
 - Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with honest FRED fallback proxies, plus official RSS news feeds when reachable
-- Fallback/demo today: seeded macro calendar, demo accounts, watchlists/alerts/community/admin content, and the catalyst calendar until a live schedule provider is attached
+- Fallback/demo today: demo accounts, watchlists/alerts/community/admin content, and seeded calendar or catalyst rows whenever TradingEconomics is missing or degraded
 - Replay/simulated today: track-record windows are retrospective model replays, not logged discretionary calls
 
 ## Real-data Product Layer
@@ -59,6 +59,7 @@ Track macro events. Read the regime. Trade the reaction.
 ## Cache and Jobs
 - Redis TTLs: market tape 5 minutes, intraday market windows 5 minutes, upcoming calendar 15 minutes, calendar history 1 hour, macro or FRED series 1 hour, dashboard live payload 5 minutes, reactions 15 minutes, track record 15 minutes, reports 30 minutes.
 - Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
+- Worker job scope today: market refresh jobs invalidate market and dependent insights caches; calendar refresh jobs target calendar plus reactions or reports dependencies; replay or report jobs rebuild only replay or report surfaces.
 - Reports are deterministic structured summaries today. There is no live LLM report path wired into the runtime, and the structured source-backed sections remain authoritative.
 
 ## Reactions and Replay Integrity

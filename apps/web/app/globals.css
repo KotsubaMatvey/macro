@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import 'mapbox-gl/dist/mapbox-gl.css';
+@import 'maplibre-gl/dist/maplibre-gl.css';
 
 :root {
  --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
@@ -456,3 +456,29 @@ button, input, textarea, select {
 .geoboard-pulse-dot {
  animation: geoboard-pulse 1.8s ease-in-out infinite;
 }
+
+
+.geoboard-root .mapboxgl-ctrl-bottom-right,
+.geoboard-root .maplibregl-ctrl-bottom-right,
+.geoboard-root .mapboxgl-ctrl-bottom-left,
+.geoboard-root .maplibregl-ctrl-bottom-left {
+ bottom: 4px;
+}
+
+.geoboard-root .mapboxgl-ctrl-attrib,
+.geoboard-root .maplibregl-ctrl-attrib {
+ border: 1px solid #1a2535;
+ border-radius: 2px;
+ background: rgba(6, 10, 15, 0.92);
+ color: #7a9ab8;
+ font-family: 'JetBrains Mono', var(--mono);
+ font-size: 9px;
+ letter-spacing: 0.08em;
+ text-transform: uppercase;
+}
+
+.geoboard-root .mapboxgl-ctrl-attrib a,
+.geoboard-root .maplibregl-ctrl-attrib a {
+ color: #c8d8e8;
+}
+

@@ -107,13 +107,20 @@ def workstation(refresh: bool = False, user = Depends(current_user)):
 def dashboard(refresh: bool = False, user = Depends(current_user)):
  return dashboard_payload(user, prefer_cache=not refresh, force_refresh=refresh)
 
+@app.get('/api/dashboard', response_model=DashboardPayload)
+def dashboard_compat(refresh: bool = False, user = Depends(current_user)):
+ return dashboard_payload(user, prefer_cache=not refresh, force_refresh=refresh)
+
 @app.get('/api/v1/regime')
 def regime(user = Depends(current_user)):
     return latest_regime()
 
 @app.get('/api/v1/market-bias')
 def market_bias(user = Depends(current_user)):
-    return list_biases()
+    try:
+        return list_biases()
+    except Exception:
+        return []
 
 @app.get('/api/v1/events')
 def events(search: str = '', user = Depends(current_user)):

@@ -291,7 +291,7 @@ def calendar_feed(search=None, family=None, days_back=14, days_forward=45, prefe
  ),
   "provider": {
    "name": FALLBACK_SOURCE["source"],
-   "status": "fallback",
+   "status": "demo" if settings.app_mode == "demo" else "fallback",
    "detail": _fallback_note(failure_note),
    "mode": "demo" if settings.app_mode == "demo" else "fallback",
   },

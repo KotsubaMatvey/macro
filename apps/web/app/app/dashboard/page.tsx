@@ -226,6 +226,25 @@ function calendarRow(item: EventRelease) {
  ]
 }
 
+function calendarItemMode(item: EventRelease) {
+ const mode = item.freshness ? item.freshness.mode : "fallback"
+ if (mode === "live") return mode
+ if (mode === "demo") return mode
+ return "fallback"
+}
+
+function calendarBoardMode(events: EventRelease[]) {
+ const live = events.filter(function (item) { return calendarItemMode(item) === "live" }).length
+ const demo = events.filter(function (item) { return calendarItemMode(item) === "demo" }).length
+ const fallback = events.filter(function (item) { return calendarItemMode(item) === "fallback" }).length
+ const activeModes = [live, demo, fallback].filter(function (value) { return value !== 0 }).length
+ if (activeModes === 0) return "fallback"
+ if (activeModes !== 1) return "mixed"
+ if (live !== 0) return "live"
+ if (demo !== 0) return "demo"
+ return "fallback"
+}
+
 export default async function DashboardPage(props: DashboardPageProps) {
  const params = props.searchParams ? await props.searchParams : undefined
  const payload = await getDashboard()
@@ -249,7 +268,11 @@ export default async function DashboardPage(props: DashboardPageProps) {
   upcomingVisible,
   visibleCalendar,
  } = view
- const shellMode = providers.live !== 0 && providers.fallback === 0 ? "live" : providers.live !== 0 ? "mixed" : "fallback"
+ const shellMode = providers.live !== 0 ? providers.fallback === 0 ? "live" : "mixed" : "fallback"
+ const calendarLive = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "live" }).length
+ const calendarDemo = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "demo" }).length
+ const calendarFallback = visibleCalendar.filter(function (item) { return calendarItemMode(item) === "fallback" }).length
+ const calendarMode = calendarBoardMode(visibleCalendar)
 const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
     return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard", mode: shellMode }, h("div", { className: "space-y-3" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
@@ -357,7 +380,7 @@ const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalend
  h("div", { key: "stats", className: "flex flex-wrap gap-2" }, [
  h("span", { key: "high", className: "terminal-meta" }, ["High ", h("strong", { key: "value" }, String(highVisible))]),
  h("span", { key: "upcoming", className: "terminal-meta" }, ["Upcoming ", h("strong", { key: "value" }, String(upcomingVisible))]),
- h("span", { key: "source", className: "terminal-meta" }, ["Calendar ", h("strong", { key: "value" }, payload.keyCatalyst.freshness.mode)]),
+ h("span", { key: "source", className: "terminal-meta" }, ["Calendar ", h("strong", { key: "value" }, calendarMode + " (" + String(calendarLive) + "/" + String(calendarDemo) + "/" + String(calendarFallback) + ")")]),
  ]),
  ]),
  h(DataTable, { headers: ["Time", "Region", "Event", "Impact", "Actual", "Forecast", "Previous"], rows: calendarRows, dense: true, numericColumns: [4, 5, 6], stickyHeader: true, ariaLabel: "Dashboard macro calendar" }),

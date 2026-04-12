@@ -75,6 +75,7 @@ describe('DashboardPage', function () {
  expect(screen.getAllByText('demo').length).toBeGreaterThan(0)
  expect(screen.getAllByRole('link', { name: 'Core CPI (MoM)' })[0]).toHaveAttribute('href', '/app/events/event-cpi-mar')
  expect(screen.getByRole('link', { name: 'Open full calendar' })).toHaveAttribute('href', '/app/macro-calendar')
+ expect(screen.getByText('Macro Calendar -- APR 2026')).toBeInTheDocument()
  }, 15000)
 
  it('respects the catalyst window and calendar impact filters', async function () {

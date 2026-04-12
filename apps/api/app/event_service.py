@@ -81,7 +81,8 @@ def event_detail(event_id):
    currency=item["currency"],
   )
  except Exception:
-  reactions = {"summary": {"windowStats": []}}
+  fallback_rows = fetch_all("select reaction_window, avg_move_pct, consistency, narrative from event_reaction_windows where event_id = %s order by reaction_window", (item["id"],))
+  reactions = {"summary": {"windowStats": [{"window": row["reaction_window"], "meanMovePct": float(row["avg_move_pct"]), "positiveHitRate": float(row["consistency"])} for row in fallback_rows]}}
  detail = dict(item)
  detail["historicalReactions"] = _reaction_rows(reactions)
  detail["linkedBriefings"] = _briefings(item, asset)

@@ -50,4 +50,5 @@ def test_calendar_fallback_feed_exposes_seeded_mode_and_reason(monkeypatch):
  assert payload["freshness"]["source"] == "Seeded macro calendar"
  assert payload["freshness"]["freshness"] == "degraded"
  assert "TradingEconomics" in payload["freshness"]["note"]
- assert payload["provider"]["status"] == "fallback"
+ assert payload["provider"]["status"] in ["demo", "fallback"]
+ assert payload["provider"]["mode"] == payload["freshness"]["mode"]

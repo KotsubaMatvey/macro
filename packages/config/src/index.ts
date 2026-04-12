@@ -1,4 +1,4 @@
-import type { NavSection } from '../../types/src';
+import type { NavSection } from '@macroaccess/types';
 
 export const APP_NAME = 'Macro Access';
 export const APP_TAGLINE = 'Track macro events. Read the regime. Trade the reaction.';

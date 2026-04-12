@@ -50,3 +50,14 @@ def test_generate_weekly_report_is_deterministic(monkeypatch):
  assert payload['status'] == 'ready'
  assert payload['body']['watchItems']
  assert len(payload['sourceMeta']) == 3 
+
+def test_build_reactions_payload_normalizes_calendar_freshness_metadata(monkeypatch):
+ insights_service = fresh_module()
+ monkeypatch.setattr(insights_service, 'read_provider_payload', lambda key: None)
+ monkeypatch.setattr(insights_service, 'cache_provider_payload', lambda *args, **kwargs: None)
+ monkeypatch.setattr(insights_service, 'calendar_feed', lambda **kwargs: { 'events': [{ 'id': 'event-cpi-mar', 'family': 'CPI', 'title': 'US CPI', 'country': 'United States', 'currency': 'USD', 'scheduledAt': '2026-04-01T12:30:00+00:00', 'status': 'Released' }], 'freshness': { 'mode': 'live', 'freshness': 'fresh', 'note': 'Live calendar feed' } })
+ monkeypatch.setattr(insights_service, 'load_market_series', lambda symbol, interval='1d', period='18mo': { 'source': 'FRED public series', 'sourceUrl': 'https://fred.stlouisfed.org/series/SP500', 'fetchedAt': '2026-04-10T08:00:00+00:00', 'lastUpdated': '2026-04-10T08:00:00+00:00', 'mode': 'live', 'note': 'Live history', 'points': [{ 'date': '2026-04-01T00:00:00+00:00', 'value': 100.0 }, { 'date': '2026-04-02T00:00:00+00:00', 'value': 101.0 }, { 'date': '2026-04-03T00:00:00+00:00', 'value': 102.0 }, { 'date': '2026-04-04T00:00:00+00:00', 'value': 103.0 }, { 'date': '2026-04-05T00:00:00+00:00', 'value': 104.0 }, { 'date': '2026-04-06T00:00:00+00:00', 'value': 105.0 }] })
+ payload = insights_service.build_reactions_payload(family='CPI', asset='SPX', country='United States', currency='USD')
+ assert payload['calendar']['mode'] == 'live'
+ assert payload['calendar']['freshness'] == 'fresh'
+ assert payload['calendar']['note'] == 'Live calendar feed'

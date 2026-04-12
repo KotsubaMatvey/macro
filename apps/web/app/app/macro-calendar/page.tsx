@@ -6,9 +6,12 @@ import type { EventRelease, Watchlist } from '@macroaccess/types'
 import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
 import { getEvents, getWorkstation } from '@/lib/server/api'
 
-type CalendarImpactFilter = string
+type CalendarImpactFilter = '' | 'High' | 'Medium' | 'Low'
+type CalendarDataMode = 'live' | 'demo' | 'fallback'
+type CalendarShellMode = CalendarDataMode | 'mixed'
+type CalendarSearchParamValue = string | string[] | undefined
 
-interface CalendarFilters {
+interface CalendarFilterState {
  impact: CalendarImpactFilter
  currency: string
  status: string
@@ -18,8 +21,18 @@ interface CalendarFilters {
  search: string
 }
 
+interface MacroCalendarSearchParams {
+ impact?: CalendarSearchParamValue
+ currency?: CalendarSearchParamValue
+ status?: CalendarSearchParamValue
+ region?: CalendarSearchParamValue
+ category?: CalendarSearchParamValue
+ family?: CalendarSearchParamValue
+ search?: CalendarSearchParamValue
+}
+
 interface MacroCalendarPageProps {
- searchParams?: any
+ searchParams?: Promise<MacroCalendarSearchParams | undefined>
 }
 
 function verdict(item: EventRelease) {
@@ -41,7 +54,7 @@ function timeLabel(value: string) {
  return value.replace('T', ' ').slice(0, 16)
 }
 
-function canonicalImpact(value: string) {
+function canonicalImpact(value: string): CalendarImpactFilter {
  if (value.trim().toLowerCase() === 'high') return 'High'
  if (['medium', 'med'].includes(value.trim().toLowerCase())) return 'Medium'
  if (value.trim().toLowerCase() === 'low') return 'Low'
@@ -52,14 +65,17 @@ function compactImpactLabel(value: string) {
  return canonicalImpact(value) === 'Medium' ? 'Med' : canonicalImpact(value)
 }
 
-function readParam(value: any) {
- if (Array.isArray(value)) return value[0]
+function readParam(value: unknown) {
+ if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
  if (typeof value === 'string') return value
  return ''
 }
 
-function eventMode(item: EventRelease) {
- return item.freshness ? item.freshness.mode : 'fallback'
+function eventMode(item: EventRelease): CalendarDataMode {
+ const mode = item.freshness ? item.freshness.mode : 'fallback'
+ if (mode === 'live') return mode
+ if (mode === 'demo') return mode
+ return 'fallback'
 }
 
 function eventSource(item: EventRelease) {
@@ -70,7 +86,7 @@ function eventFreshness(item: EventRelease) {
  return item.freshness ? item.freshness.freshness : 'degraded'
 }
 
-function calendarHref(filters: CalendarFilters, overrides: { [key: string]: string }) {
+function calendarHref(filters: CalendarFilterState, overrides: Partial<CalendarFilterState>) {
  const next = { impact: filters.impact, currency: filters.currency, status: filters.status, region: filters.region, category: filters.category, family: filters.family, search: filters.search, ...overrides }
  const params = new URLSearchParams()
  if (next.impact) params.set('impact', next.impact)
@@ -84,7 +100,7 @@ function calendarHref(filters: CalendarFilters, overrides: { [key: string]: stri
  return query ? '/app/macro-calendar?' + query : '/app/macro-calendar'
 }
 
-function filterEvents(events: EventRelease[], filters: CalendarFilters) {
+function filterEvents(events: EventRelease[], filters: CalendarFilterState) {
  return events.filter(function (item: EventRelease) {
   if (filters.search) {
    const needle = filters.search.toLowerCase()
@@ -95,7 +111,7 @@ function filterEvents(events: EventRelease[], filters: CalendarFilters) {
  })
 }
 
-function applyCalendarFilters(events: EventRelease[], filters: CalendarFilters) {
+function applyCalendarFilters(events: EventRelease[], filters: CalendarFilterState) {
  const seeded = filterEvents(events, filters)
  return seeded.filter(function (item: EventRelease) {
   if (filters.impact) {
@@ -122,11 +138,27 @@ function applyCalendarFilters(events: EventRelease[], filters: CalendarFilters) 
  })
 }
 
+function countMode(events: EventRelease[], mode: CalendarDataMode) {
+ return events.filter(function (item: EventRelease) { return eventMode(item) === mode }).length
+}
+
+function deriveShellMode(events: EventRelease[]): CalendarShellMode {
+ const liveRows = countMode(events, 'live')
+ const demoRows = countMode(events, 'demo')
+ const fallbackRows = countMode(events, 'fallback')
+ const activeModes = [liveRows, demoRows, fallbackRows].filter(function (value) { return value !== 0 }).length
+ if (activeModes === 0) return 'fallback'
+ if (activeModes !== 1) return 'mixed'
+ if (liveRows !== 0) return 'live'
+ if (demoRows !== 0) return 'demo'
+ return 'fallback'
+}
+
 export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  const events = await getEvents()
  const payload = await getWorkstation()
  const searchParams = props.searchParams ? await props.searchParams : undefined
- const filters: CalendarFilters = {
+ const filters: CalendarFilterState = {
   impact: canonicalImpact(readParam(searchParams ? searchParams.impact : undefined)),
   currency: readParam(searchParams ? searchParams.currency : undefined),
   status: readParam(searchParams ? searchParams.status : undefined),
@@ -141,21 +173,25 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  const regions = Array.from(new Set(events.map(function (item: EventRelease) { return item.country }))).slice(0, 6)
  const categories = Array.from(new Set(events.map(function (item: EventRelease) { return item.category }))).slice(0, 6)
  const families = Array.from(new Set(events.map(function (item: EventRelease) { return item.family }))).slice(0, 6)
- const liveRows = filtered.filter(function (item: EventRelease) { return eventMode(item) === 'live' }).length
- const fallbackRows = filtered.length - liveRows
+ const liveRows = countMode(filtered, 'live')
+ const demoRows = countMode(filtered, 'demo')
+ const fallbackRows = countMode(filtered, 'fallback')
+ const degradedRows = demoRows + fallbackRows
+ const shellMode = deriveShellMode(filtered)
  const sourceLabels = Array.from(new Set(filtered.map(function (item: EventRelease) { return eventSource(item) }))).slice(0, 4)
  const metrics = [
   { label: 'Tracked releases', value: String(events.length), note: 'Calendar rows loaded into the standalone tape' },
   { label: 'Filtered rows', value: String(filtered.length), note: 'Rows matching the current standalone control deck' },
   { label: 'Live rows', value: String(liveRows), note: 'Rows backed by a live provider in the current view' },
-  { label: 'Fallback rows', value: String(fallbackRows), note: 'Demo or fallback rows still visible in the tape' },
+  { label: 'Fallback rows', value: String(degradedRows), note: 'Demo or fallback rows still visible in the tape' },
  ]
  const rows: ReactNode[][] = filtered.map(function (item: EventRelease) {
   const watchedAssets = item.relatedAssets.filter(function (asset) { return watchSymbols.includes(asset) })
   return [timeLabel(item.scheduledAt), item.country + ' / ' + item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.category + ' / ' + eventMode(item) + ' / ' + eventFreshness(item) }, item.title), compactImpactLabel(item.impact), item.status, item.actual !== undefined ? String(item.actual) : '-', item.forecast !== undefined ? String(item.forecast) : '-', verdict(item), eventSource(item), watchedAssets.length !== 0 ? watchedAssets.join(', ') : 'Open']
  })
  const sourceRows: ReactNode[][] = [
-  ['Calendar mode', liveRows !== 0 ? fallbackRows !== 0 ? 'mixed' : 'live' : 'fallback'],
+  ['Calendar mode', shellMode],
+  ['Live / demo / fallback', String(liveRows) + ' / ' + String(demoRows) + ' / ' + String(fallbackRows)],
   ['Source labels', sourceLabels.length !== 0 ? sourceLabels.join(', ') : 'No rows in view'],
   ['Filter scope', filters.region ? filters.region : filters.category ? filters.category : filters.family ? filters.family : 'All regions / categories / families'],
  ]
@@ -168,7 +204,7 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  ]
  const sourceNote = filtered[0] ? filtered[0].freshness ? filtered[0].freshness.note : 'Source note unavailable' : 'Source note unavailable'
  sourceRows.push(['Source note', sourceNote])
- return h(PageShell, { title: 'Macro Calendar', subtitle: 'Standalone terminal calendar with dashboard-grade filters, direct routing, and explicit source honesty.', active: 'macro-calendar', mode: liveRows !== 0 ? 'live' : 'fallback' }, h('div', { className: 'space-y-5' }, [
+ return h(PageShell, { title: 'Macro Calendar', subtitle: 'Standalone terminal calendar with dashboard-grade filters, direct routing, and explicit source honesty.', active: 'macro-calendar', mode: shellMode }, h('div', { className: 'space-y-5' }, [
   h(MetricGrid, { key: 'metrics', items: metrics }),
   h(Panel, { key: 'controls', title: 'Control deck', subtitle: 'Filter the tape by impact, currency, region, category, and family without leaving the board.' }, [
    h('div', { key: 'toolbar', className: 'ws-toolbar' }, [
@@ -187,7 +223,7 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
     h(Panel, { key: 'tape', title: 'Calendar tape', subtitle: 'Dense release board with impact, source, freshness, and watch overlap.' }, h(DataTable, { headers: ['Time', 'Region', 'Event', 'Impact', 'Status', 'Actual', 'Forecast', 'Verdict', 'Source', 'Watch'], rows: rows.length !== 0 ? rows : [['-', '-', 'No events match the current filters', '-', '-', '-', '-', '-', '-', '-']], numericColumns: [5, 6], dense: true, stickyHeader: true, ariaLabel: 'Standalone macro calendar' })),
    ]),
    h('div', { key: 'right', className: 'space-y-5' }, [
-    h(Panel, { key: 'focus', title: 'Desk focus', subtitle: 'Quick read on the current filter state and watch overlap.' }, h(KeyValueList, { items: [{ label: 'Rows visible', value: String(filtered.length) }, { label: 'Tracked symbols', value: String(watchSymbols.length) }, { label: 'Live rows', value: String(liveRows) }, { label: 'Fallback rows', value: String(fallbackRows) }, { label: 'Search', value: filters.search ? filters.search : 'No search' }] })),
+    h(Panel, { key: 'focus', title: 'Desk focus', subtitle: 'Quick read on the current filter state and watch overlap.' }, h(KeyValueList, { items: [{ label: 'Rows visible', value: String(filtered.length) }, { label: 'Tracked symbols', value: String(watchSymbols.length) }, { label: 'Live rows', value: String(liveRows) }, { label: 'Fallback rows', value: String(degradedRows) }, { label: 'Search', value: filters.search ? filters.search : 'No search' }] })),
     h(Panel, { key: 'source', title: 'Source / freshness', subtitle: 'Standalone calendar now exposes the same live and fallback honesty as the dashboard board.' }, h(DataTable, { headers: ['Field', 'Value'], rows: sourceRows, dense: true })),
     h(Panel, { key: 'families', title: 'Family board', subtitle: 'Event families with direct pivots into the current tape.' }, h(DataTable, { headers: ['Family', 'Rows'], rows: familyRows.length !== 0 ? familyRows : [['No families', '0']], dense: true })),
     h(Panel, { key: 'high-board', title: 'High impact board', subtitle: 'The releases most likely to set the tone for the session.' }, highImpact.length !== 0 ? h('div', { className: 'grid gap-3' }, highImpact.map(function (item: EventRelease) { return h(EventLink, { key: item.id, eventId: item.id, slug: item.slug, title: item.title, meta: item.status + ' / ' + timeLabel(item.scheduledAt) }) })) : h('div', { className: 'text-sm text-slate-500' }, 'No high-impact releases loaded.')),

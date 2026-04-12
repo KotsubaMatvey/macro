@@ -5,7 +5,7 @@ Macro Access is a dark, desk-oriented macro intelligence workstation for event-d
 
 ## Current runtime
 - Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with FRED fallback proxies, plus official RSS feeds when reachable
-- Seeded today: auth/demo accounts, macro calendar/events, briefings, watchlists, alerts, community, and admin workflows
+- Seeded today: auth/demo accounts, briefings, watchlists, alerts, community, and admin workflows. Calendar/events are seeded only when TradingEconomics is not configured or unavailable.
 - Replay today: track record is a retrospective model replay, not a live audited blotter
 
 ## Core surfaces

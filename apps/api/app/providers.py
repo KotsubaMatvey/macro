@@ -1,4 +1,5 @@
 ﻿import csv
+import logging
 import re
 from datetime import timezone
 from email.utils import parsedate_to_datetime
@@ -14,6 +15,7 @@ from .security import utc_now
 from .settings import settings
 
 USER_AGENT = 'MacroAccessDashboard/1.0'
+LOGGER = logging.getLogger(__name__)
 
 
 class ProviderError(RuntimeError):
@@ -39,7 +41,7 @@ class _HTMLTextStripper(HTMLParser):
 
 def _client():
 	return httpx.Client(
-		timeout=settings.provider_timeout_seconds,
+		timeout=httpx.Timeout(10.0, connect=5.0),
 		follow_redirects=True,
 		headers={'user-agent': USER_AGENT},
 	)
@@ -117,13 +119,25 @@ def load_fred_series(series_id, source_url, ttl=None):
 		with _client() as client:
 			response = client.get(url)
 			response.raise_for_status()
+	except httpx.TimeoutException as exc:
+		LOGGER.warning('FRED timeout for %s: %s', series_id, exc)
+		return None
 	except httpx.HTTPError as exc:
-		raise ProviderError('FRED request failed for ' + series_id + ': ' + str(exc)) from exc
+		LOGGER.warning('FRED request failed for %s: %s', series_id, exc)
+		return None
+	except Exception as exc:
+		LOGGER.exception('FRED unexpected failure for %s: %s', series_id, exc)
+		return None
 	reader = csv.DictReader(StringIO(response.text.lstrip('\ufeff')))
 	points = []
 	for row in reader:
 		value = row.get('VALUE')
 		date = row.get('DATE')
+		if value is None or date is None:
+			keys = [key for key in row.keys() if key]
+			if len(keys) >= 2:
+				date = row.get(keys[0])
+				value = row.get(keys[1])
 		if not value or value == '.' or not date:
 			continue
 		try:
@@ -132,7 +146,8 @@ def load_fred_series(series_id, source_url, ttl=None):
 			continue
 	points.sort(key=lambda item: item['date'])
 	if len(points) < 40:
-		raise ProviderError('FRED series returned insufficient data: ' + series_id)
+		LOGGER.warning('FRED series returned insufficient data for %s: %s points', series_id, len(points))
+		return None
 	payload = {
 		'seriesId': series_id,
 		'source': 'FRED',
@@ -154,12 +169,23 @@ def load_rss_feed(cache_name, source_label, source_url, ttl=None, item_limit=6):
 		with _client() as client:
 			response = client.get(source_url)
 			response.raise_for_status()
+	except httpx.TimeoutException as exc:
+		LOGGER.warning('RSS timeout for %s: %s', source_label, exc)
+		return None
 	except httpx.HTTPError as exc:
-		raise ProviderError('Feed request failed for ' + source_label + ': ' + str(exc)) from exc
+		LOGGER.warning('RSS request failed for %s: %s', source_label, exc)
+		return None
+	except Exception as exc:
+		LOGGER.exception('RSS unexpected failure for %s: %s', source_label, exc)
+		return None
 	try:
 		root = ElementTree.fromstring(response.text)
 	except ElementTree.ParseError as exc:
-		raise ProviderError('Feed parse failed for ' + source_label + ': ' + str(exc)) from exc
+		LOGGER.warning('RSS parse failed for %s: %s', source_label, exc)
+		return None
+	except Exception as exc:
+		LOGGER.exception('RSS unexpected parse failure for %s: %s', source_label, exc)
+		return None
 	items = []
 	for node in _feed_entries(root):
 		title = _child_value(node, 'title')
@@ -177,7 +203,8 @@ def load_rss_feed(cache_name, source_label, source_url, ttl=None, item_limit=6):
 			'_sort': parsed_published or '',
 		})
 	if not items:
-		raise ProviderError('RSS feed returned no items: ' + source_label)
+		LOGGER.warning('RSS feed returned no items for %s', source_label)
+		return None
 	items.sort(key=lambda item: (item['_sort'], item['publishedAt'], item['title']), reverse=True)
 	trimmed = []
 	for item in items[:item_limit]:

@@ -1,4 +1,4 @@
-﻿import { cache } from "react"
+import { cache } from "react"
 import { cookies } from "next/headers"
 import type {
  AdminSummary,
@@ -13,7 +13,7 @@ import type {
  WorkstationPayload,
 } from "@macroaccess/types"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000"
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:8000").trim().replace(/\/+$/, "")
 
 const getCookieHeader = cache(async function getCookieHeader() {
 	const cookieStore = await cookies()
@@ -21,11 +21,22 @@ const getCookieHeader = cache(async function getCookieHeader() {
 })
 
 const apiFetch = cache(async function apiFetch(path: string, cookieHeader: string) {
-	const response = await fetch(API_URL + path, { cache: 'no-store', headers: { cookie: cookieHeader } })
-	if (!response.ok) {
-		throw new Error('Request failed: ' + path + ' / ' + response.status)
+	try {
+		const response = await fetch(API_URL + path, { cache: 'no-store', headers: { cookie: cookieHeader } })
+		if (!response.ok) {
+			console.error('Request failed', path, response.status)
+			throw new Error('Request failed: ' + path + ' / ' + response.status)
+		}
+		try {
+			return await response.json()
+		} catch (error) {
+			console.error('Response JSON parse failed', path, error)
+			throw new Error('Invalid JSON response: ' + path)
+		}
+	} catch (error) {
+		console.error('API fetch failed', path, error)
+		throw error
 	}
-	return response.json()
 })
 
 async function load(path: string) {

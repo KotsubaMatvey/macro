@@ -19,7 +19,7 @@
 
 ## Runtime notes
 - The dashboard will use Yahoo Finance via yfinance for live market tape, fall back to FRED public series when needed, and use official RSS feeds when your network allows them; otherwise it will degrade honestly.
-- Calendar, catalyst, watchlist, alert, community, and admin data remain seeded for local development.
+- Calendar and catalyst data are seeded fallback by default in local development; when TradingEconomics credentials are configured and reachable, those surfaces switch to provider-backed live rows. Watchlist, alert, community, and admin data remain seeded.
 - If jobs are not progressing, verify Redis and the worker process are running.
 
 ## Verification

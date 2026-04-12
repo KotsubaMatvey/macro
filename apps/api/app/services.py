@@ -1,4 +1,5 @@
 import json
+import math
 import uuid
 from datetime import timedelta
 
@@ -9,6 +10,7 @@ from .insights_service import build_market_bias_payload, build_reactions_payload
 from .job_service import JOB_TYPES, create_job, list_jobs, reset_demo_jobs
 from .security import hash_password, session_expiry, token_pair, utc_now, verify_password
 from .settings import settings
+from .providers import ProviderError
 
 
 def _id(prefix):
@@ -180,11 +182,36 @@ def latest_regime():
 
 
 def list_biases():
- payload = build_market_bias_payload()
- return [
-  {"assetId": "bias-" + item["symbol"].lower(), "symbol": item["symbol"], "name": item["name"], "className": "Cross Asset", "direction": item["direction"], "score": float(item["score"]), "confidence": float(item["confidence"]), "change1d": float(item["change1d"]), "change5d": float(item["change30d"]), "rationale": [item["note"]]}
-  for item in payload["assets"]
- ]
+ try:
+  payload = build_market_bias_payload()
+ except ProviderError:
+  return []
+ except Exception:
+  return []
+ rows = []
+ for item in payload.get("assets", []):
+  try:
+   score = float(item["score"])
+   confidence = float(item["confidence"])
+   change1d = float(item["change1d"])
+   change5d = float(item["change30d"])
+   if not all(math.isfinite(value) for value in (score, confidence, change1d, change5d)):
+    continue
+   rows.append({
+    "assetId": "bias-" + str(item["symbol"]).lower(),
+    "symbol": item["symbol"],
+    "name": item["name"],
+    "className": "Cross Asset",
+    "direction": item["direction"],
+    "score": score,
+    "confidence": confidence,
+    "change1d": change1d,
+    "change5d": change5d,
+    "rationale": [str(item.get("note", ""))],
+   })
+  except Exception:
+   continue
+ return rows
 
 
 def market_bias_payload():
@@ -319,11 +346,15 @@ def metrics_payload():
 
 
 def _build_workstation_payload(user):
+ try:
+  biases = list_biases()
+ except Exception:
+  biases = []
  payload = {
   "session": user,
   "metrics": metrics_payload(),
   "regime": latest_regime(),
-  "biases": list_biases(),
+  "biases": biases,
   "nextEvents": list_events()[:10],
   "briefings": list_briefings()[:8],
   "news": list_news()[:10],

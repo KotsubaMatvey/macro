@@ -144,7 +144,7 @@ def _refresh_demo_market_state(job_type, payload):
  _invalidate_provider_prefixes(["insights:market-bias", "insights:reactions:", "insights:track-record", "insights:reports"])
  load_market_bundle(symbols, interval="1d", period="18mo")
  build_market_bias_payload()
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
 
 
 def _refresh_dashboard_cache(job_type, payload):
@@ -171,7 +171,6 @@ def _recompute_regime(job_type, payload):
 
 
 def _recompute_market_bias(job_type, payload):
- _invalidate_provider_names(["insights:market-bias"])
  _invalidate_provider_prefixes(["insights:reports"])
  build_market_bias_payload()
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
@@ -179,8 +178,9 @@ def _recompute_market_bias(job_type, payload):
 
 def _recompute_reactions(job_type, payload):
  _invalidate_provider_prefixes(["insights:reactions:", "insights:reports"])
- for asset in ["SPX", "NDX", "EURUSD", "BTC"]:
-  build_reactions_payload(asset=asset)
+ assets = payload.get("assets") if isinstance(payload, dict) and isinstance(payload.get("assets"), list) else ["SPX", "NDX", "EURUSD", "BTC"]
+ for asset in assets:
+  build_reactions_payload(asset=str(asset).upper())
  _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=False)
 
 
@@ -229,7 +229,7 @@ def run_job(job_id):
   mark_job(job_id, "completed", finished=True)
  except Exception as exc:
   mark_job(job_id, "failed", error_message=str(exc), finished=True)
-  raise
+  return
 
 
 def run_forever():
