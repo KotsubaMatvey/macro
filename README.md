@@ -46,6 +46,14 @@ Track macro events. Read the regime. Trade the reaction.
 - `npm run test`
 - `npm run build`
 
+
+## Geoboard data model
+- Geo discovery rows: GDELT-backed discovery signals classified into conflict, sanctions, shipping/logistics, energy, supply-chain, trade-policy, political, and sovereign-stress buckets. These remain discovery rows, not verified geopolitical truth claims.
+- Macro map rows: DB-backed event family projections with region tags, urgency horizons (today / next 24h / next 7d), event-detail links, and reactions/bias/report pivots.
+- Central banks and trade routes: curated static overlays kept explicit as static; they are enriched with linked macro/news/asset context and ranked alongside live/derived rows.
+- Regime zones: derived dashboard context labeled as derived, not presented as direct live geographic telemetry.
+- Feed engine: canonical ranked items scored on urgency, importance, confidence, recency, source quality, watchlist overlap, catalyst proximity, region significance, and regime relevance.
+
 ## Live vs fallback
 - Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with honest FRED fallback proxies, plus official-source news ingestion with discovery-layer augmentation and explicit source labels
 - Fallback/demo today: demo accounts, watchlists/alerts/community/admin content, and seeded calendar or catalyst rows whenever TradingEconomics is missing or degraded
@@ -65,5 +73,6 @@ Track macro events. Read the regime. Trade the reaction.
 ## Reactions and Replay Integrity
 - Reactions use real market history windows only when the available data resolution supports them. Intraday windows are not fabricated.
 - Track Record remains replay-only product analytics. It is not an audited live discretionary blotter or realized PnL record.
+
 
 

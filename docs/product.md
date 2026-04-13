@@ -31,3 +31,11 @@ Macro Access is a dark, desk-oriented macro intelligence workstation for event-d
 - Do not imply audited live track record when the product is showing replay analytics.
 - Do not let report prose drift beyond the structured source-backed sections that generated it.
 
+
+## Geoboard integrity model
+- Discovery: GDELT-derived geopolitical rows are treated as ranked discovery signals and explicitly labeled discovery/secondary unless corroborated elsewhere.
+- Derived: macro map rows and regime zones are derived from internal event/regime layers and labeled derived.
+- Static: central bank nodes and trade/chokepoint routes remain curated static overlays with explicit static labeling.
+- Fallback: each layer can degrade independently; fallback is shown per-layer in source status rather than hidden behind a generic online badge.
+- Integration: ranked feed items carry direct links into Event Detail, Macro Calendar, News, Live Reactions, Market Bias, Reports, Watchlists, and Alerts.
+

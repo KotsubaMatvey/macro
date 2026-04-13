@@ -1,4 +1,4 @@
-﻿from typing import Optional
+﻿from typing import Literal, Optional
  
 from pydantic import BaseModel, Field 
  
@@ -426,6 +426,33 @@ class DashboardPayload(BaseModel):
 
 
 
+class GeoboardSourceMetadata(BaseModel):
+ providerKey: str
+ label: str
+ sourceType: Literal['official', 'discovery', 'derived', 'static', 'fallback']
+ sourceTier: Literal['primary', 'secondary']
+ mode: Literal['live', 'demo', 'fallback', 'static', 'derived']
+ freshness: Literal['fresh', 'aging', 'stale', 'degraded']
+ note: str
+ sourceUrl: Optional[str] = None
+ fetchedAt: Optional[str] = None
+ lastUpdated: Optional[str] = None
+
+
+class GeoboardRankingMetadata(BaseModel):
+ rankScore: float
+ urgencyScore: float
+ importanceScore: float
+ confidenceScore: float
+ recencyScore: float
+ sourceQualityScore: float
+ watchlistOverlapScore: float
+ catalystProximityScore: float
+ regionSignificanceScore: float
+ regimeRelevanceScore: float
+ rationale: list[str] = Field(default_factory=list)
+
+
 class GeoboardGeoEvent(BaseModel):
  id: str
  title: str
@@ -437,6 +464,21 @@ class GeoboardGeoEvent(BaseModel):
  url: str
  affectedAssets: list[str]
  mode: str
+ classification: str = 'Geopolitical risk'
+ regionCode: str = 'US'
+ regionGroup: str = 'North America'
+ countryCode: str = 'US'
+ country: str = 'United States'
+ locationPrecision: str = 'country'
+ linkedEventId: Optional[str] = None
+ linkedEventSlug: Optional[str] = None
+ relatedNewsClusterIds: list[str] = Field(default_factory=list)
+ relatedNewsIds: list[str] = Field(default_factory=list)
+ whyItMatters: str = ''
+ geoboardModes: list[str] = Field(default_factory=lambda: ['STANDARD', 'RISK'])
+ sourceMeta: GeoboardSourceMetadata
+ ranking: GeoboardRankingMetadata
+
 
 class GeoboardMacroEvent(BaseModel):
  id: str
@@ -452,7 +494,139 @@ class GeoboardMacroEvent(BaseModel):
  expectedReaction: str
  relatedAssets: list[str]
  mode: str
+ family: str = ''
+ category: str = 'Macro'
+ regionCode: str = 'US'
+ regionGroup: str = 'North America'
+ linkedEventId: Optional[str] = None
+ linkedEventSlug: Optional[str] = None
+ linkedReactionPath: Optional[str] = None
+ linkedCalendarPath: Optional[str] = None
+ linkedBiasPath: Optional[str] = None
+ linkedReportsPath: Optional[str] = None
+ linkedNewsPath: Optional[str] = None
+ horizonTag: Literal['today', 'next_24h', 'next_7d', 'later'] = 'later'
+ hoursToEvent: Optional[float] = None
+ whyItMatters: str = ''
+ geoboardModes: list[str] = Field(default_factory=lambda: ['STANDARD', 'LIQUIDITY'])
+ sourceMeta: GeoboardSourceMetadata
+ ranking: GeoboardRankingMetadata
 
 
+class GeoboardCentralBankNode(BaseModel):
+ id: str
+ name: str
+ lat: float
+ lon: float
+ rate: str
+ nextMeeting: str
+ bias: str
+ signal: str
+ liquidityWeight: int
+ country: str
+ countryCode: str
+ regionCode: str
+ regionGroup: str
+ linkedEventId: Optional[str] = None
+ linkedEventSlug: Optional[str] = None
+ linkedEventPath: Optional[str] = None
+ linkedNewsPath: Optional[str] = None
+ linkedReactionPath: Optional[str] = None
+ linkedBiasPath: Optional[str] = None
+ relatedAssets: list[str] = Field(default_factory=list)
+ relatedNewsClusterIds: list[str] = Field(default_factory=list)
+ whyItMatters: str = ''
+ geoboardModes: list[str] = Field(default_factory=lambda: ['STANDARD', 'LIQUIDITY', 'CENT.BANKS'])
+ sourceMeta: GeoboardSourceMetadata
+ ranking: GeoboardRankingMetadata
 
 
+class GeoboardTradeRoute(BaseModel):
+ id: str
+ name: str
+ label: str
+ path: list[list[float]]
+ status: str
+ volume: str
+ riskLevel: str
+ impact: list[str]
+ lat: float
+ lon: float
+ regionCode: str
+ regionGroup: str
+ linkedGeoEventIds: list[str] = Field(default_factory=list)
+ linkedNewsClusterIds: list[str] = Field(default_factory=list)
+ linkedNewsPath: Optional[str] = None
+ linkedAlertsPath: Optional[str] = None
+ whyItMatters: str = ''
+ geoboardModes: list[str] = Field(default_factory=lambda: ['STANDARD', 'RISK'])
+ sourceMeta: GeoboardSourceMetadata
+ ranking: GeoboardRankingMetadata
+
+
+class GeoboardRegimeZone(BaseModel):
+ id: str
+ label: str
+ flag: str
+ regime: Literal['RISK-ON', 'NEUTRAL', 'RISK-OFF']
+ confidence: int
+ center: list[float]
+ zoom: float
+ sourceMeta: GeoboardSourceMetadata
+ relatedAssets: list[str] = Field(default_factory=list)
+ whyItMatters: str = ''
+ geoboardModes: list[str] = Field(default_factory=lambda: ['STANDARD', 'LIQUIDITY'])
+
+
+class GeoboardFeedItem(BaseModel):
+ id: str
+ feedType: Literal['GEO_RISK', 'MACRO_CATALYST', 'CENTRAL_BANK', 'TRADE_ROUTE', 'REGIME_CONTEXT']
+ title: str
+ subtitle: str
+ time: str
+ impactLine: str
+ whyItMatters: str
+ lat: float
+ lon: float
+ sourceId: str
+ sourceLayer: Literal['geo', 'macro', 'cb', 'trade', 'regime']
+ regionCode: str
+ regionGroup: str
+ linkedEventId: Optional[str] = None
+ linkedEventSlug: Optional[str] = None
+ relatedNewsClusterIds: list[str] = Field(default_factory=list)
+ relatedNewsIds: list[str] = Field(default_factory=list)
+ linkedAssetSymbols: list[str] = Field(default_factory=list)
+ tags: list[str] = Field(default_factory=list)
+ geoboardModes: list[str] = Field(default_factory=list)
+ links: dict = Field(default_factory=dict)
+ sourceMeta: GeoboardSourceMetadata
+ ranking: GeoboardRankingMetadata
+
+
+class GeoboardSourceStatus(BaseModel):
+ layer: Literal['geo', 'macro', 'cb', 'trade', 'regime', 'feed']
+ state: Literal['live', 'degraded', 'fallback', 'static', 'derived', 'demo']
+ sourceType: Literal['official', 'discovery', 'derived', 'static', 'fallback']
+ mode: Literal['live', 'demo', 'fallback', 'static', 'derived']
+ detail: str
+
+
+class GeoboardModeState(BaseModel):
+ activeMode: Literal['STANDARD', 'RISK', 'LIQUIDITY', 'CENT.BANKS']
+ availableModes: list[Literal['STANDARD', 'RISK', 'LIQUIDITY', 'CENT.BANKS']]
+ fallback: bool
+ sourceHonesty: str
+
+
+class GeoboardPayload(BaseModel):
+ generatedAt: str
+ modeState: GeoboardModeState
+ sourceStatus: list[GeoboardSourceStatus]
+ geoEvents: list[GeoboardGeoEvent]
+ macroEvents: list[GeoboardMacroEvent]
+ centralBanks: list[GeoboardCentralBankNode]
+ tradeRoutes: list[GeoboardTradeRoute]
+ regimeZones: list[GeoboardRegimeZone]
+ feed: list[GeoboardFeedItem]
+ summary: dict

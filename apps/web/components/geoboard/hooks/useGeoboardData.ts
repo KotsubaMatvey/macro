@@ -1,10 +1,9 @@
-'use client'
+﻿'use client'
 
 import useSWR from 'swr'
-import type { DashboardPayload } from '@macroaccess/types'
 
-import { deriveRegimeZones, FALLBACK_GEO_EVENTS, FALLBACK_MACRO_EVENTS } from '../data'
-import type { GeoEvent, MacroEvent } from '../types'
+import { FALLBACK_GEOBOARD_PAYLOAD } from '../data'
+import type { GeoboardMode, GeoboardPayload } from '../types'
 
 const fetcher = async function fetcher<T>(url: string): Promise<T | null> {
  try {
@@ -25,18 +24,24 @@ const fetcher = async function fetcher<T>(url: string): Promise<T | null> {
  }
 }
 
-export function useGeoboardData() {
- const { data: gdeltEvents, error: gdeltError, isLoading: gdeltLoading } = useSWR<GeoEvent[] | null>('/api/geoboard/gdelt-events', fetcher, { refreshInterval: 300000 })
- const { data: macroEvents, error: macroError, isLoading: macroLoading } = useSWR<MacroEvent[] | null>('/api/geoboard/macro-events', fetcher, { refreshInterval: 60000 })
- const { data: dashboard, error: dashboardError, isLoading: dashboardLoading } = useSWR<DashboardPayload | null>('/api/dashboard', fetcher, { refreshInterval: 120000 })
-
+function fallbackPayload(mode: GeoboardMode): GeoboardPayload {
  return {
- gdeltEvents: gdeltEvents ? gdeltEvents : FALLBACK_GEO_EVENTS,
- macroEvents: macroEvents ? macroEvents : FALLBACK_MACRO_EVENTS,
- dashboard: dashboard ? dashboard : null,
- regimeZones: deriveRegimeZones(dashboard ? dashboard : null),
- loading: gdeltLoading || macroLoading || dashboardLoading,
- fallback: Boolean(gdeltError || macroError || dashboardError || !dashboard),
- errors: { gdeltError, macroError, dashboardError },
+  ...FALLBACK_GEOBOARD_PAYLOAD,
+  modeState: {
+   ...FALLBACK_GEOBOARD_PAYLOAD.modeState,
+   activeMode: mode,
+  },
+ }
+}
+
+export function useGeoboardData(mode: GeoboardMode) {
+ const { data, error, isLoading } = useSWR<GeoboardPayload | null>('/api/geoboard/feed?mode=' + encodeURIComponent(mode), fetcher, { refreshInterval: 90000 })
+ const payload = data ? data : fallbackPayload(mode)
+ const fallback = Boolean(error || !data || payload.modeState.fallback)
+ return {
+  payload,
+  loading: isLoading,
+  fallback,
+  errors: { feedError: error },
  }
 }
