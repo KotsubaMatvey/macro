@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import useSWR from 'swr'
 
@@ -34,9 +34,19 @@ function fallbackPayload(mode: GeoboardMode): GeoboardPayload {
  }
 }
 
+function normalizePayload(payload: GeoboardPayload, mode: GeoboardMode): GeoboardPayload {
+ return {
+  ...payload,
+  modeState: {
+   ...payload.modeState,
+   activeMode: mode,
+  },
+ }
+}
+
 export function useGeoboardData(mode: GeoboardMode) {
  const { data, error, isLoading } = useSWR<GeoboardPayload | null>('/api/geoboard/feed?mode=' + encodeURIComponent(mode), fetcher, { refreshInterval: 90000 })
- const payload = data ? data : fallbackPayload(mode)
+ const payload = data ? normalizePayload(data, mode) : fallbackPayload(mode)
  const fallback = Boolean(error || !data || payload.modeState.fallback)
  return {
   payload,

@@ -1,4 +1,4 @@
-﻿import Link from "next/link"
+import Link from "next/link"
 import { createElement as h } from "react"
 import type { ReactNode } from "react"
 import type { DashboardAssetView, DashboardLiquidityInput, DashboardPayload, DashboardRegimeBlock, DashboardSparkPoint, EventRelease, SourceMetadata } from "@macroaccess/types"
@@ -280,7 +280,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  const datasetCalendarMode = calendarBoardMode(calendarDataset)
  const viewCalendarMode = calendarBoardMode(visibleCalendar)
  const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
-    return h(PageShell, { title: "Dashboard", subtitle: "Desktop macro workstation with a denser board layout, catalyst map, and terminal calendar surface.", active: "dashboard", mode: shellMode }, h("div", { className: "space-y-3" }, [
+    return h(PageShell, { title: "Dashboard", subtitle: "Command board surface with prioritized macro state, catalysts, and tape-level integrity context.", active: "dashboard", mode: shellMode }, h("div", { className: "space-y-4" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
  h("div", { key: "desk", className: "terminal-strip flex-wrap gap-2" }, [
  h("span", { key: "date", className: "terminal-meta" }, ["Date ", h("strong", { key: "value" }, formatDeskDate(payload.generatedAt))]),
@@ -297,7 +297,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  h("div", { key: "workspace", className: "space-y-3" }, [
  h("div", { key: "panels", className: "space-y-3" }, [
  h("div", { key: "boards", className: "grid gap-3 xl:grid-cols-[minmax(0,1.22fr)_minmax(360px,0.78fr)]" }, [
- h("div", { key: "regime-wrap", id: "regime-board" }, h(Panel, { title: "Regime & Bias", subtitle: "Current macro state, cross-asset posture, liquidity layers, and regime memory in a single workstation board.", actions: h(Link, { href: payload.marketConsensus.href, className: "terminal-link text-[11px] font-medium" }, "Open bias board") }, h("div", { className: "space-y-3" }, [
+ h("div", { key: "regime-wrap", id: "regime-board" }, h(Panel, { title: "Regime & Bias", subtitle: "Current macro state, cross-asset posture, liquidity layers, and regime memory in one command board.", level: "command", actions: h(Link, { href: payload.marketConsensus.href, className: "terminal-link text-[11px] font-medium" }, "Open bias board") }, h("div", { className: "space-y-4" }, [
  h("div", { key: "freshness", className: "grid gap-2 md:grid-cols-2" }, [
  h("div", { key: "risk" }, freshnessBadges(payload.riskRegime.freshness, [payload.riskRegime.label, payload.riskRegime.trend])),
  h("div", { key: "liq" }, freshnessBadges(payload.liquidityRegime.freshness, [payload.liquidityRegime.label, payload.liquidityRegime.trend])),
@@ -343,7 +343,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  linkCard("active-tape", "Active tape", activeAsset ? activeAsset.symbol : "No asset", activeAsset ? activeAsset.price + " / 5d edge " + showPercent(activeAsset.expectedMove5dPct) : "No market print", dashboardHref(state, { asset: activeAsset ? activeAsset.symbol : undefined }), "Focus"),
  ]),
  ]))),
- h("div", { key: "catalyst-wrap", id: "catalyst-board" }, h(Panel, { title: "Next Catalysts", subtitle: "Upcoming macro releases prioritized for desk scanability across the next 48H or 1W.", actions: h(Link, { href: "/app/event-explorer", className: "terminal-link text-[11px] font-medium" }, "Open event explorer") }, h("div", { className: "space-y-3" }, [
+ h("div", { key: "catalyst-wrap", id: "catalyst-board" }, h(Panel, { title: "Next Catalysts", subtitle: "Upcoming macro releases prioritized for immediate desk action across 48H or 1W windows.", level: "command", actions: h(Link, { href: "/app/event-explorer", className: "terminal-link text-[11px] font-medium" }, "Open event explorer") }, h("div", { className: "space-y-4" }, [
  h("div", { key: "toolbar", className: "flex flex-wrap items-center justify-between gap-2" }, [
  freshnessBadges(payload.keyCatalyst.freshness, [state.window === "1w" ? "1W" : "48H", "desk map"]),
  h("div", { key: "window", className: "flex flex-wrap gap-2" }, [
@@ -377,7 +377,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  ]),
  ]))),
  ]),
- h("div", { key: "calendar-wrap", id: "calendar-board" }, h(Panel, { title: "Macro Calendar -- " + formatMonthLabel(payload.generatedAt), subtitle: "Terminal calendar surface with dense event rows, impact filters, and direct drill-down into event detail.", actions: h(Link, { href: "/app/macro-calendar", className: "terminal-link text-[11px] font-medium" }, "Open full calendar") }, h("div", { className: "space-y-3" }, [
+ h("div", { key: "calendar-wrap", id: "calendar-board" }, h(Panel, { level: "command", title: "Macro Calendar -- " + formatMonthLabel(payload.generatedAt), subtitle: "Terminal calendar surface with dense event rows, impact filters, and direct drill-down into event detail.", actions: h(Link, { href: "/app/macro-calendar", className: "terminal-link text-[11px] font-medium" }, "Open full calendar") }, h("div", { className: "space-y-4" }, [
  h("div", { key: "toolbar", className: "flex flex-wrap items-center justify-between gap-2" }, [
  h("div", { key: "filters", className: "grid gap-2" }, [
  h("div", { key: "impact", className: "flex flex-wrap gap-2" }, IMPACT_OPTIONS.map(function (option) { return h(Link, { key: option.value, href: dashboardHref(state, { impact: option.value }), className: state.impact === option.value ? "desk-tab desk-tab-active" : "desk-tab" }, option.label) })),
@@ -398,7 +398,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  linkCard("calendar-focus", "Focus asset", activeAsset ? activeAsset.symbol : "No asset", activeAsset ? activeAsset.regimeContext : "No market context loaded", dashboardHref(state, { asset: activeAsset ? activeAsset.symbol : undefined }), "Focus"),
  ]),
  ]))),
- h("div", { key: "market-wrap", id: "market-board" }, h(Panel, { title: "Market strip", subtitle: "Persistent cross-asset tape for desktop context, with honest live or fallback freshness states.", actions: h(Link, { href: "/app/market-bias", className: "terminal-link text-[11px] font-medium" }, "Open market bias") }, h("div", { className: "space-y-3" }, [
+ h("div", { key: "market-wrap", id: "market-board" }, h(Panel, { title: "Market strip", subtitle: "Cross-asset context tape with explicit live, demo, and fallback freshness states.", level: "context", actions: h(Link, { href: "/app/market-bias", className: "terminal-link text-[11px] font-medium" }, "Open market bias") }, h("div", { className: "space-y-4" }, [
  h("div", { key: "toolbar", className: "flex flex-wrap items-center justify-between gap-2" }, [
  activeAsset ? freshnessBadges(activeAsset.freshness, [activeAsset.symbol, activeAsset.stance]) : freshnessBadges(payload.marketConsensus.freshness, [payload.marketConsensus.label]),
  h("div", { key: "stats", className: "flex flex-wrap gap-2" }, [
@@ -425,6 +425,7 @@ const IMPACT_OPTIONS = [
  { label: "Med", value: "Medium" },
  { label: "Low", value: "Low" },
 ]
+
 
 
 
