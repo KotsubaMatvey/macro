@@ -12,7 +12,7 @@ def seed_demo_database():
     apply_migrations()
     with get_connection() as conn:
         with conn.cursor() as cur:
-            for table in ['post_likes', 'comments', 'posts', 'alert_deliveries', 'alerts', 'watchlist_items', 'watchlists', 'news_items', 'briefings', 'market_bias_rationales', 'market_bias_snapshots', 'regime_components', 'regime_snapshots', 'event_reaction_windows', 'event_release_assets', 'events', 'event_families', 'assets', 'sessions', 'password_reset_tokens', 'email_verification_tokens', 'profiles', 'feature_flags', 'audit_logs', 'ingestion_jobs', 'users']:
+            for table in ['intelligence_links', 'intelligence_scores', 'intelligence_entities', 'signal_snapshots', 'signal_evaluations', 'news_item_assets', 'news_enrichment', 'news_provider_runs', 'news_clusters', 'post_likes', 'comments', 'posts', 'alert_deliveries', 'alerts', 'watchlist_items', 'watchlists', 'news_items', 'briefings', 'macro_reports', 'market_bias_rationales', 'market_bias_snapshots', 'regime_components', 'regime_snapshots', 'event_reaction_windows', 'event_release_assets', 'events', 'event_families', 'assets', 'sessions', 'password_reset_tokens', 'email_verification_tokens', 'profiles', 'feature_flags', 'audit_logs', 'ingestion_jobs', 'users']:
                 cur.execute(f'delete from {table}')
 
             users = [

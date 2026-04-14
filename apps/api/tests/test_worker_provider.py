@@ -58,6 +58,7 @@ def test_refresh_dashboard_cache_job_only_rebuilds_live_dashboard(monkeypatch):
 	calls = []
 
 	monkeypatch.setattr(worker, "invalidate_provider_payload", lambda key: calls.append(("provider", key)))
+	monkeypatch.setattr(worker, "recompute_signal_evaluations_service", lambda: calls.append(("eval",)))
 	monkeypatch.setattr(worker, "workstation_payload", lambda user, prefer_cache=False, force_refresh=False: calls.append(("workstation", user["id"], force_refresh)))
 	monkeypatch.setattr(worker, "dashboard_payload", lambda user, prefer_cache=False, force_refresh=False: calls.append(("dashboard", user["id"], force_refresh)))
 
@@ -78,6 +79,7 @@ def test_evaluate_alerts_defaults_to_alert_scoped_users(monkeypatch):
 	{"id": "user-analyst", "email": "analyst@macroaccess.local", "name": "Analyst", "role": "analyst", "onboardingCompleted": True, "emailVerified": True},
 	])
 	monkeypatch.setattr(worker, "invalidate_provider_payload", lambda key: calls.append(("provider", key)))
+	monkeypatch.setattr(worker, "recompute_signal_evaluations_service", lambda: calls.append(("eval",)))
 	monkeypatch.setattr(worker, "workstation_payload", lambda user, prefer_cache=False, force_refresh=False: calls.append(("workstation", user["id"], force_refresh)))
 	monkeypatch.setattr(worker, "dashboard_payload", lambda user, prefer_cache=False, force_refresh=False: calls.append(("dashboard", user["id"], force_refresh)))
 

@@ -80,6 +80,47 @@ class BriefingItem(BaseModel):
     takeaways: list[str] 
     assetSymbols: list[str]
  
+
+class IntelligenceEvaluation(BaseModel):
+ surface: str = ''
+ signalType: str = ''
+ signalRef: str = ''
+ sampleSize: int = 0
+ coverage: Optional[float] = None
+ directionAccuracy: Optional[float] = None
+ magnitudeError: Optional[float] = None
+ falsePositiveRate: Optional[float] = None
+ calibrationQuality: Optional[float] = None
+ rankingUsefulness: Optional[float] = None
+ sourceQualityAlignment: Optional[float] = None
+ mode: str = 'replay'
+ note: str = ''
+
+
+class IntelligenceContract(BaseModel):
+ source: str = ''
+ sourceType: str = 'discovery'
+ sourceUrl: Optional[str] = None
+ sourceTier: str = 'secondary'
+ mode: str = 'fallback'
+ freshness: str = 'degraded'
+ importance: float = 0
+ urgency: float = 0
+ confidence: float = 0
+ marketRelevance: float = 0
+ deskRelevance: float = 0
+ rankScore: float = 0
+ scoreRationale: list[str] = Field(default_factory=list)
+ scoreComponents: dict = Field(default_factory=dict)
+ linkedAssets: list[str] = Field(default_factory=list)
+ linkedEvents: list[str] = Field(default_factory=list)
+ linkedRegions: list[str] = Field(default_factory=list)
+ linkedNews: list[str] = Field(default_factory=list)
+ linkedReports: list[str] = Field(default_factory=list)
+ linkedReactions: list[str] = Field(default_factory=list)
+ derivedFrom: list[str] = Field(default_factory=list)
+ fallbackReason: str = ''
+ evaluation: IntelligenceEvaluation = Field(default_factory=IntelligenceEvaluation)
 class NewsItem(BaseModel):
     id: str
     slug: str
@@ -101,6 +142,9 @@ class NewsItem(BaseModel):
     importanceScore: float = 0
     urgencyScore: float = 0
     confidenceScore: float = 0
+    marketRelevanceScore: float = 0
+    deskRelevanceScore: float = 0
+    rankingScore: float = 0
     mode: str = "fallback"
     freshness: str = "degraded"
     clusterId: Optional[str] = None
@@ -110,6 +154,16 @@ class NewsItem(BaseModel):
     relatedEventId: Optional[str] = None
     relatedEventSlug: Optional[str] = None
     relatedDashboardAsset: Optional[str] = None
+    linkedAssets: list[str] = Field(default_factory=list)
+    linkedEvents: list[str] = Field(default_factory=list)
+    linkedRegions: list[str] = Field(default_factory=list)
+    linkedNews: list[str] = Field(default_factory=list)
+    linkedReports: list[str] = Field(default_factory=list)
+    linkedReactions: list[str] = Field(default_factory=list)
+    derivedFrom: list[str] = Field(default_factory=list)
+    fallbackReason: str = ""
+    evaluation: Optional[IntelligenceEvaluation] = None
+    intelligence: Optional[IntelligenceContract] = None
     providerMeta: dict = Field(default_factory=dict)
 
 class NewsSourceStatus(BaseModel):
@@ -142,6 +196,7 @@ class NewsFeedPayload(BaseModel):
     shellMode: str
     freshness: str
     sourceMeta: dict
+    evaluation: Optional[IntelligenceEvaluation] = None
     items: list[NewsItem]
     rails: dict
     summary: NewsFeedSummary
@@ -165,6 +220,22 @@ class EventRelease(BaseModel):
     surprise: Optional[float] = None 
     whyItMatters: str 
     relatedAssets: list[str] 
+    importanceScore: float = 0
+    urgencyScore: float = 0
+    confidenceScore: float = 0
+    marketRelevanceScore: float = 0
+    deskRelevanceScore: float = 0
+    rankingScore: float = 0
+    linkedAssets: list[str] = Field(default_factory=list)
+    linkedEvents: list[str] = Field(default_factory=list)
+    linkedRegions: list[str] = Field(default_factory=list)
+    linkedNews: list[str] = Field(default_factory=list)
+    linkedReports: list[str] = Field(default_factory=list)
+    linkedReactions: list[str] = Field(default_factory=list)
+    derivedFrom: list[str] = Field(default_factory=list)
+    fallbackReason: str = ''
+    evaluation: Optional[IntelligenceEvaluation] = None
+    intelligence: Optional[IntelligenceContract] = None
  
 class ImpactWindow(BaseModel): 
     window: str 
@@ -325,6 +396,22 @@ class DashboardCatalyst(BaseModel):
  context: list[str]
  href: str
  freshness: SourceMetadata
+ importanceScore: float = 0
+ urgencyScore: float = 0
+ confidenceScore: float = 0
+ marketRelevanceScore: float = 0
+ deskRelevanceScore: float = 0
+ rankingScore: float = 0
+ linkedAssets: list[str] = Field(default_factory=list)
+ linkedEvents: list[str] = Field(default_factory=list)
+ linkedRegions: list[str] = Field(default_factory=list)
+ linkedNews: list[str] = Field(default_factory=list)
+ linkedReports: list[str] = Field(default_factory=list)
+ linkedReactions: list[str] = Field(default_factory=list)
+ derivedFrom: list[str] = Field(default_factory=list)
+ fallbackReason: str = ''
+ evaluation: Optional[IntelligenceEvaluation] = None
+ intelligence: Optional[IntelligenceContract] = None
 
 class DashboardRegimeBlock(BaseModel):
  label: str
@@ -444,12 +531,15 @@ class GeoboardRankingMetadata(BaseModel):
  urgencyScore: float
  importanceScore: float
  confidenceScore: float
+ marketRelevanceScore: float = 0
+ deskRelevanceScore: float = 0
  recencyScore: float
  sourceQualityScore: float
  watchlistOverlapScore: float
  catalystProximityScore: float
  regionSignificanceScore: float
  regimeRelevanceScore: float
+ componentScores: dict = Field(default_factory=dict)
  rationale: list[str] = Field(default_factory=list)
 
 
@@ -597,11 +687,20 @@ class GeoboardFeedItem(BaseModel):
  relatedNewsClusterIds: list[str] = Field(default_factory=list)
  relatedNewsIds: list[str] = Field(default_factory=list)
  linkedAssetSymbols: list[str] = Field(default_factory=list)
+ linkedAssets: list[str] = Field(default_factory=list)
+ linkedEvents: list[str] = Field(default_factory=list)
+ linkedRegions: list[str] = Field(default_factory=list)
+ linkedNews: list[str] = Field(default_factory=list)
+ linkedReports: list[str] = Field(default_factory=list)
+ linkedReactions: list[str] = Field(default_factory=list)
+ derivedFrom: list[str] = Field(default_factory=list)
+ fallbackReason: str = ''
  tags: list[str] = Field(default_factory=list)
  geoboardModes: list[str] = Field(default_factory=list)
  links: dict = Field(default_factory=dict)
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
+ intelligence: Optional[IntelligenceContract] = None
 
 
 class GeoboardSourceStatus(BaseModel):
@@ -629,4 +728,13 @@ class GeoboardPayload(BaseModel):
  tradeRoutes: list[GeoboardTradeRoute]
  regimeZones: list[GeoboardRegimeZone]
  feed: list[GeoboardFeedItem]
+ evaluation: Optional[IntelligenceEvaluation] = None
  summary: dict
+
+
+
+
+
+
+
+

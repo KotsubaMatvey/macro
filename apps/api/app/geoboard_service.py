@@ -9,7 +9,10 @@ import httpx
 
 from .cache import cache_provider_payload, read_provider_payload
 from .db import fetch_all, fetch_one
+from .entity_graph import materialize_geoboard_links
+from .evaluation_service import evaluate_geoboard_ranking, latest_evaluation_metadata, record_signal_snapshot
 from .geoboard_ranking import GeoboardRankInputs, rank_metadata, source_quality_score
+from .intelligence_contracts import build_intelligence_contract, build_linked_references
 from .security import reference_now, utc_now
 from .settings import settings
 from .source_meta import derive_freshness, parse_source_timestamp
@@ -649,7 +652,53 @@ def _base_links(*, event_id: str | None = None, event_slug: str | None = None, s
  return {'event': '/app/events/' + event_id if event_id else ('/app/events/' + event_slug if event_slug else None), 'calendar': '/app/macro-calendar', 'reactions': '/app/live-reactions', 'bias': '/app/market-bias', 'reports': '/app/reports', 'news': '/app/news', 'watchlists': '/app/watchlists', 'alerts': '/app/alerts', 'source': source_url}
 
 
-def _feed_from_layers(geo_events: list[dict[str, Any]], macro_events: list[dict[str, Any]], central_banks: list[dict[str, Any]], trade_routes: list[dict[str, Any]], regime_zones: list[dict[str, Any]], active_mode: str) -> list[dict[str, Any]]:
+
+def _attach_feed_intelligence(item: dict[str, Any], feed_evaluation: dict[str, Any]) -> dict[str, Any]:
+ source_meta = item.get('sourceMeta') if isinstance(item.get('sourceMeta'), dict) else {}
+ ranking = item.get('ranking') if isinstance(item.get('ranking'), dict) else {}
+ linked_refs = build_linked_references(
+  linked_assets=item.get('linkedAssetSymbols') or [],
+  linked_events=[item.get('linkedEventId')] if item.get('linkedEventId') else [],
+  linked_regions=[item.get('regionGroup'), item.get('regionCode')],
+  linked_news=list(item.get('relatedNewsIds') or []) + list(item.get('relatedNewsClusterIds') or []),
+  linked_reports=['weekly-macro-brief'],
+  linked_reactions=[item.get('feedType')],
+ )
+ fallback_reason = '' if str(source_meta.get('mode', 'fallback')) == 'live' else str(source_meta.get('note', ''))
+ contract = build_intelligence_contract(
+  source=str(source_meta.get('label') or source_meta.get('providerKey') or item.get('sourceLayer') or 'geoboard'),
+  source_type=str(source_meta.get('sourceType') or 'derived'),
+  source_tier=str(source_meta.get('sourceTier') or 'secondary'),
+  source_url=source_meta.get('sourceUrl'),
+  mode=str(source_meta.get('mode') or 'derived'),
+  freshness=str(source_meta.get('freshness') or 'degraded'),
+  scores={
+   'importanceScore': float(ranking.get('importanceScore') or 0.0),
+   'urgencyScore': float(ranking.get('urgencyScore') or 0.0),
+   'confidenceScore': float(ranking.get('confidenceScore') or 0.0),
+   'marketRelevanceScore': float(ranking.get('marketRelevanceScore') or ranking.get('regimeRelevanceScore') or 0.0),
+   'deskRelevanceScore': float(ranking.get('deskRelevanceScore') or ranking.get('watchlistOverlapScore') or 0.0),
+   'rankScore': float(ranking.get('rankScore') or 0.0),
+   'rationale': list(ranking.get('rationale') or []),
+   'componentScores': dict(ranking.get('componentScores') or {}),
+  },
+  links=linked_refs,
+  derived_from=[item.get('sourceLayer'), item.get('sourceId')],
+  fallback_reason=fallback_reason,
+  evaluation=feed_evaluation,
+ )
+ enriched = dict(item)
+ enriched['linkedAssets'] = linked_refs['linkedAssets']
+ enriched['linkedEvents'] = linked_refs['linkedEvents']
+ enriched['linkedRegions'] = linked_refs['linkedRegions']
+ enriched['linkedNews'] = linked_refs['linkedNews']
+ enriched['linkedReports'] = linked_refs['linkedReports']
+ enriched['linkedReactions'] = linked_refs['linkedReactions']
+ enriched['derivedFrom'] = contract['derivedFrom']
+ enriched['fallbackReason'] = contract['fallbackReason']
+ enriched['intelligence'] = contract
+ return enriched
+def _feed_from_layers(geo_events: list[dict[str, Any]], macro_events: list[dict[str, Any]], central_banks: list[dict[str, Any]], trade_routes: list[dict[str, Any]], regime_zones: list[dict[str, Any]], active_mode: str, feed_evaluation: dict[str, Any]) -> list[dict[str, Any]]:
  feed = []
  for item in geo_events:
   feed.append({'id': 'feed-geo-' + str(item['id']), 'feedType': 'GEO_RISK', 'title': str(item['title']), 'subtitle': str(item.get('classification', 'Geo risk')) + ' / ' + str(item.get('country', 'Global')), 'time': str(item['date']), 'impactLine': ' / '.join(item.get('affectedAssets', [])[:4]), 'whyItMatters': str(item.get('whyItMatters', '')), 'lat': float(item['lat']), 'lon': float(item['lon']), 'sourceId': str(item['id']), 'sourceLayer': 'geo', 'regionCode': str(item.get('regionCode', 'GL')), 'regionGroup': str(item.get('regionGroup', 'Global')), 'linkedEventId': item.get('linkedEventId'), 'linkedEventSlug': item.get('linkedEventSlug'), 'relatedNewsClusterIds': item.get('relatedNewsClusterIds', []), 'relatedNewsIds': item.get('relatedNewsIds', []), 'linkedAssetSymbols': item.get('affectedAssets', []), 'tags': [str(item.get('classification', 'Geo risk')), str(item.get('sourceMeta', {}).get('sourceType', 'discovery'))], 'geoboardModes': item.get('geoboardModes', ['STANDARD', 'RISK']), 'links': {**_base_links(event_id=item.get('linkedEventId'), event_slug=item.get('linkedEventSlug'), source_url=item.get('url')), 'news': '/app/news?asset=' + quote(item.get('affectedAssets', ['DXY'])[0])}, 'sourceMeta': item['sourceMeta'], 'ranking': item['ranking']})
@@ -663,7 +712,8 @@ def _feed_from_layers(geo_events: list[dict[str, Any]], macro_events: list[dict[
   score = 0.58 if zone['regime'] == 'RISK-OFF' else 0.52 if zone['regime'] == 'RISK-ON' else 0.46
   ranking = rank_metadata(GeoboardRankInputs(urgency_score=0.40, importance_score=0.54, confidence_score=_clamp(float(zone['confidence']) / 100.0), recency_score=0.42, source_quality_score=source_quality_score('derived', 'primary', 'derived'), watchlist_overlap_score=0.22, catalyst_proximity_score=0.30, region_significance_score=0.58, regime_relevance_score=score), ['Derived regional regime context.'])
   feed.append({'id': 'feed-regime-' + str(zone['id']).lower(), 'feedType': 'REGIME_CONTEXT', 'title': 'REGIME // ' + str(zone['label']) + ' // ' + str(zone['regime']), 'subtitle': 'Derived dashboard regime zone', 'time': utc_now().isoformat(), 'impactLine': 'CONF ' + str(zone['confidence']) + '%', 'whyItMatters': str(zone.get('whyItMatters', '')), 'lat': float(zone['center'][1]), 'lon': float(zone['center'][0]), 'sourceId': str(zone['id']), 'sourceLayer': 'regime', 'regionCode': str(zone['id']), 'regionGroup': str(zone['label']), 'linkedEventId': None, 'linkedEventSlug': None, 'relatedNewsClusterIds': [], 'relatedNewsIds': [], 'linkedAssetSymbols': zone.get('relatedAssets', []), 'tags': ['Regime', zone['regime']], 'geoboardModes': zone.get('geoboardModes', ['STANDARD', 'LIQUIDITY']), 'links': {**_base_links(), 'bias': '/app/market-bias'}, 'sourceMeta': zone['sourceMeta'], 'ranking': ranking})
- filtered = [item for item in feed if active_mode in item.get('geoboardModes', ['STANDARD']) or active_mode == 'STANDARD']
+ enriched_feed = [_attach_feed_intelligence(item, feed_evaluation) for item in feed]
+ filtered = [item for item in enriched_feed if active_mode in item.get('geoboardModes', ['STANDARD']) or active_mode == 'STANDARD']
  filtered.sort(key=lambda item: (float(item['ranking']['rankScore']), item['time']), reverse=True)
  return filtered[:45]
 
@@ -690,10 +740,50 @@ def geoboard_payload(user: dict[str, Any] | None = None, active_mode: str = 'STA
  central_banks, cb_status = _build_central_banks(macro_events, news_rows, watch_context, regime_label)
  trade_routes, trade_status = _build_trade_routes(geo_events, news_rows, watch_context, regime_label)
  regime_zones, regime_status = _build_regime_zones(regime_label, regime_confidence)
- feed = _feed_from_layers(geo_events, macro_events, central_banks, trade_routes, regime_zones, mode)
+ feed_evaluation = latest_evaluation_metadata(
+  'geoboard',
+  'ranking',
+  'feed',
+  fallback_note='Geoboard ranking evaluation will populate after ranking recompute jobs run.',
+ )
+ feed = _feed_from_layers(geo_events, macro_events, central_banks, trade_routes, regime_zones, mode, feed_evaluation)
+ try:
+  materialize_geoboard_links(feed)
+ except Exception:
+  pass
+ try:
+  record_signal_snapshot(
+   surface='geoboard',
+   signal_type='feed',
+   signal_ref=mode,
+   payload={
+    'rows': len(feed),
+    'types': [item.get('feedType') for item in feed[:20]],
+    'topIds': [item.get('id') for item in feed[:20]],
+   },
+   mode='derived',
+   freshness='fresh' if feed else 'degraded',
+   as_of=utc_now().isoformat(),
+  )
+ except Exception:
+  pass
+ try:
+  evaluate_geoboard_ranking(lookback_hours=168)
+ except Exception:
+  pass
+ feed_evaluation = latest_evaluation_metadata(
+  'geoboard',
+  'ranking',
+  'feed',
+  fallback_note='Geoboard ranking evaluation is pending.',
+ )
+ for item in feed:
+  intelligence = item.get('intelligence') if isinstance(item.get('intelligence'), dict) else None
+  if intelligence is not None:
+   intelligence['evaluation'] = feed_evaluation
  feed_status = {'layer': 'feed', 'state': 'live' if feed else 'fallback', 'sourceType': 'derived', 'mode': 'derived', 'detail': 'Canonical ranked Geoboard feed assembled from geo/macro/static/derived layers.' if feed else 'Feed empty; investigate upstream layers.'}
  source_status = [geo_status, macro_status, cb_status, trade_status, regime_status, feed_status]
- payload = {'generatedAt': utc_now().isoformat(), 'modeState': _mode_state(mode, source_status), 'sourceStatus': source_status, 'geoEvents': geo_events, 'macroEvents': macro_events, 'centralBanks': central_banks, 'tradeRoutes': trade_routes, 'regimeZones': regime_zones, 'feed': feed, 'summary': {'totalFeedItems': len(feed), 'geoSignals': len(geo_events), 'macroCatalysts': len(macro_events), 'centralBanks': len(central_banks), 'tradeRoutes': len(trade_routes), 'regimeZones': len(regime_zones), 'watchlistSymbols': len(watch_context.get('symbols', set())), 'activeAlerts': int(watch_context.get('activeAlerts', 0)), 'fallbackLayers': len([item for item in source_status if item['state'] in {'fallback', 'degraded'}])}}
+ payload = {'generatedAt': utc_now().isoformat(), 'modeState': _mode_state(mode, source_status), 'sourceStatus': source_status, 'evaluation': feed_evaluation, 'geoEvents': geo_events, 'macroEvents': macro_events, 'centralBanks': central_banks, 'tradeRoutes': trade_routes, 'regimeZones': regime_zones, 'feed': feed, 'summary': {'totalFeedItems': len(feed), 'geoSignals': len(geo_events), 'macroCatalysts': len(macro_events), 'centralBanks': len(central_banks), 'tradeRoutes': len(trade_routes), 'regimeZones': len(regime_zones), 'watchlistSymbols': len(watch_context.get('symbols', set())), 'activeAlerts': int(watch_context.get('activeAlerts', 0)), 'fallbackLayers': len([item for item in source_status if item['state'] in {'fallback', 'degraded'}])}}
  cache_provider_payload(cache_key, payload, ttl=120)
  return payload
 
@@ -711,6 +801,12 @@ def fetch_macro_events(user_id: str | None = None) -> list[dict[str, Any]]:
  watch_context = _watch_context(user_id)
  events, _ = _build_macro_events(now, watch_context, [], 'NEUTRAL')
  return events
+
+
+
+
+
+
 
 
 

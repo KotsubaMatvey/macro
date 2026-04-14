@@ -13,15 +13,21 @@ JOB_TYPES = (
  "ingest_discovery_news",
  "cluster_news_items",
  "enrich_news_items",
+ "normalize_news_entities",
+ "link_news_to_events",
+ "score_news_items",
  "refresh_news_cache",
  "rebuild_news_rankings",
+ "score_geoboard_signals",
  "recompute_regime",
  "recompute_market_bias",
  "recompute_reactions",
  "recompute_track_record",
+ "recompute_signal_evaluations",
  "publish_scheduled_content",
  "evaluate_alerts",
  "generate_weekly_report",
+
 )
 
 

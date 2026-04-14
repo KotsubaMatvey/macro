@@ -1,4 +1,4 @@
-# Demo Mode
+﻿# Demo Mode
 
 ## What demo mode means
 - Real API/auth/session mechanics over a seeded domain dataset.
@@ -11,5 +11,6 @@
 - Track record is a retrospective model replay, not a logged discretionary track record.
 
 ## Worker behavior
-- Jobs represent operational classes (state refresh, recompute, publish, evaluate, cache refresh).
+- Jobs represent operational classes (provider refresh, normalization, linkage recompute, scoring recompute, evaluation recompute, publish, cache refresh).
 - The worker keeps admin-visible job lifecycle and refreshes only the surfaces relevant to each job type.
+

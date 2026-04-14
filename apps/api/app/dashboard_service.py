@@ -6,6 +6,17 @@ import math
 import statistics
 
 from .cache import cache_live_dashboard, read_live_dashboard_cache
+from .evaluation_service import latest_evaluation_metadata
+from .intelligence_contracts import build_intelligence_contract, build_linked_references
+from .intelligence_scoring import (
+	event_proximity_score,
+	watchlist_overlap_score,
+	asset_breadth_score,
+	UnifiedScoreInputs,
+	compute_unified_scores,
+	recency_score,
+	source_quality_score,
+)
 from .providers import ProviderError, load_fred_series
 from .security import reference_now, utc_now
 from .services import list_alerts, list_briefings, list_events, list_watchlists
@@ -302,14 +313,65 @@ def _threshold_text(event):
 		return 'Beat if actual exceeds ' + str(event['forecast']) + '; miss if below'
 	return 'No threshold model available'
 
-def _pick_catalyst(events):
-    if not events:
-        return None
-    normalized = [item for item in events if isinstance(item, dict)]
-    active = [item for item in normalized if item.get('status') in {'Live', 'Upcoming'}]
-    source = active if active else normalized
-    return source[0] if source else None
+def _catalyst_scores(event):
+	impact = str(event.get('impact') or '').lower()
+	importance = 0.86 if impact == 'high' else 0.68 if impact == 'medium' else 0.52
+	scheduled = _parse_dt(event.get('scheduledAt'))
+	hours_to_event = (scheduled - reference_now()).total_seconds() / 3600.0 if scheduled else None
+	urgency = event_proximity_score(hours_to_event)
+	freshness = event.get('freshness') if isinstance(event.get('freshness'), dict) else {}
+	mode = str(freshness.get('mode') or 'fallback')
+	source_name = str(freshness.get('source') or '')
+	source_type = 'official' if 'TradingEconomics' in source_name else 'fallback'
+	source_tier = 'primary' if source_type == 'official' else 'secondary'
+	category = str(event.get('category') or 'Macro')
+	regime_relevance = {
+		'Central bank': 0.84,
+		'Inflation': 0.82,
+		'Labor': 0.76,
+		'Growth': 0.72,
+		'Macro': 0.66,
+	}.get(category, 0.62)
+	assets = event.get('relatedAssets') if isinstance(event.get('relatedAssets'), list) else []
+	return compute_unified_scores(
+		UnifiedScoreInputs(
+			importance=importance,
+			urgency=urgency,
+			confidence=0.80 if source_type == 'official' else 0.62,
+			source_quality=source_quality_score(source_type, source_tier, mode),
+			recency=recency_score(event.get('scheduledAt'), horizon_hours=24.0 * 14.0),
+			watchlist_overlap=watchlist_overlap_score(0, max_hits=4),
+			event_proximity=urgency,
+			asset_breadth=asset_breadth_score(len(assets), max_assets=6),
+			regime_relevance=regime_relevance,
+			evidence_density=0.55 if event.get('status') in {'Live', 'Upcoming'} else 0.42,
+		),
+		rationale=[
+			'Dashboard catalyst ranking uses unified importance/urgency/confidence/market/desk composition.',
+			'Source quality and event proximity are explicit deterministic inputs.',
+		],
+	)
 
+
+def _pick_catalyst(events):
+	if not events:
+		return None, None
+	normalized = [item for item in events if isinstance(item, dict)]
+	if not normalized:
+		return None, None
+	scored = []
+	for item in normalized:
+		scores = _catalyst_scores(item)
+		scored.append((item, scores))
+	scored.sort(
+		key=lambda pair: (
+			float(pair[1].get('rankScore') or 0.0),
+			float(pair[1].get('urgencyScore') or 0.0),
+			pair[0].get('scheduledAt') or '',
+		),
+		reverse=True,
+	)
+	return scored[0]
 def _linked_mode(default='live'):
 	if settings.app_mode == 'demo':
 		return 'demo'
@@ -444,7 +506,7 @@ def _build_dashboard_payload(user):
 			series_failures[symbol] = str(exc)
 			LOGGER.exception('Unexpected series failure for %s: %s', symbol, exc)
 	events = list_events() or []
-	catalyst = _pick_catalyst(events)
+	catalyst, catalyst_scores = _pick_catalyst(events)
 	if {'SPX', 'BTC', 'XAU', 'DXY', 'US10Y', 'VIX'}.issubset(series_map.keys()):
 		risk_score = _risk_score(series_map)
 		risk_history = _history_points(series_map, _risk_score)
@@ -500,12 +562,42 @@ def _build_dashboard_payload(user):
 	sessions, active_session = _session_strip()
 	risk_freshness = _source_meta('Risk regime', 'FRED composite', mode='live' if risk_history else 'fallback', note='Real market regime derived from public series')
 	liquidity_freshness = _source_meta('Liquidity regime', 'FRED composite', mode='live' if liquidity_history else 'fallback', note='Liquidity read derived from policy, balance sheet, yields, and dollar')
+	catalyst_evaluation = latest_evaluation_metadata(
+		'dashboard',
+		'catalyst-ranking',
+		'key-catalyst',
+		fallback_note='Dashboard catalyst evaluation is pending and remains replay-safe.',
+	)
 	if catalyst:
 		catalyst_context = [
 			'Risk regime ' + ('supports' if risk_score >= 20 else 'does not yet confirm') + ' the current tape',
 			'Liquidity regime ' + ('is supportive' if liquidity_score >= 15 else 'remains tight' if liquidity_score <= -15 else 'is neutral'),
 			live_news[0]['title'] if live_news else 'No official headline linked',
 		]
+		catalyst_freshness = catalyst.get('freshness') if isinstance(catalyst.get('freshness'), dict) else _source_meta('Catalyst calendar', 'Internal calendar', mode='demo' if settings.app_mode == 'demo' else 'fallback', note='Live economic calendar provider is not configured yet')
+		catalyst_links = build_linked_references(
+			linked_assets=catalyst.get('relatedAssets') or [],
+			linked_events=[catalyst.get('id')] if catalyst.get('id') else [],
+			linked_regions=[catalyst.get('country'), catalyst.get('currency')],
+			linked_news=[live_news[0]['id']] if live_news and live_news[0].get('id') else [],
+			linked_reports=['weekly-macro-brief'],
+			linked_reactions=[catalyst.get('family')] if catalyst.get('family') else [],
+		)
+		resolved_scores = catalyst_scores if isinstance(catalyst_scores, dict) else _catalyst_scores(catalyst)
+		fallback_reason = '' if str(catalyst_freshness.get('mode', 'fallback')) == 'live' else str(catalyst_freshness.get('note', ''))
+		catalyst_intelligence = build_intelligence_contract(
+			source=str(catalyst_freshness.get('source') or 'Catalyst calendar'),
+			source_type='official' if 'TradingEconomics' in str(catalyst_freshness.get('source') or '') else 'fallback',
+			source_tier='primary' if 'TradingEconomics' in str(catalyst_freshness.get('source') or '') else 'secondary',
+			source_url=catalyst_freshness.get('sourceUrl'),
+			mode=str(catalyst_freshness.get('mode') or 'fallback'),
+			freshness=str(catalyst_freshness.get('freshness') or 'degraded'),
+			scores=resolved_scores,
+			links=catalyst_links,
+			derived_from=[catalyst.get('id'), catalyst.get('family'), catalyst.get('providerEventId')],
+			fallback_reason=fallback_reason,
+			evaluation=catalyst_evaluation,
+		)
 		key_catalyst = {
 			'title': catalyst['title'],
 			'status': catalyst['status'],
@@ -520,9 +612,50 @@ def _build_dashboard_payload(user):
 			'whyItMatters': catalyst['whyItMatters'],
 			'context': catalyst_context,
 			'href': '/app/events/' + catalyst['id'],
-			'freshness': _source_meta('Catalyst calendar', 'Internal calendar', mode='demo' if settings.app_mode == 'demo' else 'fallback', note='Live economic calendar provider is not configured yet'),
+			'freshness': catalyst_freshness,
+			'importanceScore': float(resolved_scores.get('importanceScore') or 0.0),
+			'urgencyScore': float(resolved_scores.get('urgencyScore') or 0.0),
+			'confidenceScore': float(resolved_scores.get('confidenceScore') or 0.0),
+			'marketRelevanceScore': float(resolved_scores.get('marketRelevanceScore') or 0.0),
+			'deskRelevanceScore': float(resolved_scores.get('deskRelevanceScore') or 0.0),
+			'rankingScore': float(resolved_scores.get('rankScore') or 0.0),
+			'linkedAssets': catalyst_links['linkedAssets'],
+			'linkedEvents': catalyst_links['linkedEvents'],
+			'linkedRegions': catalyst_links['linkedRegions'],
+			'linkedNews': catalyst_links['linkedNews'],
+			'linkedReports': catalyst_links['linkedReports'],
+			'linkedReactions': catalyst_links['linkedReactions'],
+			'derivedFrom': catalyst_intelligence['derivedFrom'],
+			'fallbackReason': catalyst_intelligence['fallbackReason'],
+			'evaluation': catalyst_evaluation,
+			'intelligence': catalyst_intelligence,
 		}
 	else:
+		fallback_scores = {
+			'importanceScore': 0.0,
+			'urgencyScore': 0.0,
+			'confidenceScore': 0.0,
+			'marketRelevanceScore': 0.0,
+			'deskRelevanceScore': 0.0,
+			'rankScore': 0.0,
+			'rationale': ['No catalyst row was available for ranking.'],
+			'componentScores': {},
+		}
+		fallback_links = build_linked_references(linked_reports=['weekly-macro-brief'])
+		fallback_freshness = _source_meta('Catalyst calendar', 'Internal calendar', mode='fallback', note='No catalyst record available')
+		fallback_intelligence = build_intelligence_contract(
+			source='Catalyst calendar',
+			source_type='fallback',
+			source_tier='secondary',
+			source_url=None,
+			mode='fallback',
+			freshness='degraded',
+			scores=fallback_scores,
+			links=fallback_links,
+			derived_from=['dashboard-catalyst'],
+			fallback_reason='No catalyst record available',
+			evaluation=catalyst_evaluation,
+		)
 		key_catalyst = {
 			'title': 'No catalyst loaded',
 			'status': 'Unavailable',
@@ -537,7 +670,23 @@ def _build_dashboard_payload(user):
 			'whyItMatters': 'Attach a live calendar provider or refresh the internal feed.',
 			'context': ['No catalyst context available'],
 			'href': '/app/macro-calendar',
-			'freshness': _source_meta('Catalyst calendar', 'Internal calendar', mode='fallback', note='No catalyst record available'),
+			'freshness': fallback_freshness,
+			'importanceScore': 0.0,
+			'urgencyScore': 0.0,
+			'confidenceScore': 0.0,
+			'marketRelevanceScore': 0.0,
+			'deskRelevanceScore': 0.0,
+			'rankingScore': 0.0,
+			'linkedAssets': fallback_links['linkedAssets'],
+			'linkedEvents': fallback_links['linkedEvents'],
+			'linkedRegions': fallback_links['linkedRegions'],
+			'linkedNews': fallback_links['linkedNews'],
+			'linkedReports': fallback_links['linkedReports'],
+			'linkedReactions': fallback_links['linkedReactions'],
+			'derivedFrom': fallback_intelligence['derivedFrom'],
+			'fallbackReason': fallback_intelligence['fallbackReason'],
+			'evaluation': catalyst_evaluation,
+			'intelligence': fallback_intelligence,
 		}
 	payload = {
 		'generatedAt': utc_now().isoformat(),
@@ -716,6 +865,10 @@ def dashboard_payload(user, prefer_cache=False, force_refresh=False):
 
 _market_bias_payload_service = build_market_bias_payload
 _track_record_payload_service = build_track_record_payload
+
+
+
+
 
 
 

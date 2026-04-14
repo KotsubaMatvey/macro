@@ -14,6 +14,12 @@ from app.cache import (
 from app.calendar_data import calendar_feed
 from app.dashboard_service import SERIES, dashboard_payload
 from app.db import apply_migrations, fetch_all, fetch_one, get_connection
+from app.entity_graph import materialize_event_links, materialize_news_links
+from app.evaluation_service import (
+ recompute_signal_evaluations as recompute_signal_evaluations_service,
+ evaluate_geoboard_ranking,
+)
+from app.geoboard_service import geoboard_payload
 from app.insights_service import (
  build_market_bias_payload,
  build_reactions_payload,
@@ -172,19 +178,28 @@ def _refresh_market_prices(job_type, payload):
 def _refresh_calendar_events(job_type, payload):
  _invalidate_provider_prefixes(["calendar:", "insights:reactions:", "insights:reports"])
  calendar_feed(days_back=30, days_forward=60, prefer_cache=False)
+ materialize_event_links(limit=360)
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
 def _ingest_official_news(job_type, payload):
  _invalidate_news_provider_cache(include_official=True, include_discovery=False)
  ingest_news_sources(include_official=True, include_discovery=False)
+ cluster_news_items_service()
+ enrich_news_items_service(limit=240)
+ rebuild_news_rankings_service(lookback_hours=120)
+ materialize_news_links(limit=280)
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
 def _ingest_discovery_news(job_type, payload):
  _invalidate_news_provider_cache(include_official=False, include_discovery=True)
  ingest_news_sources(include_official=False, include_discovery=True)
- _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
+ cluster_news_items_service()
+ enrich_news_items_service(limit=240)
+ rebuild_news_rankings_service(lookback_hours=120)
+ materialize_news_links(limit=280)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
 def _cluster_news_items(job_type, payload):
@@ -197,16 +212,55 @@ def _enrich_news_items(job_type, payload):
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
+def _normalize_news_entities(job_type, payload):
+ cluster_news_items_service()
+ enrich_news_items_service(limit=240)
+ materialize_news_links(limit=320)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _link_news_to_events(job_type, payload):
+ materialize_news_links(limit=360)
+ materialize_event_links(limit=360)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=False)
+
+
+def _score_news_items(job_type, payload):
+ rebuild_news_rankings_service(lookback_hours=120)
+ materialize_news_links(limit=320)
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
 def _refresh_news_cache(job_type, payload):
  _invalidate_news_provider_cache(include_official=True, include_discovery=True)
  ingest_news_sources(include_official=True, include_discovery=True)
+ cluster_news_items_service()
+ enrich_news_items_service(limit=240)
  rebuild_news_rankings_service(lookback_hours=120)
+ materialize_news_links(limit=360)
+ materialize_event_links(limit=360)
+ recompute_signal_evaluations_service()
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
 def _rebuild_news_rankings(job_type, payload):
  rebuild_news_rankings_service(lookback_hours=120)
+ materialize_news_links(limit=320)
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _score_geoboard_signals(job_type, payload):
+ users = _job_users(job_type, payload)
+ modes = payload.get("modes") if isinstance(payload, dict) and isinstance(payload.get("modes"), list) else ["STANDARD", "RISK", "LIQUIDITY", "CENT.BANKS"]
+ if users:
+  for user in users:
+   for mode in modes:
+    geoboard_payload(user, str(mode))
+ else:
+  for mode in modes:
+   geoboard_payload(None, str(mode))
+ evaluate_geoboard_ranking(lookback_hours=168)
+
 
 def _recompute_regime(job_type, payload):
  _refresh_users(_job_users(job_type, payload), refresh_workstation=False, refresh_live_dashboard=True)
@@ -216,6 +270,7 @@ def _recompute_market_bias(job_type, payload):
  _invalidate_provider_names(["insights:market-bias"])
  _invalidate_provider_prefixes(["insights:reports"])
  build_market_bias_payload()
+ recompute_signal_evaluations_service()
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
@@ -224,6 +279,7 @@ def _recompute_reactions(job_type, payload):
  assets = payload.get("assets") if isinstance(payload, dict) and isinstance(payload.get("assets"), list) else ["SPX", "NDX", "EURUSD", "BTC"]
  for asset in assets:
   build_reactions_payload(asset=str(asset).upper())
+ recompute_signal_evaluations_service()
  _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=False)
 
 
@@ -231,7 +287,13 @@ def _recompute_track_record(job_type, payload):
  _invalidate_provider_names(["insights:track-record"])
  _invalidate_provider_prefixes(["insights:reports"])
  build_track_record_payload()
+ recompute_signal_evaluations_service()
  _refresh_users(_job_users(job_type, payload), refresh_live_dashboard=True)
+
+
+def _recompute_signal_evaluations(job_type, payload):
+ recompute_signal_evaluations_service()
+ _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
 def _publish_scheduled_content(job_type, payload):
@@ -239,6 +301,7 @@ def _publish_scheduled_content(job_type, payload):
 
 
 def _evaluate_alerts(job_type, payload):
+ recompute_signal_evaluations_service()
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
@@ -256,16 +319,22 @@ JOB_HANDLERS = {
  "ingest_discovery_news": _ingest_discovery_news,
  "cluster_news_items": _cluster_news_items,
  "enrich_news_items": _enrich_news_items,
+ "normalize_news_entities": _normalize_news_entities,
+ "link_news_to_events": _link_news_to_events,
+ "score_news_items": _score_news_items,
  "refresh_news_cache": _refresh_news_cache,
  "rebuild_news_rankings": _rebuild_news_rankings,
+ "score_geoboard_signals": _score_geoboard_signals,
  "recompute_regime": _recompute_regime,
  "recompute_market_bias": _recompute_market_bias,
  "recompute_reactions": _recompute_reactions,
  "recompute_track_record": _recompute_track_record,
+ "recompute_signal_evaluations": _recompute_signal_evaluations,
  "publish_scheduled_content": _publish_scheduled_content,
  "evaluate_alerts": _evaluate_alerts,
  "generate_weekly_report": _generate_weekly_report,
 }
+
 
 def run_job(job_id):
  job = fetch_one("select id, job_type, payload from ingestion_jobs where id = %s", (job_id,))
@@ -292,6 +361,7 @@ def run_forever():
 
 if __name__ == "__main__":
  run_forever()
+
 
 
 

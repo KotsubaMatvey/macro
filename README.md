@@ -16,7 +16,13 @@ Track macro events. Read the regime. Trade the reaction.
 - Seeded workstation domain data for auth, calendar/events, briefings, watchlists, alerts, community, and admin flows
 - Session auth with secure token hashing and cookie sessions
 - Redis used for queue/cache/rate-limits (with worker queue consumption and dashboard cache warming)
-- Worker jobs recompute or refresh specific surfaces and persist admin-visible job lifecycle
+- Worker jobs now run domain-specific refresh, normalization, linkage, scoring, and evaluation paths while keeping admin-visible lifecycle states.
+
+## Unified Intelligence Core
+- Shared contract layer: source metadata, runtime mode, freshness, unified score fields, entity linkage references, and evaluation metadata are normalized through common backend helpers.
+- Unified scoring: importance, urgency, confidence, market relevance, desk relevance, and rank score are deterministic compositions with explicit component factors and rationale.
+- Entity graph: explicit entities, links, and score snapshots are materialized into `intelligence_entities`, `intelligence_links`, and `intelligence_scores`.
+- Evaluation framework: replay-safe quality metrics are stored in `signal_snapshots` and `signal_evaluations` and exposed on News, Geoboard, Dashboard catalyst context, and insights payloads.
 
 ## Workstation surfaces
 - Dashboard: board-based macro workstation with regime, bias, catalysts, calendar, and market strip
@@ -66,7 +72,7 @@ Track macro events. Read the regime. Trade the reaction.
 
 ## Cache and Jobs
 - Redis TTLs: market tape 5 minutes, intraday market windows 5 minutes, upcoming calendar 15 minutes, calendar history 1 hour, macro or FRED series 1 hour, dashboard live payload 5 minutes, reactions 15 minutes, track record 15 minutes, reports 30 minutes.
-- Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, ingest_official_news, ingest_discovery_news, cluster_news_items, enrich_news_items, refresh_news_cache, rebuild_news_rankings, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
+- Worker job types: refresh_demo_market_state, refresh_dashboard_cache, refresh_market_prices, refresh_calendar_events, ingest_official_news, ingest_discovery_news, cluster_news_items, enrich_news_items, normalize_news_entities, link_news_to_events, score_news_items, refresh_news_cache, rebuild_news_rankings, score_geoboard_signals, recompute_regime, recompute_market_bias, recompute_reactions, recompute_track_record, recompute_signal_evaluations, publish_scheduled_content, evaluate_alerts, generate_weekly_report.
 - Worker job scope today: market refresh jobs invalidate market plus dependent insights and rebuild live dashboard caches (not workstation caches); calendar refresh jobs target calendar plus reactions or reports dependencies and rebuild workstation and live dashboard caches; replay or report jobs rebuild only replay or report surfaces.
 - Reports are deterministic structured summaries today. There is no live LLM report path wired into the runtime, and the structured source-backed sections remain authoritative. News enrichment is deterministic text generation over ingested structured rows; it does not replace source provenance.
 

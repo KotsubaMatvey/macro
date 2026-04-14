@@ -19,12 +19,23 @@ function rank(score: number, urgency: number, importance: number, confidence: nu
   urgencyScore: urgency,
   importanceScore: importance,
   confidenceScore: confidence,
+  marketRelevanceScore: Math.max(0, Math.min(1, (importance + urgency + confidence) / 3)),
+  deskRelevanceScore: Math.max(0, Math.min(1, urgency * 0.5 + importance * 0.3)),
   recencyScore: 0.45,
   sourceQualityScore: 0.38,
   watchlistOverlapScore: 0,
   catalystProximityScore: 0.2,
   regionSignificanceScore: 0.6,
   regimeRelevanceScore: 0.5,
+  componentScores: {
+   sourceQualityScore: 0.38,
+   recencyScore: 0.45,
+   watchlistOverlapScore: 0,
+   eventProximityScore: 0.2,
+   assetBreadthScore: 0.6,
+   regimeRelevanceScore: 0.5,
+   evidenceDensityScore: 0.3,
+  },
   rationale: ['Fallback ranking placeholder'],
  }
 }
@@ -257,3 +268,4 @@ export const FALLBACK_GEOBOARD_PAYLOAD: GeoboardPayload = {
   fallbackLayers: 3,
  },
 }
+

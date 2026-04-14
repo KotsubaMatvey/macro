@@ -1,4 +1,4 @@
-# Data Model
+﻿# Data Model
 
 ## Identity and access
 - users, profiles
@@ -12,12 +12,25 @@
 - market_bias_snapshots, market_bias_rationales
 
 ## Content and collaboration
-- briefings, news_items
+- briefings, news_items, news_clusters, news_item_assets, news_enrichment, news_provider_runs
 - posts, comments, post_likes
 
 ## User workflows
 - watchlists, watchlist_items
 - alerts, alert_deliveries
+
+## Intelligence core
+- intelligence_entities: canonical source-aware entities across surfaces (news/event/asset/region/geoboard signal/cluster)
+- intelligence_scores: unified importance/urgency/confidence/market-relevance/desk-relevance/rank snapshots
+- intelligence_links: explicit typed edges (linked_asset, linked_event, linked_region, linked_news, linked_news_cluster)
+- signal_snapshots: replay-safe point-in-time snapshots of ranked feed states
+- signal_evaluations: replay-safe quality metrics (coverage, direction accuracy, calibration, ranking usefulness, source-quality alignment)
+
+## Core contract semantics
+- source/sourceType/sourceTier/sourceUrl are preserved on intelligence objects
+- mode/freshness remain explicit (`live`, `demo`, `fallback`, `derived`, `static`, `replay`)
+- unified score fields are deterministic and explainable via component factors + rationale
+- linkedAssets/linkedEvents/linkedRegions/linkedNews/linkedReports/linkedReactions are explicit references, not front-end-only heuristics
 
 ## Operations
 - feature_flags

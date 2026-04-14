@@ -23,13 +23,58 @@ export interface GeoboardRankingMetadata {
  urgencyScore: number
  importanceScore: number
  confidenceScore: number
+ marketRelevanceScore: number
+ deskRelevanceScore: number
  recencyScore: number
  sourceQualityScore: number
  watchlistOverlapScore: number
  catalystProximityScore: number
  regionSignificanceScore: number
  regimeRelevanceScore: number
+ componentScores: Record<string, number>
  rationale: string[]
+}
+
+export interface GeoboardEvaluation {
+ surface: string
+ signalType: string
+ signalRef: string
+ sampleSize: number
+ coverage?: number
+ directionAccuracy?: number
+ magnitudeError?: number
+ falsePositiveRate?: number
+ calibrationQuality?: number
+ rankingUsefulness?: number
+ sourceQualityAlignment?: number
+ mode: string
+ note: string
+}
+
+export interface GeoboardIntelligence {
+ source: string
+ sourceType: string
+ sourceUrl?: string | null
+ sourceTier: string
+ mode: string
+ freshness: GeoboardFreshness
+ importance: number
+ urgency: number
+ confidence: number
+ marketRelevance: number
+ deskRelevance: number
+ rankScore: number
+ scoreRationale: string[]
+ scoreComponents: Record<string, number>
+ linkedAssets?: string[]
+ linkedEvents?: string[]
+ linkedRegions?: string[]
+ linkedNews?: string[]
+ linkedReports?: string[]
+ linkedReactions?: string[]
+ derivedFrom?: string[]
+ fallbackReason?: string
+ evaluation: GeoboardEvaluation
 }
 
 export interface GeoEvent {
@@ -57,6 +102,7 @@ export interface GeoEvent {
  geoboardModes: GeoboardMode[]
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
+ intelligence?: GeoboardIntelligence
 }
 
 export interface MacroEvent {
@@ -92,6 +138,7 @@ export interface MacroEvent {
  relatedNewsIds: string[]
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
+ intelligence?: GeoboardIntelligence
 }
 
 export interface CentralBank {
@@ -120,6 +167,7 @@ export interface CentralBank {
  geoboardModes: GeoboardMode[]
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
+ intelligence?: GeoboardIntelligence
 }
 
 export interface TradeRoute {
@@ -143,6 +191,7 @@ export interface TradeRoute {
  geoboardModes: GeoboardMode[]
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
+ intelligence?: GeoboardIntelligence
 }
 
 export interface RegimeZone {
@@ -180,6 +229,14 @@ export interface FeedItem {
  relatedNewsClusterIds: string[]
  relatedNewsIds: string[]
  linkedAssetSymbols: string[]
+ linkedAssets?: string[]
+ linkedEvents?: string[]
+ linkedRegions?: string[]
+ linkedNews?: string[]
+ linkedReports?: string[]
+ linkedReactions?: string[]
+ derivedFrom?: string[]
+ fallbackReason?: string
  tags: string[]
  geoboardModes: GeoboardMode[]
  links: {
@@ -195,6 +252,7 @@ export interface FeedItem {
  }
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
+ intelligence?: GeoboardIntelligence
 }
 
 export interface GeoboardSourceStatus {
@@ -222,6 +280,7 @@ export interface GeoboardPayload {
  tradeRoutes: TradeRoute[]
  regimeZones: RegimeZone[]
  feed: FeedItem[]
+ evaluation?: GeoboardEvaluation
  summary: Record<string, number>
 }
 
@@ -230,3 +289,6 @@ export type HoverState =
  | { layer: 'geo'; x: number; y: number; object: GeoEvent }
  | { layer: 'trade'; x: number; y: number; object: TradeRoute }
  | { layer: 'macro'; x: number; y: number; object: MacroEvent }
+
+
+

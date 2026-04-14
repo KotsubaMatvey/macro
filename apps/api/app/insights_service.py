@@ -8,6 +8,7 @@ import uuid
 from .cache import cache_provider_payload, read_provider_payload 
 from .calendar_data import calendar_feed 
 from .db import fetch_all, get_connection 
+from .evaluation_service import latest_evaluation_metadata 
 from .market_data import MARKET_INSTRUMENTS, load_market_bundle, load_market_series 
 from .providers import ProviderError, load_fred_series 
 from .security import utc_now 
@@ -224,6 +225,7 @@ def build_market_bias_payload() -> dict:
         'factors': factors, 
         'assets': assets, 
         'providerStatus': {'live': live_assets, 'degraded': fallback_assets + len(missing), 'detail': missing}, 
+        'evaluation': latest_evaluation_metadata('bias', 'quality', 'market-bias', fallback_note='Bias quality evaluation is pending.'),
     } 
     cache_provider_payload(cache_key, payload, ttl=settings.dashboard_live_cache_ttl_seconds) 
     return payload 
@@ -299,6 +301,7 @@ def build_reactions_payload(family: str | None = None, asset: str = 'SPX', count
             },
             'records': [],
             'calendar': calendar_meta,
+            'evaluation': latest_evaluation_metadata('reactions', 'quality', 'event-reaction-windows', fallback_note='Reactions quality evaluation is pending.'),
         }
         cache_provider_payload(cache_key, payload, ttl=settings.reactions_cache_ttl_seconds)
         return payload
@@ -364,6 +367,7 @@ def build_reactions_payload(family: str | None = None, asset: str = 'SPX', count
         },
         'records': records[:60],
         'calendar': calendar_meta,
+        'evaluation': latest_evaluation_metadata('reactions', 'quality', 'event-reaction-windows', fallback_note='Reactions quality evaluation is pending.'),
     }
     cache_provider_payload(cache_key, payload, ttl=settings.reactions_cache_ttl_seconds)
     return payload
@@ -407,7 +411,7 @@ def build_track_record_payload() -> dict:
         if not items:
             continue
         by_regime_rows.append({'regime': label, 'sampleSize': len(items), 'hitRate': round(len([item for item in items if item['outcome'] == 'Hit']) / len(items), 2)})
-    payload = {'mode': 'replay', 'label': 'Replay only', 'sampleSize': len(sample), 'hitRate': round(len([item for item in sample if item['outcome'] == 'Hit']) / max(len(sample), 1), 2) if sample else None, 'magnitudeErrorPct': round(sum(abs(abs(item['realizedMove5dPct']) - item['expectedMove5dPct']) for item in sample) / max(len(sample), 1), 2) if sample else None, 'bySignalType': [{'signalType': 'trend-regime replay', 'sampleSize': len(sample), 'hitRate': round(len([item for item in sample if item['outcome'] == 'Hit']) / max(len(sample), 1), 2) if sample else None}], 'byAsset': by_asset, 'byEventFamily': [], 'byRegime': by_regime_rows, 'recentRecords': sample[:30], 'note': 'Track record is replayed over completed windows and is not audited live discretionary PnL.', 'freshness': _source_meta('Track record', 'Composite replay', mode='fallback', note='Replay statistics built from real market history')}
+    payload = {'mode': 'replay', 'label': 'Replay only', 'sampleSize': len(sample), 'hitRate': round(len([item for item in sample if item['outcome'] == 'Hit']) / max(len(sample), 1), 2) if sample else None, 'magnitudeErrorPct': round(sum(abs(abs(item['realizedMove5dPct']) - item['expectedMove5dPct']) for item in sample) / max(len(sample), 1), 2) if sample else None, 'bySignalType': [{'signalType': 'trend-regime replay', 'sampleSize': len(sample), 'hitRate': round(len([item for item in sample if item['outcome'] == 'Hit']) / max(len(sample), 1), 2) if sample else None}], 'byAsset': by_asset, 'byEventFamily': [], 'byRegime': by_regime_rows, 'recentRecords': sample[:30], 'note': 'Track record is replayed over completed windows and is not audited live discretionary PnL.', 'freshness': _source_meta('Track record', 'Composite replay', mode='fallback', note='Replay statistics built from real market history'), 'evaluation': latest_evaluation_metadata('track-record', 'quality', 'replay', fallback_note='Track-record calibration evaluation is pending.')}
     cache_provider_payload(cache_key, payload, ttl=settings.track_record_cache_ttl_seconds)
     return payload
 def _week_bounds(today: date | None = None) -> tuple[date, date]: 
@@ -446,6 +450,11 @@ def list_reports(limit: int = 12) -> list[dict]:
         reports = [generate_weekly_report(persist=False)] 
     cache_provider_payload(cache_key, reports, ttl=settings.reports_cache_ttl_seconds) 
     return reports 
+
+
+
+
+
 
 
 

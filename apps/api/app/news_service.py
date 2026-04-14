@@ -10,6 +10,17 @@ from typing import Any, Iterable, Literal
 
 from .calendar_data import list_calendar_events
 from .db import fetch_all, get_connection
+from .entity_graph import materialize_news_links
+from .evaluation_service import evaluate_news_ranking, latest_evaluation_metadata, record_signal_snapshot
+from .intelligence_contracts import build_intelligence_contract, build_linked_references
+from .intelligence_scoring import (
+ source_quality_score,
+ recency_score,
+ watchlist_overlap_score,
+ asset_breadth_score,
+ UnifiedScoreInputs,
+ compute_unified_scores,
+)
 from .providers import ProviderError, load_rss_feed
 from .security import utc_now
 from .settings import settings
@@ -744,24 +755,71 @@ def cluster_news_items(*, limit_hours: int = 96) -> int:
 
 def rebuild_news_rankings(*, lookback_hours: int = 96) -> int:
  rows = fetch_all(
-  "select id, published_at from news_items where published_at >= now() - make_interval(hours => %s)",
+  """
+  select id, published_at, importance_score, urgency_score, confidence_score, source_type, source_tier,
+         mode, cluster_count, event_id, affected_assets, category
+  from news_items
+  where published_at >= now() - make_interval(hours => %s)
+  """,
   (lookback_hours,),
  )
  if not rows:
   return 0
+ updated = 0
  with get_connection() as conn:
   with conn.cursor() as cur:
    for row in rows:
     published = row.get("published_at")
     if isinstance(published, datetime):
-      urgency = _urgency_score(published if published.tzinfo else published.replace(tzinfo=timezone.utc))
+     urgency = _urgency_score(published if published.tzinfo else published.replace(tzinfo=timezone.utc))
     else:
-      urgency = 0.25
+     urgency = 0.25
+    score_row = {
+     "published_at": published,
+     "importance_score": float(row.get("importance_score") or 0.0),
+     "urgency_score": urgency,
+     "confidence_score": float(row.get("confidence_score") or 0.0),
+     "source_type": row.get("source_type") or "discovery",
+     "source_tier": row.get("source_tier") or "secondary",
+     "mode": row.get("mode") or "fallback",
+     "cluster_count": int(row.get("cluster_count") or 1),
+     "event_id": row.get("event_id"),
+     "affected_assets": row.get("affected_assets") if isinstance(row.get("affected_assets"), list) else [],
+     "category": row.get("category") or "Macro",
+    }
+    scores = _score_row(score_row, watch_overlap=0)
     cur.execute(
-     "update news_items set urgency_score = %s, freshness = %s, updated_at = now() where id = %s",
-     (urgency, derive_freshness(published, mode="live"), row["id"]),
+     """
+     update news_items
+     set urgency_score = %s,
+         freshness = %s,
+         market_relevance_score = %s,
+         desk_relevance_score = %s,
+         rank_score = %s,
+         score_rationale = %s::jsonb,
+         updated_at = now()
+     where id = %s
+     """,
+     (
+      urgency,
+      derive_freshness(published, mode="live"),
+      float(scores.get("marketRelevanceScore") or 0.0),
+      float(scores.get("deskRelevanceScore") or 0.0),
+      float(scores.get("rankScore") or 0.0),
+      json.dumps(list(scores.get("rationale") or [])),
+      row["id"],
+     ),
     )
- return len(rows)
+    updated += 1
+ try:
+  materialize_news_links(limit=min(max(updated, 40), 360))
+ except Exception:
+  pass
+ try:
+  evaluate_news_ranking(lookback_hours=max(lookback_hours, 96))
+ except Exception:
+  pass
+ return updated
 
 
 def _deterministic_summary(headline: str, summary: str) -> str:
@@ -877,7 +935,11 @@ def _base_news_rows(limit: int = 240) -> list[dict[str, Any]]:
   select
    id, slug, title, source, source_type, source_tier, source_url, summary, topic, category,
    region, country, currency, event_family, affected_assets, importance_score, urgency_score,
-   confidence_score, mode, freshness, cluster_id, cluster_count, canonical, why_it_matters,
+   confidence_score, coalesce(market_relevance_score, 0) as market_relevance_score,
+   coalesce(desk_relevance_score, 0) as desk_relevance_score,
+   coalesce(rank_score, 0) as rank_score,
+   coalesce(score_rationale, '[]'::jsonb) as score_rationale,
+   mode, freshness, cluster_id, cluster_count, canonical, why_it_matters,
    event_id, related_event_slug, related_dashboard_asset, provider_key, provider_payload,
    source_label, source_note, published_at, enriched_summary, enriched_why_it_matters, ai_mode
   from news_items
@@ -911,35 +973,49 @@ def _is_macro_row(row: dict[str, Any]) -> bool:
  return float(row.get("importance_score") or 0.0) >= 0.62
 
 
-def _rank_row(row: dict[str, Any], watch_overlap: int) -> float:
+def _score_row(row: dict[str, Any], watch_overlap: int) -> dict[str, Any]:
  published = row.get("published_at")
- if isinstance(published, datetime):
-  age_hours = max(0.0, (utc_now() - (published if published.tzinfo else published.replace(tzinfo=timezone.utc))).total_seconds() / 3600.0)
- else:
-  age_hours = 72.0
- recency = max(0.0, min(1.0, 1.0 - age_hours / 72.0))
  importance = float(row.get("importance_score") or 0.0)
  urgency = float(row.get("urgency_score") or 0.0)
  confidence = float(row.get("confidence_score") or 0.0)
- tier = 1.0 if str(row.get("source_tier")) == "primary" else 0.55
  source_type = str(row.get("source_type", "discovery"))
- source_weight = 0.9 if source_type == "official" else 0.55
+ source_tier = str(row.get("source_tier", "secondary"))
+ mode = str(row.get("mode", "fallback"))
+ assets = row.get("affected_assets") if isinstance(row.get("affected_assets"), list) else []
  cluster_count = int(row.get("cluster_count") or 1)
- cluster_weight = min(1.0, cluster_count / 5.0)
- event_weight = 1.0 if row.get("event_id") else 0.0
- watch_weight = min(1.0, watch_overlap / 3.0)
- score = (
-  0.26 * importance
-  + 0.22 * urgency
-  + 0.14 * confidence
-  + 0.12 * recency
-  + 0.10 * tier
-  + 0.07 * source_weight
-  + 0.05 * cluster_weight
-  + 0.04 * event_weight
-  + 0.08 * watch_weight
+ event_proximity = 0.76 if row.get("event_id") else 0.18
+ category = str(row.get("category", "Macro"))
+ regime_relevance = {
+  "Central bank": 0.82,
+  "Inflation": 0.80,
+  "Labor": 0.74,
+  "Growth": 0.70,
+  "Liquidity": 0.78,
+  "Treasury": 0.72,
+  "Regulation": 0.66,
+  "Policy": 0.68,
+  "Macro": 0.62,
+ }.get(category, 0.58)
+ evidence_density = min(1.0, max(0.15, float(cluster_count) / 5.0))
+ scores = compute_unified_scores(
+  UnifiedScoreInputs(
+   importance=importance,
+   urgency=urgency,
+   confidence=confidence,
+   source_quality=source_quality_score(source_type, source_tier, mode),
+   recency=recency_score(published, horizon_hours=96.0),
+   watchlist_overlap=watchlist_overlap_score(watch_overlap, max_hits=4),
+   event_proximity=event_proximity,
+   asset_breadth=asset_breadth_score(len(assets), max_assets=6),
+   regime_relevance=regime_relevance,
+   evidence_density=evidence_density,
+  ),
+  rationale=[
+   "Unified news ranking blends importance, urgency, confidence, market relevance, and desk relevance.",
+   "Watchlist/context overlap and source quality are explicit factors.",
+  ],
  )
- return max(0.0, min(1.0, round(score, 6)))
+ return scores
 
 
 def _shell_mode(items: list[dict[str, Any]]) -> str:
@@ -987,7 +1063,12 @@ def _provider_status_rows() -> list[dict[str, Any]]:
  return statuses
 
 
-def _format_news_row(row: dict[str, Any], rank_score: float, watch_overlap: int) -> dict[str, Any]:
+def _format_news_row(
+ row: dict[str, Any],
+ scores: dict[str, Any],
+ watch_overlap: int,
+ feed_evaluation: dict[str, Any],
+) -> dict[str, Any]:
  published = row.get("published_at")
  published_at = published.isoformat() if isinstance(published, datetime) else utc_now().isoformat()
  assets = row.get("affected_assets")
@@ -1005,6 +1086,28 @@ def _format_news_row(row: dict[str, Any], rank_score: float, watch_overlap: int)
   note=str(row.get("source_note", "")),
   last_updated=published_at,
   freshness=str(row.get("freshness", "")) or None,
+ )
+ fallback_reason = "" if source_mode == "live" else source_meta.get("note", "")
+ linked_refs = build_linked_references(
+  linked_assets=asset_symbols,
+  linked_events=[row.get("event_id")] if row.get("event_id") else [],
+  linked_regions=[row.get("region"), row.get("country")],
+  linked_news=[row.get("cluster_id")] if row.get("cluster_id") else [],
+  linked_reports=["weekly-macro-brief"],
+  linked_reactions=[row.get("event_family")] if row.get("event_family") else [],
+ )
+ intelligence = build_intelligence_contract(
+  source=str(row.get("source", "")),
+  source_type=str(row.get("source_type", "discovery")),
+  source_tier=str(row.get("source_tier", "secondary")),
+  source_url=source_url or None,
+  mode=source_mode,
+  freshness=str(row.get("freshness", "degraded")),
+  scores=scores,
+  links=linked_refs,
+  derived_from=[row.get("provider_key"), row.get("cluster_id"), row.get("ai_mode")],
+  fallback_reason=fallback_reason,
+  evaluation=feed_evaluation,
  )
  return {
   "id": str(row.get("id")),
@@ -1025,10 +1128,12 @@ def _format_news_row(row: dict[str, Any], rank_score: float, watch_overlap: int)
   "eventFamily": str(row.get("event_family", "")),
   "affectedAssets": asset_symbols,
   "assetSymbols": asset_symbols,
-  "importanceScore": round(float(row.get("importance_score") or 0.0), 3),
-  "urgencyScore": round(float(row.get("urgency_score") or 0.0), 3),
-  "confidenceScore": round(float(row.get("confidence_score") or 0.0), 3),
-  "rankingScore": round(rank_score, 3),
+  "importanceScore": round(float(scores.get("importanceScore") or 0.0), 3),
+  "urgencyScore": round(float(scores.get("urgencyScore") or 0.0), 3),
+  "confidenceScore": round(float(scores.get("confidenceScore") or 0.0), 3),
+  "marketRelevanceScore": round(float(scores.get("marketRelevanceScore") or 0.0), 3),
+  "deskRelevanceScore": round(float(scores.get("deskRelevanceScore") or 0.0), 3),
+  "rankingScore": round(float(scores.get("rankScore") or 0.0), 3),
   "mode": source_mode if source_mode in {"live", "demo", "fallback"} else "fallback",
   "freshness": str(row.get("freshness", "degraded")),
   "clusterId": str(row.get("cluster_id") or ""),
@@ -1042,6 +1147,16 @@ def _format_news_row(row: dict[str, Any], rank_score: float, watch_overlap: int)
   "providerMeta": row.get("provider_payload") if isinstance(row.get("provider_payload"), dict) else {},
   "watchOverlap": watch_overlap,
   "sourceMeta": source_meta,
+  "evaluation": feed_evaluation,
+  "linkedAssets": linked_refs["linkedAssets"],
+  "linkedEvents": linked_refs["linkedEvents"],
+  "linkedRegions": linked_refs["linkedRegions"],
+  "linkedNews": linked_refs["linkedNews"],
+  "linkedReports": linked_refs["linkedReports"],
+  "linkedReactions": linked_refs["linkedReactions"],
+  "derivedFrom": intelligence["derivedFrom"],
+  "fallbackReason": intelligence["fallbackReason"],
+  "intelligence": intelligence,
   "links": {
    "event": "/app/events/" + str(row.get("event_id")) if row.get("event_id") else None,
    "calendar": "/app/macro-calendar",
@@ -1079,6 +1194,12 @@ def list_news_feed(
   except Exception:
    rows = []
  watch = _watch_context(user_id)
+ feed_evaluation = latest_evaluation_metadata(
+  "news",
+  "ranking",
+  "news-feed",
+  fallback_note="News ranking evaluation will populate after the first evaluation recompute job.",
+ )
  candidates: list[dict[str, Any]] = []
  search_lower = search.strip().lower()
  asset_upper = asset.strip().upper()
@@ -1109,8 +1230,8 @@ def list_news_feed(
   symbols = [str(item).upper() for item in assets] if isinstance(assets, list) else []
   if asset_upper and asset_upper not in symbols:
    continue
-  rank = _rank_row(row, overlap)
-  if float(row.get("urgency_score") or 0.0) < min_urgency:
+  scores = _score_row(row, overlap)
+  if float(scores.get("urgencyScore") or 0.0) < min_urgency:
    continue
   if search_lower:
    hay = " ".join(
@@ -1124,7 +1245,7 @@ def list_news_feed(
    ).lower()
    if search_lower not in hay:
     continue
-  formatted = _format_news_row(row, rank, overlap)
+  formatted = _format_news_row(row, scores, overlap, feed_evaluation)
   candidates.append(formatted)
  candidates.sort(
   key=lambda item: (
@@ -1157,12 +1278,30 @@ def list_news_feed(
   note="Primary official feeds are ranked above discovery feeds. AI text is deterministic enrichment over ingested data.",
   last_updated=trimmed[0]["publishedAt"] if trimmed else utc_now().isoformat(),
  )
+ try:
+  record_signal_snapshot(
+   surface="news",
+   signal_type="feed",
+   signal_ref=mode,
+   payload={
+    "rows": len(trimmed),
+    "official": len([item for item in trimmed if item.get("sourceType") == "official"]),
+    "discovery": len([item for item in trimmed if item.get("sourceType") == "discovery"]),
+    "topIds": [item.get("id") for item in trimmed[:12]],
+   },
+   mode=shell_mode if shell_mode in {"live", "demo", "fallback"} else "fallback",
+   freshness=source_meta["freshness"],
+   as_of=source_meta.get("lastUpdated") or utc_now().isoformat(),
+  )
+ except Exception:
+  pass
  return {
   "mode": mode,
   "modeLabel": mode_label,
   "shellMode": shell_mode,
   "freshness": source_meta["freshness"],
   "sourceMeta": source_meta,
+  "evaluation": feed_evaluation,
   "items": trimmed,
   "rails": {
    "topNow": top_now,
@@ -1232,6 +1371,9 @@ def list_news_for_workstation(limit: int = 10) -> list[dict[str, Any]]:
     "importanceScore": float(row.get("importance_score") or 0.0),
     "urgencyScore": float(row.get("urgency_score") or 0.0),
     "confidenceScore": float(row.get("confidence_score") or 0.0),
+    "marketRelevanceScore": float(row.get("market_relevance_score") or 0.0),
+    "deskRelevanceScore": float(row.get("desk_relevance_score") or 0.0),
+    "rankingScore": float(row.get("rank_score") or 0.0),
     "mode": row.get("mode") or "fallback",
     "freshness": row.get("freshness") or "degraded",
     "clusterId": row.get("cluster_id"),
@@ -1282,4 +1424,21 @@ def dashboard_news_snapshot(limit: int = 6) -> tuple[list[dict[str, str]], list[
    },
   )
  return items, statuses
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -85,6 +85,22 @@ export interface EventRelease {
  relatedAssets: string[];
  freshness?: SourceMetadata;
  providerEventId?: string;
+ importanceScore?: number;
+ urgencyScore?: number;
+ confidenceScore?: number;
+ marketRelevanceScore?: number;
+ deskRelevanceScore?: number;
+ rankingScore?: number;
+ linkedAssets?: string[];
+ linkedEvents?: string[];
+ linkedRegions?: string[];
+ linkedNews?: Array<string | NewsItem>;
+ linkedReports?: string[];
+ linkedReactions?: string[];
+ derivedFrom?: string[];
+ fallbackReason?: string;
+ evaluation?: IntelligenceEvaluation;
+ intelligence?: IntelligenceContract;
 }
 
 export interface ImpactWindow {
@@ -130,6 +146,8 @@ export interface NewsItem {
  importanceScore?: number;
  urgencyScore?: number;
  confidenceScore?: number;
+ marketRelevanceScore?: number;
+ deskRelevanceScore?: number;
  rankingScore?: number;
  mode?: DataMode;
  freshness?: FreshnessState;
@@ -143,6 +161,16 @@ export interface NewsItem {
  providerKey?: string;
  providerMeta?: Record<string, unknown>;
  watchOverlap?: number;
+ linkedAssets?: string[];
+ linkedEvents?: string[];
+ linkedRegions?: string[];
+ linkedNews?: Array<string | NewsItem>;
+ linkedReports?: string[];
+ linkedReactions?: string[];
+ derivedFrom?: string[];
+ fallbackReason?: string;
+ evaluation?: IntelligenceEvaluation;
+ intelligence?: IntelligenceContract;
  sourceMeta?: SourceMetadata;
  links?: {
   event?: string | null;
@@ -188,6 +216,7 @@ export interface NewsFeedPayload {
  shellMode: DataMode | "mixed";
  freshness: FreshnessState;
  sourceMeta: SourceMetadata;
+ evaluation?: IntelligenceEvaluation;
  items: NewsItem[];
  rails: {
   topNow: NewsItem[];
@@ -324,6 +353,48 @@ export interface SourceMetadata {
  note: string;
 }
 
+export interface IntelligenceEvaluation {
+ surface: string;
+ signalType: string;
+ signalRef: string;
+ sampleSize: number;
+ coverage?: number;
+ directionAccuracy?: number;
+ magnitudeError?: number;
+ falsePositiveRate?: number;
+ calibrationQuality?: number;
+ rankingUsefulness?: number;
+ sourceQualityAlignment?: number;
+ mode: string;
+ note: string;
+}
+
+export interface IntelligenceContract {
+ source: string;
+ sourceType: string;
+ sourceUrl?: string | null;
+ sourceTier: string;
+ mode: string;
+ freshness: string;
+ importance: number;
+ urgency: number;
+ confidence: number;
+ marketRelevance: number;
+ deskRelevance: number;
+ rankScore: number;
+ scoreRationale: string[];
+ scoreComponents: Record<string, number>;
+ linkedAssets: string[];
+ linkedEvents: string[];
+ linkedRegions: string[];
+ linkedNews: string[];
+ linkedReports: string[];
+ linkedReactions: string[];
+ derivedFrom: string[];
+ fallbackReason: string;
+ evaluation: IntelligenceEvaluation;
+}
+
 export interface DashboardScenarioBucket {
  label: string;
  probability: number;
@@ -378,6 +449,22 @@ export interface DashboardCatalyst {
  context: string[];
  href: string;
  freshness: SourceMetadata;
+ importanceScore?: number;
+ urgencyScore?: number;
+ confidenceScore?: number;
+ marketRelevanceScore?: number;
+ deskRelevanceScore?: number;
+ rankingScore?: number;
+ linkedAssets?: string[];
+ linkedEvents?: string[];
+ linkedRegions?: string[];
+ linkedNews?: Array<string | NewsItem>;
+ linkedReports?: string[];
+ linkedReactions?: string[];
+ derivedFrom?: string[];
+ fallbackReason?: string;
+ evaluation?: IntelligenceEvaluation;
+ intelligence?: IntelligenceContract;
 }
 
 export interface DashboardRegimeBlock {
@@ -558,5 +645,10 @@ export interface TrackRecordRecord { symbol: string; asOf: string; stance: strin
 export interface TrackRecordPayload { mode: 'replay'; label: string; sampleSize: number; hitRate?: number; magnitudeErrorPct?: number; bySignalType: TrackRecordBySignal[]; byAsset: TrackRecordByAsset[]; byEventFamily: { family: string; sampleSize: number; hitRate: number }[]; byRegime?: TrackRecordByRegime[]; recentRecords: TrackRecordRecord[]; note: string; freshness: SourceMetadata } 
  
 export interface WeeklyReport { id: string; slug: string; title: string; status: string; mode: DataMode | 'deterministic' | 'replay'; weekStart: string; weekEnd: string; summary: string; body: { [key: string]: unknown }; sourceMeta: SourceMetadata[]; createdAt: string }
+
+
+
+
+
 
 

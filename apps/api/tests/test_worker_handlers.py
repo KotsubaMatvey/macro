@@ -69,6 +69,7 @@ def test_recompute_market_bias_invalidates_bias_cache_then_rebuilds(monkeypatch)
     monkeypatch.setattr(worker, '_invalidate_provider_names', lambda names: calls.append(('names', list(names))))
     monkeypatch.setattr(worker, '_invalidate_provider_prefixes', lambda prefixes: calls.append(('prefixes', list(prefixes))))
     monkeypatch.setattr(worker, 'build_market_bias_payload', lambda: calls.append(('bias',)))
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', [user['id'] for user in users], refresh_workstation, refresh_live_dashboard)))
 
@@ -77,6 +78,7 @@ def test_recompute_market_bias_invalidates_bias_cache_then_rebuilds(monkeypatch)
     assert ('names', ['insights:market-bias']) in calls
     assert ('prefixes', ['insights:reports']) in calls
     assert ('bias',) in calls
+    assert ('eval',) in calls
     assert ('refresh', ['user-demo'], True, True) in calls
 
 
@@ -113,6 +115,7 @@ def test_recompute_reactions_respects_asset_scope_and_does_not_rebuild_dashboard
 
     monkeypatch.setattr(worker, '_invalidate_provider_prefixes', lambda prefixes: calls.append(('invalidate', tuple(prefixes))))
     monkeypatch.setattr(worker, 'build_reactions_payload', lambda asset='SPX', family=None, country=None, currency=None: calls.append(('reactions', asset)))
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
 
@@ -121,6 +124,7 @@ def test_recompute_reactions_respects_asset_scope_and_does_not_rebuild_dashboard
     assert ('invalidate', ('insights:reactions:', 'insights:reports')) in calls
     assert ('reactions', 'XAU') in calls
     assert ('reactions', 'SPX') in calls
+    assert ('eval',) in calls
     assert ('refresh', False, False) in calls
 
 
@@ -132,6 +136,7 @@ def test_refresh_market_prices_invalidates_market_and_dependent_caches(monkeypat
     monkeypatch.setattr(worker, '_invalidate_provider_prefixes', lambda prefixes: calls.append(('prefixes', list(prefixes))))
     monkeypatch.setattr(worker, 'load_market_bundle', lambda symbols, interval='1d', period='18mo': calls.append(('load', list(symbols), interval, period)))
     monkeypatch.setattr(worker, 'build_market_bias_payload', lambda: calls.append(('bias',)))
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
 
@@ -150,6 +155,7 @@ def test_refresh_calendar_events_invalidates_calendar_and_dependent_insights(mon
 
     monkeypatch.setattr(worker, '_invalidate_provider_prefixes', lambda prefixes: calls.append(('prefixes', list(prefixes))))
     monkeypatch.setattr(worker, 'calendar_feed', lambda days_back=30, days_forward=60, prefer_cache=False: calls.append(('calendar_feed', days_back, days_forward, prefer_cache)))
+    monkeypatch.setattr(worker, 'materialize_event_links', lambda limit=360: calls.append(('materialize_event_links', limit)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
 
@@ -157,6 +163,7 @@ def test_refresh_calendar_events_invalidates_calendar_and_dependent_insights(mon
 
     assert ('prefixes', ['calendar:', 'insights:reactions:', 'insights:reports']) in calls
     assert ('calendar_feed', 30, 60, False) in calls
+    assert ('materialize_event_links', 360) in calls
     assert ('refresh', True, True) in calls
 
 
@@ -167,6 +174,7 @@ def test_recompute_track_record_targets_replay_and_reports_only(monkeypatch):
     monkeypatch.setattr(worker, '_invalidate_provider_names', lambda names: calls.append(('names', list(names))))
     monkeypatch.setattr(worker, '_invalidate_provider_prefixes', lambda prefixes: calls.append(('prefixes', list(prefixes))))
     monkeypatch.setattr(worker, 'build_track_record_payload', lambda: calls.append(('track_record',)))
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
 
@@ -175,6 +183,7 @@ def test_recompute_track_record_targets_replay_and_reports_only(monkeypatch):
     assert ('names', ['insights:track-record']) in calls
     assert ('prefixes', ['insights:reports']) in calls
     assert ('track_record',) in calls
+    assert ('eval',) in calls
     assert ('refresh', False, True) in calls
 
 
@@ -199,6 +208,10 @@ def test_ingest_official_news_invalidates_only_official_feeds_and_refreshes_both
 
     monkeypatch.setattr(worker, '_invalidate_news_provider_cache', lambda include_official=True, include_discovery=True: calls.append(('invalidate_news', include_official, include_discovery)))
     monkeypatch.setattr(worker, 'ingest_news_sources', lambda include_official=True, include_discovery=True, item_limit=12: calls.append(('ingest', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'cluster_news_items_service', lambda: calls.append(('cluster',)))
+    monkeypatch.setattr(worker, 'enrich_news_items_service', lambda limit=240: calls.append(('enrich', limit)))
+    monkeypatch.setattr(worker, 'rebuild_news_rankings_service', lambda lookback_hours=120: calls.append(('rankings', lookback_hours)))
+    monkeypatch.setattr(worker, 'materialize_news_links', lambda limit=280: calls.append(('materialize_news_links', limit)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
 
@@ -206,6 +219,10 @@ def test_ingest_official_news_invalidates_only_official_feeds_and_refreshes_both
 
     assert ('invalidate_news', True, False) in calls
     assert ('ingest', True, False) in calls
+    assert ('cluster',) in calls
+    assert ('enrich', 240) in calls
+    assert ('rankings', 120) in calls
+    assert ('materialize_news_links', 280) in calls
     assert ('refresh', True, True) in calls
 
 
@@ -215,7 +232,12 @@ def test_refresh_news_cache_runs_full_news_pipeline_with_targeted_refresh(monkey
 
     monkeypatch.setattr(worker, '_invalidate_news_provider_cache', lambda include_official=True, include_discovery=True: calls.append(('invalidate_news', include_official, include_discovery)))
     monkeypatch.setattr(worker, 'ingest_news_sources', lambda include_official=True, include_discovery=True, item_limit=12: calls.append(('ingest', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'cluster_news_items_service', lambda: calls.append(('cluster',)))
+    monkeypatch.setattr(worker, 'enrich_news_items_service', lambda limit=240: calls.append(('enrich', limit)))
     monkeypatch.setattr(worker, 'rebuild_news_rankings_service', lambda lookback_hours=120: calls.append(('rankings', lookback_hours)))
+    monkeypatch.setattr(worker, 'materialize_news_links', lambda limit=360: calls.append(('materialize_news_links', limit)))
+    monkeypatch.setattr(worker, 'materialize_event_links', lambda limit=360: calls.append(('materialize_event_links', limit)))
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
     monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
     monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
 
@@ -223,5 +245,39 @@ def test_refresh_news_cache_runs_full_news_pipeline_with_targeted_refresh(monkey
 
     assert ('invalidate_news', True, True) in calls
     assert ('ingest', True, True) in calls
+    assert ('cluster',) in calls
+    assert ('enrich', 240) in calls
     assert ('rankings', 120) in calls
+    assert ('materialize_news_links', 360) in calls
+    assert ('materialize_event_links', 360) in calls
+    assert ('eval',) in calls
     assert ('refresh', True, True) in calls
+
+
+def test_score_geoboard_signals_builds_modes_and_evaluates(monkeypatch):
+    worker = load_worker_module()
+    calls = []
+
+    monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
+    monkeypatch.setattr(worker, 'geoboard_payload', lambda user, mode: calls.append(('payload', user['id'] if user else None, mode)) or {'feed': []})
+    monkeypatch.setattr(worker, 'evaluate_geoboard_ranking', lambda lookback_hours=168: calls.append(('evaluate', lookback_hours)))
+
+    worker._score_geoboard_signals('score_geoboard_signals', {'modes': ['STANDARD', 'RISK']})
+
+    assert ('payload', 'user-demo', 'STANDARD') in calls
+    assert ('payload', 'user-demo', 'RISK') in calls
+    assert ('evaluate', 168) in calls
+
+
+def test_recompute_signal_evaluations_refreshes_scoped_users(monkeypatch):
+    worker = load_worker_module()
+    calls = []
+
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
+    monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
+    monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', [user['id'] for user in users], refresh_workstation, refresh_live_dashboard)))
+
+    worker._recompute_signal_evaluations('recompute_signal_evaluations', {'userId': 'user-demo'})
+
+    assert ('eval',) in calls
+    assert ('refresh', ['user-demo'], True, True) in calls
