@@ -167,5 +167,13 @@ describe('GeoboardShell', function () {
   fireEvent.click(screen.getByText('Hormuz insurer risk repricing'))
   expect(screen.getByTestId('geoboard-map')).toHaveAttribute('data-pulse', 'geo-1')
  })
+
+ it('renders explicit empty-feed message when active mode has no rows', function () {
+  const empty = payload('CENT.BANKS', false)
+  empty.feed = []
+  hooks.useGeoboardData.mockReturnValue({ payload: empty, loading: false, fallback: false, errors: { feedError: null } })
+  render(<GeoboardShell />)
+  expect(screen.getByText('No ranked rows for this mode. Switch mode or review source status.')).toBeInTheDocument()
+ })
 })
 

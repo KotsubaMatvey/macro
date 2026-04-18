@@ -3,6 +3,12 @@
 ## What it is
 Geoboard is a ranked global macro intelligence surface. It keeps the tactical dark map shell and mode model while shifting the logic to a data-first feed engine.
 
+## Runtime guarantees
+- Map rendering is resilient to malformed rows and missing coordinates (bad rows are dropped, not rendered).
+- Basemap loading is explicit and stateful (`loading` / `ready` / `degraded`) and does not block tactical overlays.
+- Mode switches are deterministic: only rows that declare mode support are rendered in non-`STANDARD` modes.
+- Feed assembly is deterministic and guarded: rows are normalized, deduped, link-sanitized, and sorted by rank/time.
+
 ## Layer taxonomy
 - `live`: provider-backed discovery rows (currently GDELT discovery ingestion)
 - `discovery`: secondary-source signal rows that require corroboration
@@ -11,6 +17,12 @@ Geoboard is a ranked global macro intelligence surface. It keeps the tactical da
 - `fallback`: degraded continuity rows when live/derived layers fail
 
 These labels are surfaced in source metadata and in right-panel source-status badges.
+
+Additional honesty constraints:
+- `discovery` rows stay discovery signals even when ranked highly.
+- `static` overlays never imply live telemetry.
+- `derived` zones remain model context, not direct geospatial sensors.
+- `fallback` rows remain explicitly degraded continuity data.
 
 ## Domain model
 Geoboard payload includes:
@@ -35,6 +47,11 @@ Feed ranking is deterministic and scored per item using:
 
 The output includes both total `rankScore` and component scores for UI/runtime transparency.
 
+Feed assembly also applies a lightweight mode/source/freshness overlay so:
+- active mode relevance is explicit,
+- fallback rows cannot dominate ranked tops unfairly,
+- static/derived context remains useful but honest.
+
 ## Integration surfaces
 Each feed item carries direct links into:
 - Event Detail (`/app/events/:id`)
@@ -46,11 +63,14 @@ Each feed item carries direct links into:
 - Watchlists (`/app/watchlists`)
 - Alerts (`/app/alerts`)
 
+Links are sanitized during feed assembly. Invalid or unsafe runtime paths are replaced with safe `/app/*` defaults.
+
 ## Honesty constraints
 - GDELT rows are discovery signals, not verified geopolitical truth.
 - Static overlays stay marked static/curated.
 - Derived overlays stay marked derived.
 - Fallback state is layer-specific and visible.
+- Feed integrity blocks and ticker counters mirror layer runtime states (`live`, `derived`, `static`, `degraded`, `fallback`) without masking degradation.
 
 ## Evaluation
 - Geoboard ranking evaluation remains replay-labeled by default.

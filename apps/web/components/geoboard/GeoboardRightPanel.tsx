@@ -10,10 +10,11 @@ function badgeTone(value: string) {
 
 function sourceTone(type: string) {
  if (type === 'official') return 'text-[#72f3bb]'
+ if (type === 'discovery') return 'text-[#93c5fd]'
  if (type === 'derived') return 'text-[#a5b4fc]'
  if (type === 'static') return 'text-[#fcd34d]'
  if (type === 'fallback') return 'text-[#fda4af]'
- return 'text-[#93c5fd]'
+ return 'text-[#7aa4ca]'
 }
 
 function badgeLabel(status: GeoboardSourceStatus) {
@@ -24,9 +25,16 @@ function formatMode(modeState: GeoboardModeState) {
  return modeState.fallback ? 'DEGRADED' : 'ONLINE'
 }
 
+function safeHref(value: unknown) {
+ if (typeof value !== 'string') return null
+ if (value.startsWith('/app/')) return value
+ if (value.startsWith('https://') || value.startsWith('http://')) return value
+ return null
+}
+
 function quickLinks(item: FeedItem) {
  const links = [['EVT', item.links.event], ['CAL', item.links.calendar], ['NEWS', item.links.news], ['REACT', item.links.reactions], ['BIAS', item.links.bias], ['RPT', item.links.reports], ['WATCH', item.links.watchlists], ['ALRT', item.links.alerts], ['SRC', item.links.source]] as const
- return links.filter(function (entry) { return Boolean(entry[1]) })
+ return links.map(function (entry) { return [entry[0], safeHref(entry[1])] as const }).filter(function (entry) { return Boolean(entry[1]) })
 }
 
 export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[]; selectedId: string | null; modeState: GeoboardModeState; sourceStatus: GeoboardSourceStatus[]; onRegionSelect: (zone: RegimeZone) => void; onFeedSelect: (item: FeedItem) => void }) {
@@ -63,6 +71,7 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
      return <div key={status.layer + '-' + status.state + '-' + String(statusIndex)} className='rounded border border-[#1a2535] bg-[#060a0f] px-1.5 py-1 text-[9px] uppercase tracking-[0.08em]'>
       <div className='text-[#7a9ab8]'>{badgeLabel(status)}</div>
       <div className={sourceTone(status.sourceType)}>{status.sourceType + ' / ' + status.mode}</div>
+      <div className='mt-0.5 line-clamp-2 text-[8px] normal-case tracking-normal text-[#587898]'>{status.detail}</div>
      </div>
     })}
    </div>
@@ -73,7 +82,7 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
     <span>{String(rankedFeed.length)}</span>
    </div>
    <div className='min-h-0 flex-1 space-y-2 overflow-y-auto pr-1'>
-    {rankedFeed.map(function (item, index) {
+   {rankedFeed.map(function (item, index) {
      const links = quickLinks(item)
      const selected = props.selectedId === item.id
      return <div key={item.id + '-' + String(index)} className={'rounded border p-2 transition ' + (selected ? 'border-[#22d3ee]/45 bg-[#22d3ee]/8 shadow-[inset_2px_0_0_rgba(34,211,238,0.7)]' : 'border-[#1a2535] bg-[#060a0f] hover:border-[#2b3c52] hover:bg-[#0b131d]')}>
@@ -91,7 +100,7 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
        <div className='mt-1 text-[10px] text-[#8aa7c4]'>{item.impactLine}</div>
        <div className='mt-1 text-[10px] text-[#5d7f9f]'>{item.subtitle}</div>
       </button>
-      {links.length !== 0 ? <div className='mt-2 flex flex-wrap gap-1'>
+     {links.length !== 0 ? <div className='mt-2 flex flex-wrap gap-1'>
        {links.map(function (entry, linkIndex) {
         return <a key={item.id + '-' + entry[0] + '-' + String(linkIndex)} href={entry[1] as string} className='rounded border border-[#1f3147] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.08em] text-[#8ec5f7] hover:border-[#2f4f73]'>
          {entry[0]}
@@ -100,6 +109,7 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
       </div> : null}
      </div>
     })}
+    {rankedFeed.length === 0 ? <div className='rounded border border-[#1a2535] bg-[#060a0f] p-2 text-[10px] uppercase tracking-[0.1em] text-[#7a9ab8]'>No ranked rows for this mode. Switch mode or review source status.</div> : null}
    </div>
   </div>
  </aside>

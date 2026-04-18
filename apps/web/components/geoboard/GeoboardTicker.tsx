@@ -10,9 +10,9 @@ function shortTime(value?: string) {
 }
 
 export function GeoboardTicker(props: { items: string[]; modeState: GeoboardModeState; sourceStatus: GeoboardSourceStatus[]; generatedAt?: string }) {
- const tape = props.items.length !== 0 ? props.items.join(' // ') : 'NO GEO FEED AVAILABLE'
- const discovery = props.sourceStatus.filter(function (item) { return item.sourceType === 'discovery' }).length
- const fallback = props.sourceStatus.filter(function (item) { return item.state === 'fallback' || item.state === 'degraded' }).length
+ const tape = props.items.length !== 0 ? props.items.filter(function (item) { return Boolean(item && item.trim()) }).join(' // ') : 'NO GEO FEED AVAILABLE'
+ const discoverySignals = props.sourceStatus.filter(function (item) { return item.sourceType === 'discovery' }).length
+ const degradedLayers = props.sourceStatus.filter(function (item) { return item.state === 'fallback' || item.state === 'degraded' }).length
  const live = props.sourceStatus.filter(function (item) { return item.state === 'live' }).length
  return <div className='grid h-7 grid-cols-[auto_minmax(0,1fr)] border-t border-[#1a2535] bg-[#060a0f] text-[10px] uppercase tracking-[0.1em] text-[#7a9ab8]'>
   <div className='flex items-center gap-2 border-r border-[#1a2535] px-3'>
@@ -21,8 +21,8 @@ export function GeoboardTicker(props: { items: string[]; modeState: GeoboardMode
    <span className={props.modeState.fallback ? 'text-[#f43f5e]' : 'text-[#10b981]'}>{props.modeState.fallback ? 'DEGRADED' : 'ONLINE'}</span>
    <span>{props.modeState.activeMode}</span>
    <span>{'L' + String(live)}</span>
-   <span>{'D' + String(discovery)}</span>
-   <span>{'F' + String(fallback)}</span>
+   <span>{'DISC' + String(discoverySignals)}</span>
+   <span>{'DEG' + String(degradedLayers)}</span>
    <span>{'UTC ' + shortTime(props.generatedAt)}</span>
   </div>
   <div className='overflow-hidden'>

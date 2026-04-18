@@ -6,6 +6,7 @@ import type { CentralBank, GeoEvent, GeoboardMode, HoverState, MacroEvent, Regim
 
 const WIDTH = 1200
 const HEIGHT = 620
+type BasemapState = 'loading' | 'ready' | 'error'
 
 function layerName(id: string) {
  if (id.startsWith('cb')) return 'cb'
@@ -23,14 +24,33 @@ function modeHint(mode: GeoboardMode) {
 }
 
 function project(lon: number, lat: number) {
- const x = ((lon + 180) / 360) * WIDTH
- const y = ((90 - lat) / 180) * HEIGHT
+ const safeLon = Math.max(-180, Math.min(180, lon))
+ const safeLat = Math.max(-90, Math.min(90, lat))
+ const x = ((safeLon + 180) / 360) * WIDTH
+ const y = ((90 - safeLat) / 180) * HEIGHT
  return [x, y] as const
 }
 
+function validCoordinate(lat: number, lon: number) {
+ return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+}
+
+function sanitizePath(path: [number, number][]) {
+ if (!Array.isArray(path)) return []
+ return path.filter(function (point) {
+  return Array.isArray(point) && point.length === 2 && validCoordinate(Number(point[1]), Number(point[0]))
+ }).map(function (point) {
+  return [Number(point[0]), Number(point[1])] as [number, number]
+ })
+}
+
 function polygonPath(coords: number[][]) {
- if (!coords || coords.length === 0) return ''
- return coords.map(function (point, index) {
+ if (!coords || coords.length < 3) return ''
+ const sanitized = coords.filter(function (point) {
+  return Array.isArray(point) && point.length === 2 && validCoordinate(Number(point[1]), Number(point[0]))
+ })
+ if (sanitized.length < 3) return ''
+ return sanitized.map(function (point, index) {
   const projected = project(point[0], point[1])
   return (index === 0 ? 'M' : 'L') + projected[0].toFixed(2) + ' ' + projected[1].toFixed(2)
  }).join(' ') + ' Z'
@@ -72,22 +92,59 @@ export function GeoboardMap(props: {
  selectedSourceId: string | null
  focusTarget: { lat: number; lon: number; zoom: number } | null
  onHoverChange: (hover: HoverState | null) => void
+ onSelectSourceId?: (sourceId: string) => void
+ onBasemapStateChange?: (state: BasemapState) => void
 }) {
  const [geoData, setGeoData] = useState<any>(null)
+ const [geoState, setGeoState] = useState<BasemapState>('loading')
+ const onBasemapStateChange = props.onBasemapStateChange
 
  useEffect(function () {
-  fetch('/geo/countries-110m.json')
+  const controller = new AbortController()
+  fetch('/geo/countries-110m.json', { signal: controller.signal })
    .then(function (response) { if (!response.ok) throw new Error('Geo JSON request failed: ' + String(response.status)); return response.json() })
-   .then(setGeoData)
-   .catch(function (error) { console.error('Geo JSON load failed', error); setGeoData(null) })
+   .then(function (data) {
+    if (!data || !Array.isArray(data.features)) {
+     setGeoData(null)
+     setGeoState('error')
+     return
+    }
+    setGeoData(data)
+    setGeoState('ready')
+   })
+   .catch(function (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    console.error('Geo JSON load failed', error)
+    setGeoData(null)
+    setGeoState('error')
+   })
+  return function () { controller.abort() }
  }, [])
 
+ useEffect(function () {
+  if (!onBasemapStateChange) return
+  onBasemapStateChange(geoState)
+ }, [geoState, onBasemapStateChange])
+
  const visible = useMemo(function () {
-  const geo = props.mode !== 'CENT.BANKS' ? props.gdeltEvents : []
-  const macro = props.mode === 'STANDARD' || props.mode === 'LIQUIDITY' ? props.macroEvents : []
-  const trade = props.mode === 'STANDARD' || props.mode === 'RISK' ? props.tradeRoutes : []
-  const zones = props.mode === 'STANDARD' || props.mode === 'LIQUIDITY' ? props.zones : []
-  const cb = props.centralBanks
+  const geo = (props.mode !== 'CENT.BANKS' ? props.gdeltEvents : []).filter(function (item) {
+   return item && item.id && validCoordinate(Number(item.lat), Number(item.lon))
+  })
+  const macro = (props.mode === 'STANDARD' || props.mode === 'LIQUIDITY' ? props.macroEvents : []).filter(function (item) {
+   return item && item.id && validCoordinate(Number(item.lat), Number(item.lon))
+  })
+  const trade = (props.mode === 'STANDARD' || props.mode === 'RISK' ? props.tradeRoutes : []).map(function (item) {
+   const path = sanitizePath(item.path)
+   return { ...item, path }
+  }).filter(function (item) {
+   return item && item.id && validCoordinate(Number(item.lat), Number(item.lon)) && item.path.length >= 2
+  })
+  const zones = (props.mode === 'STANDARD' || props.mode === 'LIQUIDITY' ? props.zones : []).filter(function (zone) {
+   return zone && Array.isArray(zone.center) && zone.center.length === 2 && validCoordinate(Number(zone.center[1]), Number(zone.center[0]))
+  })
+  const cb = props.centralBanks.filter(function (item) {
+   return item && item.id && validCoordinate(Number(item.lat), Number(item.lon))
+  })
   return { geo, macro, trade, zones, cb }
  }, [props.centralBanks, props.gdeltEvents, props.macroEvents, props.mode, props.tradeRoutes, props.zones])
 
@@ -97,14 +154,14 @@ export function GeoboardMap(props: {
 
  const counts = useMemo(function () {
   return {
-   geo: props.gdeltEvents.length,
-   macro: props.macroEvents.length,
-   cb: props.centralBanks.length,
-   trade: props.tradeRoutes.length,
+   geo: visible.geo.length,
+   macro: visible.macro.length,
+   cb: visible.cb.length,
+   trade: visible.trade.length,
   }
- }, [props.centralBanks.length, props.gdeltEvents.length, props.macroEvents.length, props.tradeRoutes.length])
+ }, [visible.cb.length, visible.geo.length, visible.macro.length, visible.trade.length])
 
- const focus = props.focusTarget ? project(props.focusTarget.lon, props.focusTarget.lat) : null
+ const focus = props.focusTarget && validCoordinate(props.focusTarget.lat, props.focusTarget.lon) ? project(props.focusTarget.lon, props.focusTarget.lat) : null
 
  return <div className='relative h-full w-full bg-[#060a0f]' onMouseLeave={function () { props.onHoverChange(null) }}>
   <div className='pointer-events-none absolute left-3 top-3 z-10 max-w-[380px] rounded border border-[#1a2535] bg-[rgba(6,10,15,0.84)] px-3 py-2 text-[10px] uppercase tracking-[0.1em] text-[#8aa7c4]'>
@@ -117,6 +174,9 @@ export function GeoboardMap(props: {
    </div>
    <div className='mt-1 text-[9px] leading-4 text-[#6d8bab]'>{modeHint(props.mode)}</div>
   </div>
+  {geoState !== 'ready' ? <div className='pointer-events-none absolute right-3 top-3 z-10 max-w-[360px] rounded border border-[#1a2535] bg-[rgba(6,10,15,0.84)] px-3 py-2 text-[9px] uppercase tracking-[0.1em] text-[#8aa7c4]'>
+   {geoState === 'loading' ? 'BASEMAP // LOADING' : 'BASEMAP // DEGRADED // CONTINUING WITH GRID + SIGNAL LAYERS'}
+  </div> : null}
   <svg viewBox={'0 0 ' + String(WIDTH) + ' ' + String(HEIGHT)} className='absolute inset-0 h-full w-full'>
    <rect x='0' y='0' width={String(WIDTH)} height={String(HEIGHT)} fill='#060a0f' />
    <g stroke='rgba(24,38,54,0.9)' strokeWidth='1'>
@@ -130,11 +190,15 @@ export function GeoboardMap(props: {
     })}
    </g>
    <g>
-    {geoData && Array.isArray(geoData.features) ? geoData.features.map(function (feature: any, index: number) {
+    {geoState === 'ready' && geoData && Array.isArray(geoData.features) ? geoData.features.map(function (feature: any, index: number) {
      const regionId = feature?.properties?.regionId
      const regime = regionId ? regimeById[String(regionId)] : undefined
      return <path key={'region-' + String(index)} d={featurePath(feature)} fill={regimeFill(regime)} stroke='rgba(34,54,78,0.95)' strokeWidth='1.2' />
-    }) : null}
+    }) : visible.zones.map(function (zone, index) {
+     const projected = project(zone.center[0], zone.center[1])
+     const radius = Math.max(26, Math.min(72, 14 + (4.8 - zone.zoom) * 11))
+     return <circle key={'zone-fallback-' + zone.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={String(radius)} fill={regimeFill(zone.regime)} stroke='rgba(34,54,78,0.95)' strokeWidth='1.2' />
+    })}
    </g>
    <g fill='none' stroke='#f59e0b' strokeOpacity='0.62' strokeWidth='2'>
     {visible.trade.map(function (route, index) {
@@ -143,28 +207,28 @@ export function GeoboardMap(props: {
       return projected[0].toFixed(2) + ',' + projected[1].toFixed(2)
      }).join(' ')
      const selected = route.id === props.selectedSourceId || route.id === props.pulseId
-     return <polyline key={'trade-line-' + route.id + '-' + String(index)} points={points} stroke={selected ? '#fcd34d' : '#f59e0b'} strokeWidth={selected ? '3' : '2'} onMouseMove={function (event) { props.onHoverChange({ layer: 'trade', x: event.clientX, y: event.clientY, object: route }) }} />
+     return <polyline data-testid={'trade-node-' + route.id} key={'trade-line-' + route.id + '-' + String(index)} points={points} stroke={selected ? '#fcd34d' : '#f59e0b'} strokeWidth={selected ? '3' : '2'} onMouseMove={function (event) { props.onHoverChange({ layer: 'trade', x: event.clientX, y: event.clientY, object: route }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(route.id) }} />
     })}
    </g>
    <g>
     {visible.geo.map(function (item, index) {
      const projected = project(item.lon, item.lat)
      const selected = item.id === props.selectedSourceId || item.id === props.pulseId
-     return <circle key={'geo-dot-' + item.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '7' : '5'} fill={toneFill(item.tone)} stroke={selected ? '#ecf4ff' : '#0c121c'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'geo', x: event.clientX, y: event.clientY, object: item }) }} />
+     return <circle data-testid={'geo-node-' + item.id} key={'geo-dot-' + item.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '7' : '5'} fill={toneFill(item.tone)} stroke={selected ? '#ecf4ff' : '#0c121c'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'geo', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
     })}
    </g>
    <g>
     {visible.macro.map(function (item, index) {
      const projected = project(item.lon, item.lat)
      const selected = item.id === props.selectedSourceId || item.id === props.pulseId
-     return <rect key={'macro-dot-' + item.id + '-' + String(index)} x={String(projected[0] - (selected ? 6 : 5))} y={String(projected[1] - (selected ? 6 : 5))} width={String(selected ? 12 : 10)} height={String(selected ? 12 : 10)} fill={selected ? '#cab4ff' : '#a78bfa'} stroke={selected ? '#ecf4ff' : '#221237'} strokeWidth='1.2' transform={'rotate(45 ' + String(projected[0]) + ' ' + String(projected[1]) + ')'} onMouseMove={function (event) { props.onHoverChange({ layer: 'macro', x: event.clientX, y: event.clientY, object: item }) }} />
+     return <rect data-testid={'macro-node-' + item.id} key={'macro-dot-' + item.id + '-' + String(index)} x={String(projected[0] - (selected ? 6 : 5))} y={String(projected[1] - (selected ? 6 : 5))} width={String(selected ? 12 : 10)} height={String(selected ? 12 : 10)} fill={selected ? '#cab4ff' : '#a78bfa'} stroke={selected ? '#ecf4ff' : '#221237'} strokeWidth='1.2' transform={'rotate(45 ' + String(projected[0]) + ' ' + String(projected[1]) + ')'} onMouseMove={function (event) { props.onHoverChange({ layer: 'macro', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
     })}
    </g>
    <g>
     {visible.cb.map(function (item, index) {
      const projected = project(item.lon, item.lat)
      const selected = item.id === props.selectedSourceId || item.id === props.pulseId
-     return <circle key={'cb-dot-' + item.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '8' : '6'} fill={selected ? '#4be2f5' : '#22d3ee'} stroke={selected ? '#eaf8ff' : '#0d2f38'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'cb', x: event.clientX, y: event.clientY, object: item }) }} />
+     return <circle data-testid={'cb-node-' + item.id} key={'cb-dot-' + item.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '8' : '6'} fill={selected ? '#4be2f5' : '#22d3ee'} stroke={selected ? '#eaf8ff' : '#0d2f38'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'cb', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
     })}
    </g>
    {focus ? <g>

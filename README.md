@@ -67,6 +67,8 @@ Track macro events. Read the regime. Trade the reaction.
 - Central banks and trade routes: curated static overlays kept explicit as static; they are enriched with linked macro/news/asset context and ranked alongside live/derived rows.
 - Regime zones: derived dashboard context labeled as derived, not presented as direct live geographic telemetry.
 - Feed engine: canonical ranked items scored on urgency, importance, confidence, recency, source quality, watchlist overlap, catalyst proximity, region significance, and regime relevance.
+- Feed hardening: assembly now normalizes malformed rows, sanitizes unsafe links, dedupes IDs, and applies explicit mode/source/freshness weighting so fallback/static rows do not silently dominate ranked tops.
+- Map hardening: Geoboard map rendering drops invalid coordinates safely and keeps tactical overlays usable even when basemap loading is degraded.
 
 ## Live vs fallback
 - Provider-backed today (`live`): dashboard market tape from Yahoo Finance via yfinance with explicit FRED fallback proxies, plus official-source news ingestion and explicitly labeled discovery augmentations.

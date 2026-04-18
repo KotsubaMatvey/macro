@@ -591,6 +591,7 @@ def geoboard_payload(user: dict[str, Any] | None = None, active_mode: str = 'STA
  if cached and cached.get('payload'):
   return cached['payload']
  now = reference_now()
+ generated_at = utc_now().isoformat()
  watch_context = _watch_context(user_id)
  news_rows = _news_index()
  regime_label, regime_confidence = _regime_snapshot()
@@ -605,7 +606,16 @@ def geoboard_payload(user: dict[str, Any] | None = None, active_mode: str = 'STA
   'feed',
   fallback_note='Geoboard ranking evaluation will populate after ranking recompute jobs run.',
  )
- feed = _feed_from_layers(geo_events, macro_events, central_banks, trade_routes, regime_zones, mode, feed_evaluation)
+ feed = _feed_from_layers(
+  geo_events,
+  macro_events,
+  central_banks,
+  trade_routes,
+  regime_zones,
+  mode,
+  feed_evaluation,
+  generated_at=generated_at,
+ )
  try:
   materialize_geoboard_links(feed)
  except Exception:
@@ -622,7 +632,7 @@ def geoboard_payload(user: dict[str, Any] | None = None, active_mode: str = 'STA
    },
    mode='derived',
    freshness='fresh' if feed else 'degraded',
-   as_of=utc_now().isoformat(),
+   as_of=generated_at,
   )
  except Exception:
   pass
@@ -640,9 +650,28 @@ def geoboard_payload(user: dict[str, Any] | None = None, active_mode: str = 'STA
   intelligence = item.get('intelligence') if isinstance(item.get('intelligence'), dict) else None
   if intelligence is not None:
    intelligence['evaluation'] = feed_evaluation
- feed_status = {'layer': 'feed', 'state': 'live' if feed else 'fallback', 'sourceType': 'derived', 'mode': 'derived', 'detail': 'Canonical ranked Geoboard feed assembled from geo/macro/static/derived layers.' if feed else 'Feed empty; investigate upstream layers.'}
+ feed_source_types = {str((item.get('sourceMeta') or {}).get('sourceType', 'derived')) for item in feed if isinstance(item, dict)}
+ if not feed:
+  feed_state = 'fallback'
+ elif feed_source_types and feed_source_types.issubset({'fallback'}):
+  feed_state = 'fallback'
+ elif 'fallback' in feed_source_types:
+  feed_state = 'degraded'
+ else:
+  feed_state = 'live'
+ feed_status = {
+  'layer': 'feed',
+  'state': feed_state,
+  'sourceType': 'derived',
+  'mode': 'derived',
+  'detail': (
+   'Canonical ranked Geoboard feed assembled from discovery/derived/static layers.'
+   if feed
+   else 'Feed empty; investigate upstream layers.'
+  ),
+ }
  source_status = [geo_status, macro_status, cb_status, trade_status, regime_status, feed_status]
- payload = {'generatedAt': utc_now().isoformat(), 'modeState': _mode_state(mode, source_status), 'sourceStatus': source_status, 'evaluation': feed_evaluation, 'geoEvents': geo_events, 'macroEvents': macro_events, 'centralBanks': central_banks, 'tradeRoutes': trade_routes, 'regimeZones': regime_zones, 'feed': feed, 'summary': {'totalFeedItems': len(feed), 'geoSignals': len(geo_events), 'macroCatalysts': len(macro_events), 'centralBanks': len(central_banks), 'tradeRoutes': len(trade_routes), 'regimeZones': len(regime_zones), 'watchlistSymbols': len(watch_context.get('symbols', set())), 'activeAlerts': int(watch_context.get('activeAlerts', 0)), 'fallbackLayers': len([item for item in source_status if item['state'] in {'fallback', 'degraded'}])}}
+ payload = {'generatedAt': generated_at, 'modeState': _mode_state(mode, source_status), 'sourceStatus': source_status, 'evaluation': feed_evaluation, 'geoEvents': geo_events, 'macroEvents': macro_events, 'centralBanks': central_banks, 'tradeRoutes': trade_routes, 'regimeZones': regime_zones, 'feed': feed, 'summary': {'totalFeedItems': len(feed), 'geoSignals': len(geo_events), 'macroCatalysts': len(macro_events), 'centralBanks': len(central_banks), 'tradeRoutes': len(trade_routes), 'regimeZones': len(regime_zones), 'watchlistSymbols': len(watch_context.get('symbols', set())), 'activeAlerts': int(watch_context.get('activeAlerts', 0)), 'fallbackLayers': len([item for item in source_status if item['state'] in {'fallback', 'degraded'}])}}
  cache_provider_payload(cache_key, payload, ttl=120)
  return payload
 
