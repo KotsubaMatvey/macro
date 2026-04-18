@@ -210,7 +210,7 @@ export async function PageShell(props: PageShellProps) {
     const directActive = props.active === item.slug
     const active = directActive || sectionHasActiveChild(item, props.active)
     return h('div', { key: item.slug, className: 'grid gap-1' }, [
-     h(Link, { href: '/app/' + item.slug, 'aria-current': directActive ? 'page' : undefined, className: cx('group flex items-center gap-3 rounded-[10px] px-3 py-2 text-[11px] leading-5 transition', active ? 'bg-white/[0.04] text-white shadow-[inset_2px_0_0_rgba(77,171,247,0.68)]' : 'text-slate-400 hover:bg-white/[0.024] hover:text-slate-100') }, [
+     h(Link, { key: 'nav-link', href: '/app/' + item.slug, 'aria-current': directActive ? 'page' : undefined, className: cx('group flex items-center gap-3 rounded-[10px] px-3 py-2 text-[11px] leading-5 transition', active ? 'bg-white/[0.04] text-white shadow-[inset_2px_0_0_rgba(77,171,247,0.68)]' : 'text-slate-400 hover:bg-white/[0.024] hover:text-slate-100') }, [
       h('span', { key: 'icon', className: cx('inline-flex min-w-[34px] items-center justify-center rounded-[8px] border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.15em]', active ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/[0.055] bg-white/[0.014] text-slate-500 group-hover:border-white/[0.11] group-hover:text-slate-200') }, item.icon ? navGlyph(item.icon) : navShortCode(item.slug)),
       h('span', { key: 'title', className: 'truncate font-medium' }, item.title),
      ]),
@@ -251,7 +251,7 @@ export async function PageShell(props: PageShellProps) {
      h(Badge, { key: 'mode', accent: mode === 'live' }, mode),
     ]),
    ]) : null,
-   props.children ? props.children : null,
+   props.children ? h('div', { key: 'page-body' }, props.children) : null,
   ]),
  ]))
 }

@@ -1,4 +1,4 @@
-﻿alter table if exists news_items add column if not exists market_relevance_score numeric(8,4) not null default 0;
+alter table if exists news_items add column if not exists market_relevance_score numeric(8,4) not null default 0;
 alter table if exists news_items add column if not exists desk_relevance_score numeric(8,4) not null default 0;
 alter table if exists news_items add column if not exists rank_score numeric(8,4) not null default 0;
 alter table if exists news_items add column if not exists score_rationale jsonb not null default '[]'::jsonb;
@@ -68,7 +68,7 @@ create table if not exists signal_evaluations (
  surface text not null,
  signal_type text not null,
  signal_ref text not null,
- window text not null,
+ evaluation_window text not null,
  sample_size integer not null default 0,
  coverage numeric(8,4),
  direction_accuracy numeric(8,4),
@@ -90,3 +90,10 @@ create index if not exists idx_intelligence_links_to on intelligence_links(to_en
 create index if not exists idx_signal_snapshots_surface_ref on signal_snapshots(surface, signal_type, signal_ref, created_at desc);
 create index if not exists idx_signal_evaluations_surface_ref on signal_evaluations(surface, signal_type, signal_ref, created_at desc);
 create index if not exists idx_news_items_rank_score on news_items(rank_score desc, published_at desc);
+
+
+alter table if exists signal_evaluations add column if not exists outcome_coverage numeric(8,4);
+alter table if exists signal_evaluations add column if not exists outcome_sample_size integer;
+alter table if exists signal_evaluations add column if not exists realization_horizon text;
+alter table if exists signal_evaluations add column if not exists outcome_grounded boolean;
+alter table if exists signal_evaluations add column if not exists snapshot_ref text;

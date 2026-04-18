@@ -1,4 +1,4 @@
-import { IconLayer, PathLayer, TextLayer } from 'deck.gl'
+import { IconLayer, PathLayer, TextLayer } from '@deck.gl/layers'
 
 import type { TradeRoute } from '../types'
 

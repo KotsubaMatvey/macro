@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
 from .db import fetch_all, fetch_one, get_connection
+from .evaluation_metrics import calibration_quality, lift_score, mean, normalized_outcome_magnitude, top_slice
 from .intelligence_contracts import build_evaluation_metadata
 from .intelligence_scoring import clamp01
 from .security import utc_now
@@ -38,7 +40,7 @@ def record_signal_snapshot(
                     str(signal_type),
                     str(signal_ref),
                     str(as_of or utc_now().isoformat()),
-                    __import__("json").dumps(payload or {}),
+                    json.dumps(payload or {}),
                     str(mode or "fallback"),
                     str(freshness or "degraded"),
                 ),
@@ -63,6 +65,11 @@ def record_signal_evaluation(
     realized_move: float | None = None,
     mode: str = "replay",
     note: str = "",
+    outcome_coverage: float | None = None,
+    outcome_sample_size: int | None = None,
+    realization_horizon: str | None = None,
+    outcome_grounded: bool | None = None,
+    snapshot_ref: str | None = None,
 ) -> str:
     evaluation_id = _id("seval")
     with get_connection() as conn:
@@ -71,12 +78,14 @@ def record_signal_evaluation(
                 """
                 insert into signal_evaluations
                 (
-                    id, surface, signal_type, signal_ref, window,
+                    id, surface, signal_type, signal_ref, evaluation_window,
                     sample_size, coverage, direction_accuracy, magnitude_error,
                     false_positive_rate, calibration, ranking_usefulness,
-                    source_quality_alignment, realized_move, mode, note, created_at
+                    source_quality_alignment, realized_move, mode, note,
+                    outcome_coverage, outcome_sample_size, realization_horizon,
+                    outcome_grounded, snapshot_ref, created_at
                 )
-                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
                 """,
                 (
                     evaluation_id,
@@ -95,6 +104,11 @@ def record_signal_evaluation(
                     float(realized_move) if realized_move is not None else None,
                     str(mode),
                     str(note or ""),
+                    float(outcome_coverage) if outcome_coverage is not None else None,
+                    int(outcome_sample_size) if outcome_sample_size is not None else None,
+                    str(realization_horizon or ""),
+                    bool(outcome_grounded) if outcome_grounded is not None else None,
+                    str(snapshot_ref or ""),
                 ),
             )
     return evaluation_id
@@ -105,7 +119,9 @@ def latest_evaluation(surface: str, signal_type: str, signal_ref: str) -> dict[s
         """
         select surface, signal_type, signal_ref, sample_size, coverage, direction_accuracy,
                magnitude_error, false_positive_rate, calibration, ranking_usefulness,
-               source_quality_alignment, mode, note
+               source_quality_alignment, mode, note,
+               outcome_coverage, outcome_sample_size, realization_horizon,
+               outcome_grounded, snapshot_ref
         from signal_evaluations
         where surface = %s and signal_type = %s and signal_ref = %s
         order by created_at desc
@@ -143,22 +159,48 @@ def latest_evaluation_metadata(surface: str, signal_type: str, signal_ref: str, 
         source_quality_alignment=float(row.get("source_quality_alignment")) if row.get("source_quality_alignment") is not None else None,
         mode=str(row.get("mode") or "replay"),
         note=str(row.get("note") or ""),
+        outcome_coverage=float(row.get("outcome_coverage")) if row.get("outcome_coverage") is not None else None,
+        outcome_sample_size=int(row.get("outcome_sample_size")) if row.get("outcome_sample_size") is not None else None,
+        realization_horizon=str(row.get("realization_horizon") or ""),
+        outcome_grounded=row.get("outcome_grounded"),
+        snapshot_ref=str(row.get("snapshot_ref") or ""),
     )
 
 
-def _mean(values: list[float]) -> float:
-    if not values:
-        return 0.0
-    return sum(values) / len(values)
+def _latest_snapshot_ref(surface: str, signal_type: str, signal_ref: str) -> str:
+    row = fetch_one(
+        """
+        select id
+        from signal_snapshots
+        where surface = %s and signal_type = %s and signal_ref = %s
+        order by created_at desc
+        limit 1
+        """,
+        (surface, signal_type, signal_ref),
+    )
+    return str((row or {}).get("id") or "")
+
+
+def _outcome_strength(value: float | None) -> float | None:
+    return normalized_outcome_magnitude(value, scale=2.5)
 
 
 def evaluate_news_ranking(*, lookback_hours: int = 168) -> dict:
     rows = fetch_all(
         """
-        select rank_score, importance_score, urgency_score, confidence_score, source_type
-        from news_items
-        where canonical = true
-          and published_at >= now() - make_interval(hours => %s)
+        select n.rank_score, n.importance_score, n.urgency_score, n.confidence_score, n.source_type,
+               outcome.avg_move_pct as realized_move_pct,
+               outcome.consistency as realized_consistency
+        from news_items n
+        left join lateral (
+            select avg(erw.avg_move_pct) as avg_move_pct,
+                   avg(erw.consistency) as consistency
+            from event_reaction_windows erw
+            where erw.event_id = n.event_id
+              and erw.reaction_window in ('1d', '5d')
+        ) outcome on true
+        where n.canonical = true
+          and n.published_at >= now() - make_interval(hours => %s)
         """,
         (lookback_hours,),
     )
@@ -187,45 +229,109 @@ def evaluate_news_ranking(*, lookback_hours: int = 168) -> dict:
             source_quality_alignment=0.0,
             mode="replay",
             note=meta["note"],
+            outcome_coverage=0.0,
+            outcome_sample_size=0,
+            realization_horizon="",
+            outcome_grounded=False,
+            snapshot_ref="",
         )
         return meta
 
     ordered = sorted(rows, key=lambda row: float(row.get("rank_score") or 0.0), reverse=True)
-    top_n = max(1, int(round(sample_size * 0.25)))
-    top_rows = ordered[:top_n]
+    top_rows = top_slice(ordered, fraction=0.25, key="rank_score")
 
-    all_signal = _mean([
+    all_signal = mean([
         (float(row.get("importance_score") or 0.0) + float(row.get("urgency_score") or 0.0) + float(row.get("confidence_score") or 0.0)) / 3.0
         for row in ordered
     ])
-    top_signal = _mean([
+    top_signal = mean([
         (float(row.get("importance_score") or 0.0) + float(row.get("urgency_score") or 0.0) + float(row.get("confidence_score") or 0.0)) / 3.0
         for row in top_rows
     ])
+    proxy_usefulness = lift_score(top_signal, all_signal)
 
-    ranking_usefulness = clamp01(0.5 + (top_signal - all_signal))
-    top_official_share = _mean([1.0 if str(row.get("source_type") or "") == "official" else 0.0 for row in top_rows])
-    all_official_share = _mean([1.0 if str(row.get("source_type") or "") == "official" else 0.0 for row in ordered])
+    outcome_rows = [row for row in ordered if row.get("realized_move_pct") is not None]
+    outcome_sample_size = len(outcome_rows)
+    outcome_coverage = clamp01(float(outcome_sample_size) / float(max(1, sample_size)))
+    all_outcome_strength = [
+        value
+        for value in [_outcome_strength(float(row.get("realized_move_pct"))) for row in outcome_rows]
+        if value is not None
+    ]
+    top_outcome_rows = [row for row in top_rows if row.get("realized_move_pct") is not None]
+    top_outcome_strength = [
+        value
+        for value in [_outcome_strength(float(row.get("realized_move_pct"))) for row in top_outcome_rows]
+        if value is not None
+    ]
+
+    baseline_outcome = mean(all_outcome_strength)
+    top_outcome = mean(top_outcome_strength)
+    outcome_usefulness = lift_score(top_outcome, baseline_outcome) if outcome_sample_size else 0.5
+    ranking_usefulness = clamp01((0.6 * proxy_usefulness) + (0.4 * outcome_usefulness))
+
+    top_official_share = mean([1.0 if str(row.get("source_type") or "") == "official" else 0.0 for row in top_rows])
+    all_official_share = mean([1.0 if str(row.get("source_type") or "") == "official" else 0.0 for row in ordered])
     source_alignment = clamp01(0.5 + (top_official_share - all_official_share))
-    high_rank_low_urgency = len([row for row in top_rows if float(row.get("urgency_score") or 0.0) < 0.35])
-    false_positive_rate = clamp01(float(high_rank_low_urgency) / float(max(1, len(top_rows))))
 
-    note = "News ranking evaluation reflects whether top-ranked rows concentrate stronger cross-factor signals and source quality."
+    if top_outcome_strength:
+        false_positive_rate = clamp01(len([value for value in top_outcome_strength if value < 0.15]) / float(max(1, len(top_outcome_strength))))
+    else:
+        false_positive_rate = clamp01(
+            len([row for row in top_rows if float(row.get("urgency_score") or 0.0) < 0.35]) / float(max(1, len(top_rows))),
+        )
+
+    direction_values = [float(row.get("realized_consistency")) for row in top_outcome_rows if row.get("realized_consistency") is not None]
+    direction_accuracy = mean(direction_values) if direction_values else None
+
+    magnitude_error = None
+    calibration = None
+    if outcome_rows and all_outcome_strength:
+        predicted_rank = [float(row.get("rank_score") or 0.0) for row in outcome_rows][: len(all_outcome_strength)]
+        magnitude_error = mean([abs(pred - realized) for pred, realized in zip(predicted_rank, all_outcome_strength)])
+        calibration = calibration_quality(
+            [float(row.get("confidence_score") or 0.0) for row in outcome_rows][: len(all_outcome_strength)],
+            all_outcome_strength,
+        )
+    else:
+        calibration = clamp01(1.0 - abs(top_signal - all_signal))
+
+    snapshot_row = fetch_one(
+        """
+        select id
+        from signal_snapshots
+        where surface = 'news' and signal_type = 'feed'
+        order by created_at desc
+        limit 1
+        """
+    )
+    snapshot_ref = str((snapshot_row or {}).get("id") or "")
+
+    note = (
+        "News ranking evaluation combines proxy factor concentration with realized event-window outcomes when linked windows exist. "
+        + f"Outcome coverage: {round(outcome_coverage * 100, 1)}% ({outcome_sample_size}/{sample_size})."
+    )
     record_signal_evaluation(
         surface="news",
         signal_type="ranking",
         signal_ref="news-feed",
         window=f"{lookback_hours}h",
         sample_size=sample_size,
-        coverage=1.0,
-        direction_accuracy=None,
-        magnitude_error=None,
+        coverage=outcome_coverage if outcome_sample_size else 1.0,
+        direction_accuracy=direction_accuracy,
+        magnitude_error=magnitude_error,
         false_positive_rate=false_positive_rate,
-        calibration=clamp01(1.0 - abs(top_signal - all_signal)),
+        calibration=calibration,
         ranking_usefulness=ranking_usefulness,
         source_quality_alignment=source_alignment,
+        realized_move=mean([abs(float(row.get("realized_move_pct") or 0.0)) for row in outcome_rows]) if outcome_rows else None,
         mode="replay",
         note=note,
+        outcome_coverage=outcome_coverage,
+        outcome_sample_size=outcome_sample_size,
+        realization_horizon="1d/5d event reaction windows" if outcome_sample_size else "",
+        outcome_grounded=outcome_sample_size > 0,
+        snapshot_ref=snapshot_ref,
     )
     return latest_evaluation_metadata("news", "ranking", "news-feed", fallback_note=note)
 
@@ -234,9 +340,22 @@ def evaluate_geoboard_ranking(*, lookback_hours: int = 168) -> dict:
     rows = fetch_all(
         """
         select s.rank_score, s.importance_score, s.urgency_score, s.confidence_score,
-               s.market_relevance_score, s.desk_relevance_score
+               s.market_relevance_score, s.desk_relevance_score,
+               outcome.avg_move_pct as realized_move_pct,
+               outcome.consistency as realized_consistency
         from intelligence_entities e
         join intelligence_scores s on s.entity_id = e.id
+        left join lateral (
+            select avg(erw.avg_move_pct) as avg_move_pct,
+                   avg(erw.consistency) as consistency
+            from intelligence_links l
+            join intelligence_entities ev on ev.id = l.to_entity_id
+            join event_reaction_windows erw on erw.event_id = ev.ref_id
+            where l.from_entity_id = e.id
+              and l.link_type = 'linked_event'
+              and ev.entity_type = 'scheduled_event'
+              and erw.reaction_window in ('1d', '5d')
+        ) outcome on true
         where e.entity_type = 'geoboard_signal'
           and s.computed_at >= now() - make_interval(hours => %s)
         order by s.computed_at desc
@@ -261,23 +380,89 @@ def evaluate_geoboard_ranking(*, lookback_hours: int = 168) -> dict:
             source_quality_alignment=0.0,
             mode="replay",
             note=note,
+            outcome_coverage=0.0,
+            outcome_sample_size=0,
+            realization_horizon="",
+            outcome_grounded=False,
+            snapshot_ref="",
         )
         return latest_evaluation_metadata("geoboard", "ranking", "feed", fallback_note=note)
 
-    top_n = max(1, int(round(sample_size * 0.30)))
     ordered = sorted(rows, key=lambda row: float(row.get("rank_score") or 0.0), reverse=True)
-    top_rows = ordered[:top_n]
+    top_rows = top_slice(ordered, fraction=0.30, key="rank_score")
 
-    top_context = _mean([
+    top_context = mean([
         (float(row.get("market_relevance_score") or 0.0) + float(row.get("desk_relevance_score") or 0.0)) / 2.0
         for row in top_rows
     ])
-    all_context = _mean([
+    all_context = mean([
         (float(row.get("market_relevance_score") or 0.0) + float(row.get("desk_relevance_score") or 0.0)) / 2.0
         for row in ordered
     ])
-    ranking_usefulness = clamp01(0.5 + (top_context - all_context))
-    note = "Geoboard ranking evaluation measures concentration of context-relevant scored signals at the top of the feed."
+    context_usefulness = lift_score(top_context, all_context)
+
+    outcome_rows = [row for row in ordered if row.get("realized_move_pct") is not None]
+    outcome_sample_size = len(outcome_rows)
+    outcome_coverage = clamp01(float(outcome_sample_size) / float(max(1, sample_size)))
+
+    all_outcome_strength = [
+        value
+        for value in [_outcome_strength(float(row.get("realized_move_pct"))) for row in outcome_rows]
+        if value is not None
+    ]
+    top_outcome_rows = [row for row in top_rows if row.get("realized_move_pct") is not None]
+    top_outcome_strength = [
+        value
+        for value in [_outcome_strength(float(row.get("realized_move_pct"))) for row in top_outcome_rows]
+        if value is not None
+    ]
+
+    baseline_outcome = mean(all_outcome_strength)
+    top_outcome = mean(top_outcome_strength)
+    outcome_usefulness = lift_score(top_outcome, baseline_outcome) if outcome_sample_size else 0.5
+    ranking_usefulness = clamp01((0.65 * context_usefulness) + (0.35 * outcome_usefulness))
+
+    direction_values = [float(row.get("realized_consistency")) for row in top_outcome_rows if row.get("realized_consistency") is not None]
+    direction_accuracy = mean(direction_values) if direction_values else None
+
+    if top_outcome_strength:
+        false_positive_rate = clamp01(len([value for value in top_outcome_strength if value < 0.15]) / float(max(1, len(top_outcome_strength))))
+    else:
+        false_positive_rate = clamp01(
+            len([row for row in top_rows if float(row.get("urgency_score") or 0.0) < 0.30]) / float(max(1, len(top_rows))),
+        )
+
+    calibration = None
+    magnitude_error = None
+    if outcome_rows and all_outcome_strength:
+        calibration = calibration_quality(
+            [float(row.get("confidence_score") or 0.0) for row in outcome_rows][: len(all_outcome_strength)],
+            all_outcome_strength,
+        )
+        magnitude_error = mean(
+            [
+                abs(float(row.get("rank_score") or 0.0) - realized)
+                for row, realized in zip(outcome_rows, all_outcome_strength)
+            ],
+        )
+    else:
+        calibration = clamp01(1.0 - abs(top_context - all_context))
+
+    snapshot_row = fetch_one(
+        """
+        select id
+        from signal_snapshots
+        where surface = 'geoboard' and signal_type = 'feed'
+        order by created_at desc
+        limit 1
+        """
+    )
+    snapshot_ref = str((snapshot_row or {}).get("id") or "")
+
+    note = (
+        "Geoboard ranking evaluation measures context concentration and event-linked realized outcomes where link coverage exists. "
+        + f"Outcome coverage: {round(outcome_coverage * 100, 1)}% ({outcome_sample_size}/{sample_size})."
+    )
 
     record_signal_evaluation(
         surface="geoboard",
@@ -285,17 +470,21 @@ def evaluate_geoboard_ranking(*, lookback_hours: int = 168) -> dict:
         signal_ref="feed",
         window=f"{lookback_hours}h",
         sample_size=sample_size,
-        coverage=1.0,
-        direction_accuracy=None,
-        magnitude_error=None,
-        false_positive_rate=clamp01(
-            len([row for row in top_rows if float(row.get("urgency_score") or 0.0) < 0.30]) / float(max(1, len(top_rows))),
-        ),
-        calibration=clamp01(1.0 - abs(top_context - all_context)),
+        coverage=outcome_coverage if outcome_sample_size else 1.0,
+        direction_accuracy=direction_accuracy,
+        magnitude_error=magnitude_error,
+        false_positive_rate=false_positive_rate,
+        calibration=calibration,
         ranking_usefulness=ranking_usefulness,
-        source_quality_alignment=clamp01(_mean([float(row.get("confidence_score") or 0.0) for row in top_rows])),
+        source_quality_alignment=clamp01(mean([float(row.get("confidence_score") or 0.0) for row in top_rows])),
+        realized_move=mean([abs(float(row.get("realized_move_pct") or 0.0)) for row in outcome_rows]) if outcome_rows else None,
         mode="replay",
         note=note,
+        outcome_coverage=outcome_coverage,
+        outcome_sample_size=outcome_sample_size,
+        realization_horizon="1d/5d event reaction windows" if outcome_sample_size else "",
+        outcome_grounded=outcome_sample_size > 0,
+        snapshot_ref=snapshot_ref,
     )
     return latest_evaluation_metadata("geoboard", "ranking", "feed", fallback_note=note)
 
@@ -422,8 +611,8 @@ def evaluate_bias_quality() -> dict:
         calibration_terms.append(1.0 - abs(confidence - realized_magnitude))
 
     direction_accuracy = clamp01(float(hits) / float(max(1, sample_size)))
-    magnitude_error = _mean(magnitude_errors)
-    calibration = clamp01(_mean(calibration_terms))
+    magnitude_error = mean(magnitude_errors)
+    calibration = clamp01(mean(calibration_terms))
     note = "Bias quality compares directional bias scores and confidence against realized 5d moves in replay." 
 
     record_signal_evaluation(

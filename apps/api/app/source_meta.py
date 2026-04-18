@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 from typing import Optional
 
+from .intelligence_semantics import normalize_freshness, normalize_mode, normalize_text
 from .security import utc_now
 
 
@@ -33,11 +34,12 @@ def derive_freshness(
  mode: str = "live",
  freshness: Optional[str] = None,
 ):
+ normalized_mode = normalize_mode(mode)
  if freshness:
-  return freshness
+  return normalize_freshness(freshness, mode=normalized_mode)
  parsed_last_updated = parse_source_timestamp(last_updated)
  if parsed_last_updated is None:
-  return "degraded" if mode in {"demo", "fallback"} else "fresh"
+  return normalize_freshness("", mode=normalized_mode)
  age_hours = (utc_now() - parsed_last_updated).total_seconds() / 3600.0
  if age_hours > 72:
   return "stale"
@@ -59,16 +61,16 @@ def build_source_metadata(
  freshness: Optional[str] = None,
 ):
  payload = payload or {}
- resolved_mode = str(payload.get("mode", mode))
+ resolved_mode = normalize_mode(payload.get("mode", mode))
  resolved_fetched_at = payload.get("fetchedAt", fetched_at or utc_now().isoformat())
  resolved_last_updated = payload.get("lastUpdated", last_updated)
  return {
-  "label": label,
-  "source": source,
+  "label": normalize_text(label),
+  "source": normalize_text(source),
   "sourceUrl": payload.get("sourceUrl", source_url),
   "fetchedAt": resolved_fetched_at,
   "lastUpdated": resolved_last_updated,
   "freshness": derive_freshness(resolved_last_updated, mode=resolved_mode, freshness=freshness),
   "mode": resolved_mode,
-  "note": note or payload.get("note", ""),
+  "note": normalize_text(note or payload.get("note", "")),
  }

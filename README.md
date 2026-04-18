@@ -22,7 +22,15 @@ Track macro events. Read the regime. Trade the reaction.
 - Shared contract layer: source metadata, runtime mode, freshness, unified score fields, entity linkage references, and evaluation metadata are normalized through common backend helpers.
 - Unified scoring: importance, urgency, confidence, market relevance, desk relevance, and rank score are deterministic compositions with explicit component factors and rationale.
 - Entity graph: explicit entities, links, and score snapshots are materialized into `intelligence_entities`, `intelligence_links`, and `intelligence_scores`.
-- Evaluation framework: replay-safe quality metrics are stored in `signal_snapshots` and `signal_evaluations` and exposed on News, Geoboard, Dashboard catalyst context, and insights payloads.
+- Evaluation framework: ranked-signal snapshots and evaluations are stored in `signal_snapshots` and `signal_evaluations`; metrics stay explicitly replay-labeled and now include outcome-grounded fields (`outcomeCoverage`, `outcomeSampleSize`, `realizationHorizon`, `snapshotRef`) when linked realized windows exist.
+
+## Runtime state semantics
+- `live`: provider-backed rows fetched from active providers with explicit source metadata.
+- `fallback`: degraded continuity rows used when live providers fail or return unusable payloads.
+- `derived`: backend-computed rows grounded in internal datasets (calendar, regime, graph, scoring).
+- `static`: curated overlays or reference layers that are intentionally non-live.
+- `seeded`: deterministic seed/demo rows used for demo continuity; never presented as live ingest.
+- `replay`: retrospective evaluation/track-record context; not audited live discretionary performance.
 
 ## Workstation surfaces
 - Dashboard: board-based macro workstation with regime, bias, catalysts, calendar, and market strip
@@ -61,9 +69,9 @@ Track macro events. Read the regime. Trade the reaction.
 - Feed engine: canonical ranked items scored on urgency, importance, confidence, recency, source quality, watchlist overlap, catalyst proximity, region significance, and regime relevance.
 
 ## Live vs fallback
-- Provider-backed today: dashboard market tape from Yahoo Finance via yfinance with honest FRED fallback proxies, plus official-source news ingestion with discovery-layer augmentation and explicit source labels
-- Fallback/demo today: demo accounts, watchlists/alerts/community/admin content, and seeded calendar or catalyst rows whenever TradingEconomics is missing or degraded
-- Replay/simulated today: track-record windows are retrospective model replays, not logged discretionary calls
+- Provider-backed today (`live`): dashboard market tape from Yahoo Finance via yfinance with explicit FRED fallback proxies, plus official-source news ingestion and explicitly labeled discovery augmentations.
+- Fallback/demo today (`fallback` or `seeded`): continuity rows for demo accounts and degraded providers; these remain explicitly marked and never silently promoted to live.
+- Replay today (`replay`): evaluation and track-record windows are retrospective analytics, not audited live discretionary calls or realized PnL statements.
 
 ## Real-data Product Layer
 - Market data now runs through a replaceable provider adapter, with Yahoo Finance via yfinance as the primary live source and FRED public series as the explicit fallback proxy for SPX, NDX, DXY, US10Y, VIX, EURUSD, XAU, and BTC.

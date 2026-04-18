@@ -1,4 +1,4 @@
-import { GeoJsonLayer, PathLayer, TextLayer } from 'deck.gl'
+import { GeoJsonLayer, PathLayer, TextLayer } from '@deck.gl/layers'
 import countries110m from 'world-atlas/countries-110m.json'
 import { feature } from 'topojson-client'
 

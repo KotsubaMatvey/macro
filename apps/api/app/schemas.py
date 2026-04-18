@@ -93,6 +93,11 @@ class IntelligenceEvaluation(BaseModel):
  calibrationQuality: Optional[float] = None
  rankingUsefulness: Optional[float] = None
  sourceQualityAlignment: Optional[float] = None
+ outcomeCoverage: Optional[float] = None
+ outcomeSampleSize: Optional[int] = None
+ realizationHorizon: str = ''
+ outcomeGrounded: Optional[bool] = None
+ snapshotRef: str = ''
  mode: str = 'replay'
  note: str = ''
 

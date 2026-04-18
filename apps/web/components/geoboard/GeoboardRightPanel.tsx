@@ -40,8 +40,8 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
     <span className={props.modeState.fallback ? 'text-[#f43f5e]' : 'text-[#10b981]'}>{formatMode(props.modeState)}</span>
    </div>
    <div className='grid grid-cols-2 gap-2'>
-    {props.zones.map(function (zone) {
-     return <button key={zone.id} type='button' onClick={function () { props.onRegionSelect(zone) }} className='rounded border border-[#1a2535] bg-[#060a0f] p-2 text-left transition hover:border-[#2b3c52] hover:bg-[#0b131d]'>
+    {props.zones.map(function (zone, zoneIndex) {
+     return <button key={zone.id + '-' + String(zoneIndex)} type='button' onClick={function () { props.onRegionSelect(zone) }} className='rounded border border-[#1a2535] bg-[#060a0f] p-2 text-left transition hover:border-[#2b3c52] hover:bg-[#0b131d]'>
       <div className='flex items-center justify-between gap-2'>
        <span className='text-[10px] uppercase tracking-[0.12em]'>{zone.flag}</span>
        <span className={'rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] ' + badgeTone(zone.regime)}>{zone.regime}</span>
@@ -59,8 +59,8 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
    </div>
    <div className='mb-2 text-[9px] leading-4 text-[#587898]'>{props.modeState.sourceHonesty}</div>
    <div className='grid grid-cols-2 gap-1'>
-    {props.sourceStatus.slice(0, 6).map(function (status) {
-     return <div key={status.layer} className='rounded border border-[#1a2535] bg-[#060a0f] px-1.5 py-1 text-[9px] uppercase tracking-[0.08em]'>
+    {props.sourceStatus.slice(0, 6).map(function (status, statusIndex) {
+     return <div key={status.layer + '-' + status.state + '-' + String(statusIndex)} className='rounded border border-[#1a2535] bg-[#060a0f] px-1.5 py-1 text-[9px] uppercase tracking-[0.08em]'>
       <div className='text-[#7a9ab8]'>{badgeLabel(status)}</div>
       <div className={sourceTone(status.sourceType)}>{status.sourceType + ' / ' + status.mode}</div>
      </div>
@@ -76,7 +76,7 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
     {rankedFeed.map(function (item, index) {
      const links = quickLinks(item)
      const selected = props.selectedId === item.id
-     return <div key={item.id} className={'rounded border p-2 transition ' + (selected ? 'border-[#22d3ee]/45 bg-[#22d3ee]/8 shadow-[inset_2px_0_0_rgba(34,211,238,0.7)]' : 'border-[#1a2535] bg-[#060a0f] hover:border-[#2b3c52] hover:bg-[#0b131d]')}>
+     return <div key={item.id + '-' + String(index)} className={'rounded border p-2 transition ' + (selected ? 'border-[#22d3ee]/45 bg-[#22d3ee]/8 shadow-[inset_2px_0_0_rgba(34,211,238,0.7)]' : 'border-[#1a2535] bg-[#060a0f] hover:border-[#2b3c52] hover:bg-[#0b131d]')}>
       <button type='button' onClick={function () { props.onFeedSelect(item) }} className='block w-full text-left'>
        <div className='flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.1em] text-[#7a9ab8]'>
         <span>{'#' + String(index + 1) + ' ' + item.feedType.replace('_', ' ')}</span>
@@ -92,8 +92,8 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
        <div className='mt-1 text-[10px] text-[#5d7f9f]'>{item.subtitle}</div>
       </button>
       {links.length !== 0 ? <div className='mt-2 flex flex-wrap gap-1'>
-       {links.map(function (entry) {
-        return <a key={entry[0]} href={entry[1] as string} className='rounded border border-[#1f3147] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.08em] text-[#8ec5f7] hover:border-[#2f4f73]'>
+       {links.map(function (entry, linkIndex) {
+        return <a key={item.id + '-' + entry[0] + '-' + String(linkIndex)} href={entry[1] as string} className='rounded border border-[#1f3147] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.08em] text-[#8ec5f7] hover:border-[#2f4f73]'>
          {entry[0]}
         </a>
        })}

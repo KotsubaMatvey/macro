@@ -12,62 +12,26 @@ from .db import fetch_all, fetch_one
 from .entity_graph import materialize_geoboard_links
 from .evaluation_service import evaluate_geoboard_ranking, latest_evaluation_metadata, record_signal_snapshot
 from .geoboard_ranking import GeoboardRankInputs, rank_metadata, source_quality_score
-from .intelligence_contracts import build_intelligence_contract, build_linked_references
 from .security import reference_now, utc_now
 from .settings import settings
 from .source_meta import derive_freshness, parse_source_timestamp
-
-GDELT_ENDPOINT = 'https://api.gdeltproject.org/api/v2/doc/doc'
-GDELT_CACHE_NAME = 'geoboard:gdelt-events:v2'
-MACRO_CACHE_NAME = 'geoboard:macro-events:v2'
-FEED_CACHE_PREFIX = 'geoboard:feed:v2'
-
-COUNTRY_META: dict[str, dict[str, Any]] = {
- 'US': {'country': 'United States', 'lat': 38.9, 'lon': -95.0, 'regionCode': 'NA', 'regionGroup': 'North America'},
- 'EU': {'country': 'Euro Area', 'lat': 50.0, 'lon': 10.0, 'regionCode': 'EU', 'regionGroup': 'Europe'},
- 'GB': {'country': 'United Kingdom', 'lat': 51.5, 'lon': -0.1, 'regionCode': 'EU', 'regionGroup': 'Europe'},
- 'JP': {'country': 'Japan', 'lat': 35.7, 'lon': 139.7, 'regionCode': 'APAC', 'regionGroup': 'Asia'},
- 'CN': {'country': 'China', 'lat': 35.0, 'lon': 105.0, 'regionCode': 'APAC', 'regionGroup': 'Asia'},
- 'AU': {'country': 'Australia', 'lat': -25.0, 'lon': 133.0, 'regionCode': 'APAC', 'regionGroup': 'Asia Pacific'},
- 'UA': {'country': 'Ukraine', 'lat': 49.0, 'lon': 31.0, 'regionCode': 'EMEA', 'regionGroup': 'Eastern Europe'},
- 'RU': {'country': 'Russia', 'lat': 61.5, 'lon': 105.0, 'regionCode': 'EMEA', 'regionGroup': 'Eastern Europe'},
- 'IR': {'country': 'Iran', 'lat': 32.0, 'lon': 53.0, 'regionCode': 'MENA', 'regionGroup': 'Middle East'},
- 'IL': {'country': 'Israel', 'lat': 31.5, 'lon': 34.8, 'regionCode': 'MENA', 'regionGroup': 'Middle East'},
- 'SA': {'country': 'Saudi Arabia', 'lat': 24.0, 'lon': 45.0, 'regionCode': 'MENA', 'regionGroup': 'Middle East'},
- 'TW': {'country': 'Taiwan', 'lat': 23.7, 'lon': 121.0, 'regionCode': 'APAC', 'regionGroup': 'Asia'},
- 'EG': {'country': 'Egypt', 'lat': 26.8, 'lon': 30.8, 'regionCode': 'MENA', 'regionGroup': 'Middle East'},
- 'SG': {'country': 'Singapore', 'lat': 1.3, 'lon': 103.8, 'regionCode': 'APAC', 'regionGroup': 'Asia'},
- 'GL': {'country': 'Global', 'lat': 12.0, 'lon': 8.0, 'regionCode': 'GL', 'regionGroup': 'Global'},
-}
-
-COUNTRY_HINTS: list[tuple[str, str]] = [
- ('UNITED STATES', 'US'), ('U.S.', 'US'), ('US ', 'US'), ('EURO AREA', 'EU'), ('EUROPE', 'EU'), ('EUROZONE', 'EU'),
- ('UNITED KINGDOM', 'GB'), ('BRITAIN', 'GB'), ('JAPAN', 'JP'), ('CHINA', 'CN'), ('AUSTRALIA', 'AU'), ('UKRAINE', 'UA'),
- ('RUSSIA', 'RU'), ('IRAN', 'IR'), ('ISRAEL', 'IL'), ('GAZA', 'IL'), ('SAUDI', 'SA'), ('TAIWAN', 'TW'), ('SUEZ', 'EG'),
- ('MALACCA', 'SG'), ('HORMUZ', 'IR'), ('BLACK SEA', 'UA'),
-]
-
-CLASSIFICATION_RULES: list[dict[str, Any]] = [
- {'name': 'Conflict', 'keywords': ('STRIKE', 'ATTACK', 'MISSILE', 'WAR', 'CLASH', 'DRONE', 'CEASEFIRE'), 'importance': 0.90, 'urgency': 0.88, 'assets': ['OIL', 'XAU', 'DXY'], 'modes': ['STANDARD', 'RISK']},
- {'name': 'Sanctions', 'keywords': ('SANCTION', 'EMBARGO', 'BLACKLIST', 'EXPORT CONTROL', 'RESTRICTION'), 'importance': 0.84, 'urgency': 0.74, 'assets': ['DXY', 'XAU', 'EMFX'], 'modes': ['STANDARD', 'RISK']},
- {'name': 'Shipping / Logistics', 'keywords': ('SHIPPING', 'VESSEL', 'PORT', 'CANAL', 'STRAIT', 'FREIGHT', 'TRANSIT', 'CHOKEPOINT', 'LOGISTICS'), 'importance': 0.86, 'urgency': 0.80, 'assets': ['FREIGHT', 'OIL', 'WHEAT'], 'modes': ['STANDARD', 'RISK']},
- {'name': 'Energy Risk', 'keywords': ('OIL', 'GAS', 'LNG', 'PIPELINE', 'REFINERY', 'OPEC', 'CRUDE', 'BRENT'), 'importance': 0.88, 'urgency': 0.78, 'assets': ['BRENT', 'NATGAS', 'DXY'], 'modes': ['STANDARD', 'RISK', 'LIQUIDITY']},
- {'name': 'Supply Chain', 'keywords': ('SUPPLY CHAIN', 'SEMICONDUCTOR', 'CHIP', 'CONTAINER', 'RARE EARTH'), 'importance': 0.72, 'urgency': 0.64, 'assets': ['SEMI', 'COPPER', 'CNH'], 'modes': ['STANDARD', 'RISK']},
- {'name': 'Trade Policy', 'keywords': ('TARIFF', 'TRADE POLICY', 'TRADE DEAL', 'CUSTOMS', 'DUTIES'), 'importance': 0.74, 'urgency': 0.62, 'assets': ['DXY', 'CNH', 'EMFX'], 'modes': ['STANDARD', 'RISK']},
- {'name': 'Elections / Political Risk', 'keywords': ('ELECTION', 'PARLIAMENT', 'VOTE', 'CABINET', 'PROTEST', 'COALITION'), 'importance': 0.70, 'urgency': 0.60, 'assets': ['DXY', 'EMFX', 'SPX'], 'modes': ['STANDARD', 'RISK']},
- {'name': 'Sovereign Stress', 'keywords': ('DEFAULT', 'DEBT', 'BOND SPREAD', 'RATING', 'IMF', 'FISCAL'), 'importance': 0.82, 'urgency': 0.66, 'assets': ['BUND', 'US10Y', 'EMFX'], 'modes': ['STANDARD', 'RISK', 'LIQUIDITY']},
-]
-
-COUNTRY_ASSETS: dict[str, list[str]] = {
- 'US': ['DXY', 'US10Y', 'SPX', 'XAU'], 'EU': ['EURUSD', 'BUND', 'DAX', 'DXY'], 'GB': ['GBPUSD', 'GILT', 'DXY'], 'JP': ['USDJPY', 'NIKKEI', 'US10Y'],
- 'CN': ['CNH', 'COPPER', 'SEMI'], 'AU': ['AUDUSD', 'COPPER', 'DXY'], 'UA': ['WHEAT', 'EURUSD', 'NATGAS'], 'RU': ['BRENT', 'EURUSD', 'WHEAT'],
- 'IR': ['OIL', 'DXY', 'XAU'], 'IL': ['OIL', 'XAU', 'VIX'], 'SA': ['BRENT', 'TANKERS', 'DXY'], 'TW': ['SEMI', 'CNH', 'QQQ'],
- 'EG': ['BRENT', 'FREIGHT', 'EMFX'], 'SG': ['FREIGHT', 'OIL', 'ASIA FX'], 'GL': ['DXY', 'XAU', 'SPX'],
-}
-
-REGION_SIGNIFICANCE = {'North America': 0.95, 'Europe': 0.88, 'Eastern Europe': 0.78, 'Middle East': 0.82, 'Asia': 0.84, 'Asia Pacific': 0.76, 'Global': 0.68}
-IMPACT_WEIGHTS = {'HIGH': 0.92, 'MEDIUM': 0.72, 'LOW': 0.52}
-
+from .geoboard_core.constants import (
+ GDELT_ENDPOINT,
+ GDELT_CACHE_NAME,
+ MACRO_CACHE_NAME,
+ FEED_CACHE_PREFIX,
+ COUNTRY_META,
+ COUNTRY_HINTS,
+ CLASSIFICATION_RULES,
+ COUNTRY_ASSETS,
+ REGION_SIGNIFICANCE,
+ IMPACT_WEIGHTS,
+ CENTRAL_BANK_SEEDS,
+ TRADE_ROUTE_SEEDS,
+ FALLBACK_GEO_EVENTS,
+ FALLBACK_MACRO_EVENTS,
+)
+from .geoboard_core.feed import _feed_from_layers, _mode_state
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
  if value < low:
@@ -120,35 +84,6 @@ def _source_meta(provider_key: str, label: str, source_type: str, source_tier: s
  if mode in {'derived', 'static'} and not freshness:
   resolved = 'degraded'
  return {'providerKey': provider_key, 'label': label, 'sourceType': source_type, 'sourceTier': source_tier, 'mode': mode, 'freshness': resolved, 'note': note, 'sourceUrl': source_url, 'fetchedAt': utc_now().isoformat(), 'lastUpdated': _to_iso(last_updated) if last_updated else None}
-
-CENTRAL_BANK_SEEDS: list[dict[str, Any]] = [
- {'id': 'fed', 'name': 'FED', 'lat': 38.9, 'lon': -77.0, 'rate': '5.25%', 'nextMeeting': '2026-05-06', 'bias': 'DATA DEPENDENT', 'signal': 'USD LIQUIDITY TIGHT', 'liquidityWeight': 100, 'country': 'United States', 'countryCode': 'US', 'regionCode': 'NA', 'regionGroup': 'North America', 'relatedAssets': ['DXY', 'US10Y', 'SPX', 'XAU']},
- {'id': 'ecb', 'name': 'ECB', 'lat': 50.1, 'lon': 8.7, 'rate': '3.50%', 'nextMeeting': '2026-04-11', 'bias': 'HOLD', 'signal': 'EUR LIQUIDITY STABLE', 'liquidityWeight': 85, 'country': 'Euro Area', 'countryCode': 'EU', 'regionCode': 'EU', 'regionGroup': 'Europe', 'relatedAssets': ['EURUSD', 'BUND', 'DAX', 'DXY']},
- {'id': 'boj', 'name': 'BOJ', 'lat': 35.7, 'lon': 139.7, 'rate': '0.25%', 'nextMeeting': '2026-04-26', 'bias': 'GRADUAL NORMALIZATION', 'signal': 'YEN FUNDING WATCH', 'liquidityWeight': 90, 'country': 'Japan', 'countryCode': 'JP', 'regionCode': 'APAC', 'regionGroup': 'Asia', 'relatedAssets': ['USDJPY', 'NIKKEI', 'US10Y', 'DXY']},
- {'id': 'pboc', 'name': 'PBOC', 'lat': 39.9, 'lon': 116.4, 'rate': '2.50%', 'nextMeeting': '2026-04-15', 'bias': 'TARGETED EASING', 'signal': 'CN CREDIT SUPPORTIVE', 'liquidityWeight': 80, 'country': 'China', 'countryCode': 'CN', 'regionCode': 'APAC', 'regionGroup': 'Asia', 'relatedAssets': ['CNH', 'SEMI', 'COPPER']},
- {'id': 'boe', 'name': 'BOE', 'lat': 51.5, 'lon': -0.1, 'rate': '4.50%', 'nextMeeting': '2026-05-09', 'bias': 'BALANCED', 'signal': 'GBP VOL TWO-WAY', 'liquidityWeight': 40, 'country': 'United Kingdom', 'countryCode': 'GB', 'regionCode': 'EU', 'regionGroup': 'Europe', 'relatedAssets': ['GBPUSD', 'GILT', 'DXY']},
- {'id': 'snb', 'name': 'SNB', 'lat': 46.9, 'lon': 7.4, 'rate': '1.25%', 'nextMeeting': '2026-06-20', 'bias': 'FX SENSITIVE', 'signal': 'SAFE-HAVEN BID', 'liquidityWeight': 25, 'country': 'Switzerland', 'countryCode': 'EU', 'regionCode': 'EU', 'regionGroup': 'Europe', 'relatedAssets': ['CHF', 'XAU', 'DXY']},
- {'id': 'rba', 'name': 'RBA', 'lat': -35.3, 'lon': 149.1, 'rate': '4.10%', 'nextMeeting': '2026-05-03', 'bias': 'PATIENT', 'signal': 'ASIA RISK BAROMETER', 'liquidityWeight': 30, 'country': 'Australia', 'countryCode': 'AU', 'regionCode': 'APAC', 'regionGroup': 'Asia Pacific', 'relatedAssets': ['AUDUSD', 'COPPER', 'DXY']},
-]
-
-TRADE_ROUTE_SEEDS: list[dict[str, Any]] = [
- {'id': 'hormuz', 'name': 'STRAIT OF HORMUZ', 'label': 'HORMUZ // 20% OIL', 'path': [[56.3, 26.6], [57.0, 24.5], [58.5, 22.0]], 'status': 'SHIPPING RISK ELEVATED', 'volume': '20% GLOBAL OIL', 'riskLevel': 'HIGH', 'impact': ['OIL', 'DXY', 'XAU'], 'regionCode': 'MENA', 'regionGroup': 'Middle East', 'keywords': ['HORMUZ', 'IRAN', 'TANKER', 'GULF']},
- {'id': 'suez', 'name': 'SUEZ CANAL', 'label': 'SUEZ // DISRUPTED', 'path': [[32.3, 30.7], [33.0, 29.0], [32.5, 27.0], [34.0, 24.0]], 'status': 'TRANSIT DELAYS', 'volume': '12% GLOBAL TRADE', 'riskLevel': 'HIGH', 'impact': ['BRENT', 'FREIGHT', 'EMFX'], 'regionCode': 'MENA', 'regionGroup': 'Middle East', 'keywords': ['SUEZ', 'RED SEA', 'CANAL', 'SHIPPING']},
- {'id': 'malacca', 'name': 'STRAIT OF MALACCA', 'label': 'MALACCA', 'path': [[104.0, 2.5], [105.0, 1.0], [103.5, 0.5]], 'status': 'OPEN / MONITORED', 'volume': 'ASIA ENERGY CORRIDOR', 'riskLevel': 'MED', 'impact': ['OIL', 'ASIA FX', 'FREIGHT'], 'regionCode': 'APAC', 'regionGroup': 'Asia', 'keywords': ['MALACCA', 'SINGAPORE', 'STRAIT', 'SHIPPING']},
- {'id': 'black-sea', 'name': 'BLACK SEA GRAIN', 'label': 'BLACK SEA GRAIN', 'path': [[30.5, 46.5], [31.5, 44.0], [34.0, 42.5]], 'status': 'EXPORT RISK ACTIVE', 'volume': 'GRAIN FLOWS', 'riskLevel': 'HIGH', 'impact': ['WHEAT', 'EURUSD', 'NATGAS'], 'regionCode': 'EMEA', 'regionGroup': 'Eastern Europe', 'keywords': ['BLACK SEA', 'ODESA', 'GRAIN', 'PORT']},
- {'id': 'taiwan-strait', 'name': 'TAIWAN STRAIT', 'label': 'TAIWAN STRAIT', 'path': [[120.5, 26.0], [120.8, 24.5], [121.0, 22.5]], 'status': 'NAVAL ACTIVITY WATCH', 'volume': 'SEMI / CONTAINER FLOW', 'riskLevel': 'HIGH', 'impact': ['SEMI', 'CNH', 'QQQ'], 'regionCode': 'APAC', 'regionGroup': 'Asia', 'keywords': ['TAIWAN', 'STRAIT', 'CHINA', 'NAVAL']},
-]
-
-FALLBACK_GEO_EVENTS: list[dict[str, Any]] = [
- {'id': 'geo-fallback-hormuz', 'title': 'Shipping insurers widen cover costs around Hormuz corridor', 'source': 'Macro Access Wire', 'lat': 26.6, 'lon': 56.9, 'tone': -7.2, 'date': '2026-04-08T06:00:00+00:00', 'url': 'https://api.gdeltproject.org/', 'affectedAssets': ['OIL', 'DXY', 'XAU'], 'classification': 'Shipping / Logistics', 'countryCode': 'IR', 'country': 'Iran', 'regionCode': 'MENA', 'regionGroup': 'Middle East'},
- {'id': 'geo-fallback-blacksea', 'title': 'Black Sea logistics remain strained after renewed port alerts', 'source': 'Macro Access Wire', 'lat': 45.1, 'lon': 31.3, 'tone': -6.4, 'date': '2026-04-08T05:10:00+00:00', 'url': 'https://api.gdeltproject.org/', 'affectedAssets': ['WHEAT', 'EURUSD', 'NATGAS'], 'classification': 'Shipping / Logistics', 'countryCode': 'UA', 'country': 'Ukraine', 'regionCode': 'EMEA', 'regionGroup': 'Eastern Europe'},
-]
-
-FALLBACK_MACRO_EVENTS: list[dict[str, Any]] = [
- {'id': 'macro-fallback-cpi', 'name': 'US CPI', 'country': 'United States', 'countryCode': 'US', 'lat': 38.9, 'lon': -95.0, 'date': '2026-04-10T12:30:00+00:00', 'forecast': 2.9, 'previous': 3.1, 'impactLevel': 'High', 'expectedReaction': 'Softer core should ease front-end yields and lean risk-on.', 'relatedAssets': ['SPX', 'DXY', 'XAU'], 'family': 'US CPI', 'category': 'Inflation'},
- {'id': 'macro-fallback-ecb', 'name': 'ECB Rate Decision', 'country': 'Euro Area', 'countryCode': 'EU', 'lat': 50.0, 'lon': 10.0, 'date': '2026-04-11T11:15:00+00:00', 'forecast': 3.5, 'previous': 3.5, 'impactLevel': 'High', 'expectedReaction': 'Guidance should drive EUR duration and bank beta.', 'relatedAssets': ['EURUSD', 'BUND', 'DAX'], 'family': 'ECB Rate Decision', 'category': 'Central bank'},
-]
-
 
 def _watch_context(user_id: str | None) -> dict[str, Any]:
  payload = {'symbols': set(), 'families': set(), 'regions': set(), 'currencies': set(), 'activeAlerts': 0}
@@ -648,82 +583,6 @@ def _build_regime_zones(regime_label: str, regime_confidence: float) -> tuple[li
   zone['geoboardModes'] = ['STANDARD', 'LIQUIDITY']
  return zones, {'layer': 'regime', 'state': 'derived', 'sourceType': 'derived', 'mode': 'derived', 'detail': 'Regional regime zones derived from dashboard regime state.'}
 
-def _base_links(*, event_id: str | None = None, event_slug: str | None = None, source_url: str | None = None) -> dict[str, Any]:
- return {'event': '/app/events/' + event_id if event_id else ('/app/events/' + event_slug if event_slug else None), 'calendar': '/app/macro-calendar', 'reactions': '/app/live-reactions', 'bias': '/app/market-bias', 'reports': '/app/reports', 'news': '/app/news', 'watchlists': '/app/watchlists', 'alerts': '/app/alerts', 'source': source_url}
-
-
-
-def _attach_feed_intelligence(item: dict[str, Any], feed_evaluation: dict[str, Any]) -> dict[str, Any]:
- source_meta = item.get('sourceMeta') if isinstance(item.get('sourceMeta'), dict) else {}
- ranking = item.get('ranking') if isinstance(item.get('ranking'), dict) else {}
- linked_refs = build_linked_references(
-  linked_assets=item.get('linkedAssetSymbols') or [],
-  linked_events=[item.get('linkedEventId')] if item.get('linkedEventId') else [],
-  linked_regions=[item.get('regionGroup'), item.get('regionCode')],
-  linked_news=list(item.get('relatedNewsIds') or []) + list(item.get('relatedNewsClusterIds') or []),
-  linked_reports=['weekly-macro-brief'],
-  linked_reactions=[item.get('feedType')],
- )
- fallback_reason = '' if str(source_meta.get('mode', 'fallback')) == 'live' else str(source_meta.get('note', ''))
- contract = build_intelligence_contract(
-  source=str(source_meta.get('label') or source_meta.get('providerKey') or item.get('sourceLayer') or 'geoboard'),
-  source_type=str(source_meta.get('sourceType') or 'derived'),
-  source_tier=str(source_meta.get('sourceTier') or 'secondary'),
-  source_url=source_meta.get('sourceUrl'),
-  mode=str(source_meta.get('mode') or 'derived'),
-  freshness=str(source_meta.get('freshness') or 'degraded'),
-  scores={
-   'importanceScore': float(ranking.get('importanceScore') or 0.0),
-   'urgencyScore': float(ranking.get('urgencyScore') or 0.0),
-   'confidenceScore': float(ranking.get('confidenceScore') or 0.0),
-   'marketRelevanceScore': float(ranking.get('marketRelevanceScore') or ranking.get('regimeRelevanceScore') or 0.0),
-   'deskRelevanceScore': float(ranking.get('deskRelevanceScore') or ranking.get('watchlistOverlapScore') or 0.0),
-   'rankScore': float(ranking.get('rankScore') or 0.0),
-   'rationale': list(ranking.get('rationale') or []),
-   'componentScores': dict(ranking.get('componentScores') or {}),
-  },
-  links=linked_refs,
-  derived_from=[item.get('sourceLayer'), item.get('sourceId')],
-  fallback_reason=fallback_reason,
-  evaluation=feed_evaluation,
- )
- enriched = dict(item)
- enriched['linkedAssets'] = linked_refs['linkedAssets']
- enriched['linkedEvents'] = linked_refs['linkedEvents']
- enriched['linkedRegions'] = linked_refs['linkedRegions']
- enriched['linkedNews'] = linked_refs['linkedNews']
- enriched['linkedReports'] = linked_refs['linkedReports']
- enriched['linkedReactions'] = linked_refs['linkedReactions']
- enriched['derivedFrom'] = contract['derivedFrom']
- enriched['fallbackReason'] = contract['fallbackReason']
- enriched['intelligence'] = contract
- return enriched
-def _feed_from_layers(geo_events: list[dict[str, Any]], macro_events: list[dict[str, Any]], central_banks: list[dict[str, Any]], trade_routes: list[dict[str, Any]], regime_zones: list[dict[str, Any]], active_mode: str, feed_evaluation: dict[str, Any]) -> list[dict[str, Any]]:
- feed = []
- for item in geo_events:
-  feed.append({'id': 'feed-geo-' + str(item['id']), 'feedType': 'GEO_RISK', 'title': str(item['title']), 'subtitle': str(item.get('classification', 'Geo risk')) + ' / ' + str(item.get('country', 'Global')), 'time': str(item['date']), 'impactLine': ' / '.join(item.get('affectedAssets', [])[:4]), 'whyItMatters': str(item.get('whyItMatters', '')), 'lat': float(item['lat']), 'lon': float(item['lon']), 'sourceId': str(item['id']), 'sourceLayer': 'geo', 'regionCode': str(item.get('regionCode', 'GL')), 'regionGroup': str(item.get('regionGroup', 'Global')), 'linkedEventId': item.get('linkedEventId'), 'linkedEventSlug': item.get('linkedEventSlug'), 'relatedNewsClusterIds': item.get('relatedNewsClusterIds', []), 'relatedNewsIds': item.get('relatedNewsIds', []), 'linkedAssetSymbols': item.get('affectedAssets', []), 'tags': [str(item.get('classification', 'Geo risk')), str(item.get('sourceMeta', {}).get('sourceType', 'discovery'))], 'geoboardModes': item.get('geoboardModes', ['STANDARD', 'RISK']), 'links': {**_base_links(event_id=item.get('linkedEventId'), event_slug=item.get('linkedEventSlug'), source_url=item.get('url')), 'news': '/app/news?asset=' + quote(item.get('affectedAssets', ['DXY'])[0])}, 'sourceMeta': item['sourceMeta'], 'ranking': item['ranking']})
- for item in macro_events:
-  feed.append({'id': 'feed-macro-' + str(item['id']), 'feedType': 'MACRO_CATALYST', 'title': str(item['name']).upper(), 'subtitle': str(item.get('family') or item.get('country') or 'Macro catalyst'), 'time': str(item['date']), 'impactLine': ' / '.join(item.get('relatedAssets', [])[:4]), 'whyItMatters': str(item.get('whyItMatters', '')), 'lat': float(item['lat']), 'lon': float(item['lon']), 'sourceId': str(item['id']), 'sourceLayer': 'macro', 'regionCode': str(item.get('regionCode', 'GL')), 'regionGroup': str(item.get('regionGroup', 'Global')), 'linkedEventId': item.get('linkedEventId'), 'linkedEventSlug': item.get('linkedEventSlug'), 'relatedNewsClusterIds': item.get('relatedNewsClusterIds', []), 'relatedNewsIds': item.get('relatedNewsIds', []), 'linkedAssetSymbols': item.get('relatedAssets', []), 'tags': [str(item.get('category', 'Macro')), str(item.get('horizonTag', 'later'))], 'geoboardModes': item.get('geoboardModes', ['STANDARD', 'LIQUIDITY']), 'links': {**_base_links(event_id=item.get('linkedEventId'), event_slug=item.get('linkedEventSlug')), 'calendar': item.get('linkedCalendarPath') or '/app/macro-calendar', 'reactions': item.get('linkedReactionPath') or '/app/live-reactions', 'bias': item.get('linkedBiasPath') or '/app/market-bias', 'reports': item.get('linkedReportsPath') or '/app/reports', 'news': item.get('linkedNewsPath') or '/app/news'}, 'sourceMeta': item['sourceMeta'], 'ranking': item['ranking']})
- for item in central_banks:
-  feed.append({'id': 'feed-cb-' + str(item['id']), 'feedType': 'CENTRAL_BANK', 'title': str(item['name']) + ' // ' + str(item['bias']), 'subtitle': str(item.get('country', 'Central bank node')), 'time': str(item['nextMeeting']) + 'T00:00:00+00:00', 'impactLine': str(item.get('signal', '')), 'whyItMatters': str(item.get('whyItMatters', '')), 'lat': float(item['lat']), 'lon': float(item['lon']), 'sourceId': str(item['id']), 'sourceLayer': 'cb', 'regionCode': str(item.get('regionCode', 'GL')), 'regionGroup': str(item.get('regionGroup', 'Global')), 'linkedEventId': item.get('linkedEventId'), 'linkedEventSlug': item.get('linkedEventSlug'), 'relatedNewsClusterIds': item.get('relatedNewsClusterIds', []), 'relatedNewsIds': [], 'linkedAssetSymbols': item.get('relatedAssets', []), 'tags': ['Central bank', str(item.get('sourceMeta', {}).get('sourceType', 'static'))], 'geoboardModes': item.get('geoboardModes', ['STANDARD', 'LIQUIDITY', 'CENT.BANKS']), 'links': {**_base_links(event_id=item.get('linkedEventId'), event_slug=item.get('linkedEventSlug')), 'news': item.get('linkedNewsPath') or '/app/news?topic=Central%20banks', 'reactions': item.get('linkedReactionPath') or '/app/live-reactions', 'bias': item.get('linkedBiasPath') or '/app/market-bias'}, 'sourceMeta': item['sourceMeta'], 'ranking': item['ranking']})
- for item in trade_routes:
-  feed.append({'id': 'feed-trade-' + str(item['id']), 'feedType': 'TRADE_ROUTE', 'title': str(item['name']), 'subtitle': str(item.get('riskLevel', 'Route risk')) + ' / ' + str(item.get('regionGroup', 'Global')), 'time': utc_now().isoformat(), 'impactLine': ' / '.join(item.get('impact', [])[:4]), 'whyItMatters': str(item.get('whyItMatters', '')), 'lat': float(item['lat']), 'lon': float(item['lon']), 'sourceId': str(item['id']), 'sourceLayer': 'trade', 'regionCode': str(item.get('regionCode', 'GL')), 'regionGroup': str(item.get('regionGroup', 'Global')), 'linkedEventId': None, 'linkedEventSlug': None, 'relatedNewsClusterIds': item.get('relatedNewsClusterIds', []), 'relatedNewsIds': [], 'linkedAssetSymbols': item.get('impact', []), 'tags': ['Trade route', str(item.get('riskLevel', 'MED'))], 'geoboardModes': item.get('geoboardModes', ['STANDARD', 'RISK']), 'links': {**_base_links(), 'news': item.get('linkedNewsPath') or '/app/news', 'alerts': item.get('linkedAlertsPath') or '/app/alerts'}, 'sourceMeta': item['sourceMeta'], 'ranking': item['ranking']})
- for zone in regime_zones:
-  score = 0.58 if zone['regime'] == 'RISK-OFF' else 0.52 if zone['regime'] == 'RISK-ON' else 0.46
-  ranking = rank_metadata(GeoboardRankInputs(urgency_score=0.40, importance_score=0.54, confidence_score=_clamp(float(zone['confidence']) / 100.0), recency_score=0.42, source_quality_score=source_quality_score('derived', 'primary', 'derived'), watchlist_overlap_score=0.22, catalyst_proximity_score=0.30, region_significance_score=0.58, regime_relevance_score=score), ['Derived regional regime context.'])
-  feed.append({'id': 'feed-regime-' + str(zone['id']).lower(), 'feedType': 'REGIME_CONTEXT', 'title': 'REGIME // ' + str(zone['label']) + ' // ' + str(zone['regime']), 'subtitle': 'Derived dashboard regime zone', 'time': utc_now().isoformat(), 'impactLine': 'CONF ' + str(zone['confidence']) + '%', 'whyItMatters': str(zone.get('whyItMatters', '')), 'lat': float(zone['center'][1]), 'lon': float(zone['center'][0]), 'sourceId': str(zone['id']), 'sourceLayer': 'regime', 'regionCode': str(zone['id']), 'regionGroup': str(zone['label']), 'linkedEventId': None, 'linkedEventSlug': None, 'relatedNewsClusterIds': [], 'relatedNewsIds': [], 'linkedAssetSymbols': zone.get('relatedAssets', []), 'tags': ['Regime', zone['regime']], 'geoboardModes': zone.get('geoboardModes', ['STANDARD', 'LIQUIDITY']), 'links': {**_base_links(), 'bias': '/app/market-bias'}, 'sourceMeta': zone['sourceMeta'], 'ranking': ranking})
- enriched_feed = [_attach_feed_intelligence(item, feed_evaluation) for item in feed]
- filtered = [item for item in enriched_feed if active_mode in item.get('geoboardModes', ['STANDARD']) or active_mode == 'STANDARD']
- filtered.sort(key=lambda item: (float(item['ranking']['rankScore']), item['time']), reverse=True)
- return filtered[:45]
-
-
-def _mode_state(active_mode: str, source_status: list[dict[str, Any]]) -> dict[str, Any]:
- normalized = active_mode if active_mode in {'STANDARD', 'RISK', 'LIQUIDITY', 'CENT.BANKS'} else 'STANDARD'
- fallback = any(item['state'] in {'fallback', 'degraded'} for item in source_status)
- return {'activeMode': normalized, 'availableModes': ['STANDARD', 'RISK', 'LIQUIDITY', 'CENT.BANKS'], 'fallback': fallback, 'sourceHonesty': 'Discovery rows are ranked signals, static overlays remain curated, and derived zones are dashboard-projected context.'}
-
-
 def geoboard_payload(user: dict[str, Any] | None = None, active_mode: str = 'STANDARD') -> dict[str, Any]:
  user_id = str(user.get('id')) if isinstance(user, dict) and user.get('id') else None
  mode = active_mode if active_mode in {'STANDARD', 'RISK', 'LIQUIDITY', 'CENT.BANKS'} else 'STANDARD'
@@ -801,13 +660,3 @@ def fetch_macro_events(user_id: str | None = None) -> list[dict[str, Any]]:
  watch_context = _watch_context(user_id)
  events, _ = _build_macro_events(now, watch_context, [], 'NEUTRAL')
  return events
-
-
-
-
-
-
-
-
-
-

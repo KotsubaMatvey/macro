@@ -22,9 +22,9 @@
 ## Intelligence core
 - intelligence_entities: canonical source-aware entities across surfaces (news/event/asset/region/geoboard signal/cluster)
 - intelligence_scores: unified importance/urgency/confidence/market-relevance/desk-relevance/rank snapshots
-- intelligence_links: explicit typed edges (linked_asset, linked_event, linked_region, linked_news, linked_news_cluster)
+- intelligence_links: explicit typed edges (linked_asset, linked_event, linked_region, linked_news, linked_news_cluster, linked_report, linked_reaction)
 - signal_snapshots: replay-safe point-in-time snapshots of ranked feed states
-- signal_evaluations: replay-safe quality metrics (coverage, direction accuracy, calibration, ranking usefulness, source-quality alignment)
+- signal_evaluations: replay-safe quality metrics (coverage, direction accuracy, calibration, ranking usefulness, source-quality alignment) with explicit outcome-grounding fields (`outcome_coverage`, `outcome_sample_size`, `realization_horizon`, `outcome_grounded`, `snapshot_ref`) when realized linkage data exists.
 
 ## Core contract semantics
 - source/sourceType/sourceTier/sourceUrl are preserved on intelligence objects

@@ -51,3 +51,7 @@ Each feed item carries direct links into:
 - Static overlays stay marked static/curated.
 - Derived overlays stay marked derived.
 - Fallback state is layer-specific and visible.
+
+## Evaluation
+- Geoboard ranking evaluation remains replay-labeled by default.
+- When signals are explicitly linked to scheduled events that have stored reaction windows, evaluation metadata records outcome coverage and realization horizon instead of hiding proxy-only limits.

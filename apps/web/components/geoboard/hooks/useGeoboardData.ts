@@ -5,9 +5,13 @@ import useSWR from 'swr'
 import { FALLBACK_GEOBOARD_PAYLOAD } from '../data'
 import type { GeoboardMode, GeoboardPayload } from '../types'
 
+const FEED_TIMEOUT_MS = 15000
+
 const fetcher = async function fetcher<T>(url: string): Promise<T | null> {
+ const controller = new AbortController()
+ const timer = window.setTimeout(function () { controller.abort() }, FEED_TIMEOUT_MS)
  try {
-  const response = await fetch(url, { credentials: 'include' })
+  const response = await fetch(url, { credentials: 'include', signal: controller.signal })
   if (!response.ok) {
    console.error('Geoboard request failed', url, response.status)
    return null
@@ -19,8 +23,14 @@ const fetcher = async function fetcher<T>(url: string): Promise<T | null> {
    return null
   }
  } catch (error) {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+   console.warn('Geoboard request timed out', url, FEED_TIMEOUT_MS)
+   return null
+  }
   console.error('Geoboard network request failed', url, error)
   return null
+ } finally {
+  window.clearTimeout(timer)
  }
 }
 

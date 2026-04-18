@@ -13,6 +13,7 @@
 - Provider failures degrade honestly: the dashboard keeps rendering with fallback/degraded metadata instead of pretending to be live.
 
 ## Data flow
+- Intelligence core modules are split by responsibility: News (`news_core/pipeline.py`, `news_core/feed.py`), Geoboard (`geoboard_core/constants.py`, `geoboard_core/feed.py`), contracts/semantics (`intelligence_contracts.py`, `intelligence_semantics.py`), graph materialization (`entity_graph.py`), and evaluation (`evaluation_service.py`, `evaluation_metrics.py`).
 1. User signs in via API and receives a session cookie.
 2. Web server components call the API with that cookie.
 3. API resolves session, applies role checks, and returns workstation/admin/dashboard payloads.

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import Link from 'next/link'
 import { createElement as h, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -8,11 +8,11 @@ import { postJson } from '@/lib/client/api'
 import { surfaces } from '@macroaccess/ui'
 
 function field(label: string, value: string, setValue: (value: string) => void, type = 'text') {
-  return h('label', { className: 'grid gap-2 text-sm text-slate-300' }, [h('span', { key: 'label' }, label), h('input', { key: 'input', type, value, onChange: function (event: any) { setValue(event.target.value) }, className: surfaces.input })])
+  return h('label', { className: 'grid gap-2 text-sm text-slate-300' }, h('span', null, label), h('input', { type, value, onChange: function (event: any) { setValue(event.target.value) }, className: surfaces.input }))
 }
 
 function authShell(title: string, children: any, footer: any = null) {
-  return h('main', { className: 'flex min-h-screen items-center justify-center bg-[var(--bg)] px-6 py-8' }, h(Panel, { title, className: 'w-full max-w-md' }, [children, footer]))
+  return h('main', { className: 'flex min-h-screen items-center justify-center bg-[var(--bg)] px-6 py-8' }, footer ? h(Panel, { title, className: 'w-full max-w-md' }, h('div', null, children), h('div', null, footer)) : h(Panel, { title, className: 'w-full max-w-md' }, h('div', null, children)))
 }
 
 function asString(value: unknown) {
@@ -34,7 +34,7 @@ export function SignInForm() {
       setError(exc.message)
     }
   }
-  return authShell('Sign in', h('div', { className: 'grid gap-4' }, [field('Email', email, setEmail), field('Password', password, setPassword, 'password'), error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'button', onClick: submit, className: surfaces.button }, 'Open workstation')]), h('div', { className: 'mt-4 flex justify-between text-sm text-slate-500' }, [h(Link, { key: 'signup', href: '/sign-up' }, 'Create account'), h(Link, { key: 'reset', href: '/reset-password' }, 'Reset password')]))
+  return authShell('Sign in', h('div', { className: 'grid gap-4' }, field('Email', email, setEmail), field('Password', password, setPassword, 'password'), error ? h('div', { className: 'text-sm text-rose-300' }, error) : null, h('button', { onClick: submit, className: surfaces.button }, 'Open workstation')), h('div', { className: 'mt-4 flex justify-between text-sm text-slate-500' }, h(Link, { href: '/sign-up' }, 'Create account'), h(Link, { href: '/reset-password' }, 'Reset password')))
 }
 
 export function SignUpForm() {
@@ -56,7 +56,7 @@ export function SignUpForm() {
       setError(exc.message)
     }
   }
-  return authShell('Create account', h('div', { className: 'grid gap-4' }, [field('Name', name, setName), field('Email', email, setEmail), field('Password', password, setPassword, 'password'), message ? h('div', { key: 'message', className: 'text-sm text-emerald-300' }, message) : null, error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'button', onClick: submit, className: surfaces.button }, 'Create account')]), h('div', { className: 'mt-4 text-sm text-slate-500' }, h(Link, { href: '/sign-in' }, 'Back to sign in')))
+  return authShell('Create account', h('div', { className: 'grid gap-4' }, field('Name', name, setName), field('Email', email, setEmail), field('Password', password, setPassword, 'password'), message ? h('div', { className: 'text-sm text-emerald-300' }, message) : null, error ? h('div', { className: 'text-sm text-rose-300' }, error) : null, h('button', { onClick: submit, className: surfaces.button }, 'Create account')), h('div', { className: 'mt-4 text-sm text-slate-500' }, h(Link, { href: '/sign-in' }, 'Back to sign in')))
 }
 
 export function VerifyEmailForm() {
@@ -75,7 +75,7 @@ export function VerifyEmailForm() {
       setError(exc.message)
     }
   }
-  return authShell('Verify email', h('div', { className: 'grid gap-4' }, [field('Verification token', token, setToken), message ? h('div', { key: 'message', className: 'text-sm text-emerald-300' }, message) : null, error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'button', onClick: submit, className: surfaces.button }, 'Verify')]))
+  return authShell('Verify email', h('div', { className: 'grid gap-4' }, field('Verification token', token, setToken), message ? h('div', { className: 'text-sm text-emerald-300' }, message) : null, error ? h('div', { className: 'text-sm text-rose-300' }, error) : null, h('button', { onClick: submit, className: surfaces.button }, 'Verify')))
 }
 
 export function ResetPasswordForm() {
@@ -104,7 +104,7 @@ export function ResetPasswordForm() {
       setError(exc.message)
     }
   }
-  return authShell('Reset password', h('div', { className: 'grid gap-4' }, [field('Email', email, setEmail), h('button', { key: 'request', onClick: requestReset, className: surfaces.subtleButton }, 'Request reset token'), field('Token', token, setToken), field('New password', password, setPassword, 'password'), message ? h('div', { key: 'message', className: 'text-sm text-emerald-300' }, message) : null, error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'complete', onClick: completeReset, className: surfaces.button }, 'Update password')]))
+  return authShell('Reset password', h('div', { className: 'grid gap-4' }, field('Email', email, setEmail), h('button', { onClick: requestReset, className: surfaces.subtleButton }, 'Request reset token'), field('Token', token, setToken), field('New password', password, setPassword, 'password'), message ? h('div', { className: 'text-sm text-emerald-300' }, message) : null, error ? h('div', { className: 'text-sm text-rose-300' }, error) : null, h('button', { onClick: completeReset, className: surfaces.button }, 'Update password')))
 }
 
 export function OnboardingForm() {
@@ -124,7 +124,5 @@ export function OnboardingForm() {
       setError(exc.message)
     }
   }
-  return authShell('Onboarding', h('div', { className: 'grid gap-4' }, [field('Desk', desk, setDesk), field('Timezone', timezone, setTimezone), field('Region', region, setRegion), field('Density', density, setDensity), field('Bio', bio, setBio), error ? h('div', { key: 'error', className: 'text-sm text-rose-300' }, error) : null, h('button', { key: 'button', onClick: submit, className: surfaces.button }, 'Save preferences')]))
+  return authShell('Onboarding', h('div', { className: 'grid gap-4' }, field('Desk', desk, setDesk), field('Timezone', timezone, setTimezone), field('Region', region, setRegion), field('Density', density, setDensity), field('Bio', bio, setBio), error ? h('div', { className: 'text-sm text-rose-300' }, error) : null, h('button', { onClick: submit, className: surfaces.button }, 'Save preferences')))
 }
-
-

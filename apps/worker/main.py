@@ -182,24 +182,68 @@ def _refresh_calendar_events(job_type, payload):
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
 
 
-def _ingest_official_news(job_type, payload):
- _invalidate_news_provider_cache(include_official=True, include_discovery=False)
- ingest_news_sources(include_official=True, include_discovery=False)
- cluster_news_items_service()
- enrich_news_items_service(limit=240)
- rebuild_news_rankings_service(lookback_hours=120)
- materialize_news_links(limit=280)
+def _run_news_pipeline(
+ job_type,
+ payload,
+ *,
+ include_official,
+ include_discovery,
+ invalidate_feeds=True,
+ ingest=True,
+ cluster=True,
+ enrich=True,
+ score=True,
+ materialize_limit=320,
+ materialize_events=False,
+ recompute_evaluation=False,
+):
+ if invalidate_feeds:
+  _invalidate_news_provider_cache(include_official=include_official, include_discovery=include_discovery)
+ if ingest:
+  ingest_news_sources(include_official=include_official, include_discovery=include_discovery)
+ if cluster:
+  cluster_news_items_service()
+ if enrich:
+  enrich_news_items_service(limit=240)
+ if score:
+  rebuild_news_rankings_service(lookback_hours=120)
+ if materialize_limit and materialize_limit > 0:
+  materialize_news_links(limit=materialize_limit)
+ if materialize_events:
+  materialize_event_links(limit=360)
+ if recompute_evaluation:
+  recompute_signal_evaluations_service()
  _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+
+
+def _ingest_official_news(job_type, payload):
+ _run_news_pipeline(
+  job_type,
+  payload,
+  include_official=True,
+  include_discovery=False,
+  invalidate_feeds=True,
+  ingest=True,
+  cluster=True,
+  enrich=True,
+  score=True,
+  materialize_limit=280,
+ )
 
 
 def _ingest_discovery_news(job_type, payload):
- _invalidate_news_provider_cache(include_official=False, include_discovery=True)
- ingest_news_sources(include_official=False, include_discovery=True)
- cluster_news_items_service()
- enrich_news_items_service(limit=240)
- rebuild_news_rankings_service(lookback_hours=120)
- materialize_news_links(limit=280)
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _run_news_pipeline(
+  job_type,
+  payload,
+  include_official=False,
+  include_discovery=True,
+  invalidate_feeds=True,
+  ingest=True,
+  cluster=True,
+  enrich=True,
+  score=True,
+  materialize_limit=280,
+ )
 
 
 def _cluster_news_items(job_type, payload):
@@ -213,10 +257,18 @@ def _enrich_news_items(job_type, payload):
 
 
 def _normalize_news_entities(job_type, payload):
- cluster_news_items_service()
- enrich_news_items_service(limit=240)
- materialize_news_links(limit=320)
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _run_news_pipeline(
+  job_type,
+  payload,
+  include_official=True,
+  include_discovery=True,
+  invalidate_feeds=False,
+  ingest=False,
+  cluster=True,
+  enrich=True,
+  score=False,
+  materialize_limit=320,
+ )
 
 
 def _link_news_to_events(job_type, payload):
@@ -226,27 +278,50 @@ def _link_news_to_events(job_type, payload):
 
 
 def _score_news_items(job_type, payload):
- rebuild_news_rankings_service(lookback_hours=120)
- materialize_news_links(limit=320)
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _run_news_pipeline(
+  job_type,
+  payload,
+  include_official=True,
+  include_discovery=True,
+  invalidate_feeds=False,
+  ingest=False,
+  cluster=False,
+  enrich=False,
+  score=True,
+  materialize_limit=320,
+ )
 
 
 def _refresh_news_cache(job_type, payload):
- _invalidate_news_provider_cache(include_official=True, include_discovery=True)
- ingest_news_sources(include_official=True, include_discovery=True)
- cluster_news_items_service()
- enrich_news_items_service(limit=240)
- rebuild_news_rankings_service(lookback_hours=120)
- materialize_news_links(limit=360)
- materialize_event_links(limit=360)
- recompute_signal_evaluations_service()
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _run_news_pipeline(
+  job_type,
+  payload,
+  include_official=True,
+  include_discovery=True,
+  invalidate_feeds=True,
+  ingest=True,
+  cluster=True,
+  enrich=True,
+  score=True,
+  materialize_limit=360,
+  materialize_events=True,
+  recompute_evaluation=True,
+ )
 
 
 def _rebuild_news_rankings(job_type, payload):
- rebuild_news_rankings_service(lookback_hours=120)
- materialize_news_links(limit=320)
- _refresh_users(_job_users(job_type, payload), refresh_workstation=True, refresh_live_dashboard=True)
+ _run_news_pipeline(
+  job_type,
+  payload,
+  include_official=True,
+  include_discovery=True,
+  invalidate_feeds=False,
+  ingest=False,
+  cluster=False,
+  enrich=False,
+  score=True,
+  materialize_limit=320,
+ )
 
 
 def _score_geoboard_signals(job_type, payload):

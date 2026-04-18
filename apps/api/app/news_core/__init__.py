@@ -1,14 +1,10 @@
-from __future__ import annotations
-
-from .news_core import (
+from .feed import dashboard_news_snapshot, list_news_feed, list_news_for_workstation
+from .pipeline import (
     DISCOVERY_NEWS_PROVIDERS,
     OFFICIAL_NEWS_PROVIDERS,
     cluster_news_items,
-    dashboard_news_snapshot,
     enrich_news_items,
     ingest_news_sources,
-    list_news_feed,
-    list_news_for_workstation,
     rebuild_news_rankings,
 )
 

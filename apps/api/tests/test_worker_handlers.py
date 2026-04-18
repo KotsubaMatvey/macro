@@ -281,3 +281,43 @@ def test_recompute_signal_evaluations_refreshes_scoped_users(monkeypatch):
 
     assert ('eval',) in calls
     assert ('refresh', ['user-demo'], True, True) in calls
+
+def test_run_news_pipeline_stage_toggles(monkeypatch):
+    worker = load_worker_module()
+    calls = []
+
+    monkeypatch.setattr(worker, '_invalidate_news_provider_cache', lambda include_official=True, include_discovery=True: calls.append(('invalidate', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'ingest_news_sources', lambda include_official=True, include_discovery=True, item_limit=12: calls.append(('ingest', include_official, include_discovery)))
+    monkeypatch.setattr(worker, 'cluster_news_items_service', lambda: calls.append(('cluster',)))
+    monkeypatch.setattr(worker, 'enrich_news_items_service', lambda limit=240: calls.append(('enrich', limit)))
+    monkeypatch.setattr(worker, 'rebuild_news_rankings_service', lambda lookback_hours=120: calls.append(('score', lookback_hours)))
+    monkeypatch.setattr(worker, 'materialize_news_links', lambda limit=320: calls.append(('materialize_news', limit)))
+    monkeypatch.setattr(worker, 'materialize_event_links', lambda limit=360: calls.append(('materialize_events', limit)))
+    monkeypatch.setattr(worker, 'recompute_signal_evaluations_service', lambda: calls.append(('eval',)))
+    monkeypatch.setattr(worker, '_job_users', lambda job_type, payload: [demo_user()])
+    monkeypatch.setattr(worker, '_refresh_users', lambda users, refresh_workstation=False, refresh_live_dashboard=False: calls.append(('refresh', refresh_workstation, refresh_live_dashboard)))
+
+    worker._run_news_pipeline(
+        'normalize_news_entities',
+        {'userId': 'user-demo'},
+        include_official=True,
+        include_discovery=False,
+        invalidate_feeds=False,
+        ingest=False,
+        cluster=True,
+        enrich=True,
+        score=False,
+        materialize_limit=320,
+        materialize_events=False,
+        recompute_evaluation=False,
+    )
+
+    assert ('invalidate', True, False) not in calls
+    assert ('ingest', True, False) not in calls
+    assert ('cluster',) in calls
+    assert ('enrich', 240) in calls
+    assert ('score', 120) not in calls
+    assert ('materialize_news', 320) in calls
+    assert ('materialize_events', 360) not in calls
+    assert ('eval',) not in calls
+    assert ('refresh', True, True) in calls

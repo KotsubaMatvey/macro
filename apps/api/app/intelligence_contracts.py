@@ -1,61 +1,16 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Iterable
 
-from .intelligence_scoring import clamp01
-
-VALID_SOURCE_TYPES = {"official", "discovery", "derived", "static", "fallback", "seeded"}
-VALID_SOURCE_TIERS = {"primary", "secondary"}
-VALID_MODES = {"live", "demo", "fallback", "static", "derived", "mixed", "replay"}
-VALID_FRESHNESS = {"fresh", "aging", "stale", "degraded"}
-
-
-def _normalize_text(value: object) -> str:
-    return str(value or "").strip()
-
-
-def normalize_source_type(value: object) -> str:
-    normalized = _normalize_text(value).lower()
-    if normalized in VALID_SOURCE_TYPES:
-        return normalized
-    return "discovery"
-
-
-def normalize_source_tier(value: object) -> str:
-    normalized = _normalize_text(value).lower()
-    if normalized in VALID_SOURCE_TIERS:
-        return normalized
-    return "secondary"
-
-
-def normalize_mode(value: object) -> str:
-    normalized = _normalize_text(value).lower()
-    if normalized in VALID_MODES:
-        return normalized
-    return "fallback"
-
-
-def normalize_freshness(value: object, *, mode: str = "fallback") -> str:
-    normalized = _normalize_text(value).lower()
-    if normalized in VALID_FRESHNESS:
-        return normalized
-    if mode in {"demo", "fallback", "derived", "static"}:
-        return "degraded"
-    return "fresh"
-
-
-def _uniq(values: Iterable[object]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        item = _normalize_text(value)
-        if not item:
-            continue
-        if item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
+from .intelligence_semantics import (
+    normalize_freshness,
+    normalize_mode,
+    normalize_score,
+    normalize_source_tier,
+    normalize_source_type,
+    normalize_text,
+    uniq,
+)
 
 
 def build_linked_references(
@@ -68,12 +23,12 @@ def build_linked_references(
     linked_reactions: Iterable[object] = (),
 ) -> dict:
     return {
-        "linkedAssets": _uniq(linked_assets),
-        "linkedEvents": _uniq(linked_events),
-        "linkedRegions": _uniq(linked_regions),
-        "linkedNews": _uniq(linked_news),
-        "linkedReports": _uniq(linked_reports),
-        "linkedReactions": _uniq(linked_reactions),
+        "linkedAssets": uniq(linked_assets),
+        "linkedEvents": uniq(linked_events),
+        "linkedRegions": uniq(linked_regions),
+        "linkedNews": uniq(linked_news),
+        "linkedReports": uniq(linked_reports),
+        "linkedReactions": uniq(linked_reactions),
     }
 
 
@@ -92,22 +47,71 @@ def build_evaluation_metadata(
     source_quality_alignment: float | None = None,
     mode: str = "replay",
     note: str = "",
+    outcome_coverage: float | None = None,
+    outcome_sample_size: int | None = None,
+    realization_horizon: str = "",
+    outcome_grounded: bool | None = None,
+    snapshot_ref: str = "",
 ) -> dict:
     return {
-        "surface": _normalize_text(surface),
-        "signalType": _normalize_text(signal_type),
-        "signalRef": _normalize_text(signal_ref),
+        "surface": normalize_text(surface),
+        "signalType": normalize_text(signal_type),
+        "signalRef": normalize_text(signal_ref),
         "sampleSize": max(0, int(sample_size or 0)),
-        "coverage": round(clamp01(float(coverage)), 4) if coverage is not None else None,
-        "directionAccuracy": round(clamp01(float(direction_accuracy)), 4) if direction_accuracy is not None else None,
+        "coverage": normalize_score(coverage) if coverage is not None else None,
+        "directionAccuracy": normalize_score(direction_accuracy) if direction_accuracy is not None else None,
         "magnitudeError": float(magnitude_error) if magnitude_error is not None else None,
-        "falsePositiveRate": round(clamp01(float(false_positive_rate)), 4) if false_positive_rate is not None else None,
-        "calibrationQuality": round(clamp01(float(calibration)), 4) if calibration is not None else None,
-        "rankingUsefulness": round(clamp01(float(ranking_usefulness)), 4) if ranking_usefulness is not None else None,
-        "sourceQualityAlignment": round(clamp01(float(source_quality_alignment)), 4) if source_quality_alignment is not None else None,
+        "falsePositiveRate": normalize_score(false_positive_rate) if false_positive_rate is not None else None,
+        "calibrationQuality": normalize_score(calibration) if calibration is not None else None,
+        "rankingUsefulness": normalize_score(ranking_usefulness) if ranking_usefulness is not None else None,
+        "sourceQualityAlignment": normalize_score(source_quality_alignment) if source_quality_alignment is not None else None,
         "mode": normalize_mode(mode),
-        "note": _normalize_text(note),
+        "note": normalize_text(note),
+        "outcomeCoverage": normalize_score(outcome_coverage) if outcome_coverage is not None else None,
+        "outcomeSampleSize": max(0, int(outcome_sample_size or 0)) if outcome_sample_size is not None else None,
+        "realizationHorizon": normalize_text(realization_horizon),
+        "outcomeGrounded": bool(outcome_grounded) if outcome_grounded is not None else None,
+        "snapshotRef": normalize_text(snapshot_ref),
     }
+
+
+def _normalize_evaluation(
+    evaluation: dict | None,
+    *,
+    fallback_surface: str = "",
+    fallback_signal_type: str = "",
+    fallback_signal_ref: str = "",
+    fallback_mode: str = "replay",
+) -> dict:
+    if not isinstance(evaluation, dict):
+        return build_evaluation_metadata(
+            surface=fallback_surface,
+            signal_type=fallback_signal_type,
+            signal_ref=fallback_signal_ref,
+            mode=fallback_mode,
+            note="No evaluation history yet.",
+        )
+
+    return build_evaluation_metadata(
+        surface=str(evaluation.get("surface") or fallback_surface),
+        signal_type=str(evaluation.get("signalType") or fallback_signal_type),
+        signal_ref=str(evaluation.get("signalRef") or fallback_signal_ref),
+        sample_size=int(evaluation.get("sampleSize") or 0),
+        coverage=evaluation.get("coverage"),
+        direction_accuracy=evaluation.get("directionAccuracy"),
+        magnitude_error=evaluation.get("magnitudeError"),
+        false_positive_rate=evaluation.get("falsePositiveRate"),
+        calibration=evaluation.get("calibrationQuality"),
+        ranking_usefulness=evaluation.get("rankingUsefulness"),
+        source_quality_alignment=evaluation.get("sourceQualityAlignment"),
+        mode=str(evaluation.get("mode") or fallback_mode),
+        note=str(evaluation.get("note") or ""),
+        outcome_coverage=evaluation.get("outcomeCoverage"),
+        outcome_sample_size=evaluation.get("outcomeSampleSize"),
+        realization_horizon=str(evaluation.get("realizationHorizon") or ""),
+        outcome_grounded=evaluation.get("outcomeGrounded"),
+        snapshot_ref=str(evaluation.get("snapshotRef") or ""),
+    )
 
 
 def build_intelligence_contract(
@@ -126,20 +130,26 @@ def build_intelligence_contract(
 ) -> dict:
     normalized_mode = normalize_mode(mode)
     normalized_freshness = normalize_freshness(freshness, mode=normalized_mode)
+
+    normalized_source = normalize_text(source) or "unknown-source"
+    normalized_fallback_reason = normalize_text(fallback_reason)
+    if normalized_mode == "live":
+        normalized_fallback_reason = ""
+
     return {
-        "source": _normalize_text(source),
+        "source": normalized_source,
         "sourceType": normalize_source_type(source_type),
-        "sourceUrl": _normalize_text(source_url) or None,
+        "sourceUrl": normalize_text(source_url) or None,
         "sourceTier": normalize_source_tier(source_tier),
         "mode": normalized_mode,
         "freshness": normalized_freshness,
-        "importance": float(scores.get("importanceScore") or 0.0),
-        "urgency": float(scores.get("urgencyScore") or 0.0),
-        "confidence": float(scores.get("confidenceScore") or 0.0),
-        "marketRelevance": float(scores.get("marketRelevanceScore") or 0.0),
-        "deskRelevance": float(scores.get("deskRelevanceScore") or 0.0),
-        "rankScore": float(scores.get("rankScore") or 0.0),
-        "scoreRationale": list(scores.get("rationale") or []),
+        "importance": normalize_score(scores.get("importanceScore")),
+        "urgency": normalize_score(scores.get("urgencyScore")),
+        "confidence": normalize_score(scores.get("confidenceScore")),
+        "marketRelevance": normalize_score(scores.get("marketRelevanceScore")),
+        "deskRelevance": normalize_score(scores.get("deskRelevanceScore")),
+        "rankScore": normalize_score(scores.get("rankScore")),
+        "scoreRationale": [normalize_text(item) for item in list(scores.get("rationale") or []) if normalize_text(item)],
         "scoreComponents": dict(scores.get("componentScores") or {}),
         "linkedAssets": list(links.get("linkedAssets") or []),
         "linkedEvents": list(links.get("linkedEvents") or []),
@@ -147,7 +157,10 @@ def build_intelligence_contract(
         "linkedNews": list(links.get("linkedNews") or []),
         "linkedReports": list(links.get("linkedReports") or []),
         "linkedReactions": list(links.get("linkedReactions") or []),
-        "derivedFrom": _uniq(derived_from),
-        "fallbackReason": _normalize_text(fallback_reason),
-        "evaluation": evaluation or build_evaluation_metadata(surface="", signal_type="", signal_ref="", mode="replay"),
+        "derivedFrom": uniq(derived_from),
+        "fallbackReason": normalized_fallback_reason,
+        "evaluation": _normalize_evaluation(
+            evaluation,
+            fallback_mode="replay" if normalized_mode == "live" else normalized_mode,
+        ),
     }

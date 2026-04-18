@@ -17,6 +17,18 @@ def _entity_id(entity_type: str, ref_id: str) -> str:
     return "ient-" + _hash(entity_type, ref_id)
 
 
+def _unique_refs(values: Iterable[object]) -> list[str]:
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        item = str(value or "").strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        output.append(item)
+    return output
+
+
 def upsert_entity(
     *,
     entity_type: str,
@@ -234,7 +246,7 @@ def materialize_news_links(*, limit: int = 240) -> dict[str, int]:
                coalesce(market_relevance_score, 0) as market_relevance_score,
                coalesce(desk_relevance_score, 0) as desk_relevance_score,
                coalesce(rank_score, 0) as rank_score,
-               affected_assets, event_id, region, cluster_id
+               affected_assets, event_id, event_family, region, country, cluster_id
         from news_items
         where canonical = true
         order by published_at desc
@@ -268,15 +280,14 @@ def materialize_news_links(*, limit: int = 240) -> dict[str, int]:
             desk_relevance_score=float(row.get("desk_relevance_score") or 0.0),
             rank_score=float(row.get("rank_score") or 0.0),
             rationale=["Materialized from canonical news row."],
-            factors={},
+            factors={"materializedFrom": "news_items"},
         )
 
-        assets = row.get("affected_assets") if isinstance(row.get("affected_assets"), list) else []
-        for symbol in assets:
+        for symbol in _unique_refs(row.get("affected_assets") if isinstance(row.get("affected_assets"), list) else []):
             asset_entity_id = upsert_entity(
                 entity_type="asset",
-                ref_id=str(symbol).upper(),
-                title=str(symbol).upper(),
+                ref_id=symbol.upper(),
+                title=symbol.upper(),
                 source="macro-core",
                 source_type="derived",
                 source_tier="secondary",
@@ -319,12 +330,35 @@ def materialize_news_links(*, limit: int = 240) -> dict[str, int]:
             )
             link_count += 1
 
-        region = str(row.get("region") or "").strip()
-        if region:
+        event_family = str(row.get("event_family") or "").strip()
+        if event_family:
+            reaction_entity_id = upsert_entity(
+                entity_type="reaction_family",
+                ref_id=event_family,
+                title=event_family,
+                source="macro-core",
+                source_type="derived",
+                source_tier="secondary",
+                source_url=None,
+                mode="derived",
+                freshness="degraded",
+                confidence_score=0.60,
+                metadata={"surface": "reactions"},
+            )
+            link_entities(
+                from_entity_id=news_entity_id,
+                to_entity_id=reaction_entity_id,
+                link_type="linked_reaction",
+                confidence_score=0.64,
+                rationale="Reaction family mapped from normalized news event_family.",
+            )
+            link_count += 1
+
+        for region_ref in _unique_refs([row.get("region"), row.get("country")]):
             region_entity_id = upsert_entity(
                 entity_type="region",
-                ref_id=region,
-                title=region,
+                ref_id=region_ref,
+                title=region_ref,
                 source="macro-core",
                 source_type="derived",
                 source_tier="secondary",
@@ -366,6 +400,28 @@ def materialize_news_links(*, limit: int = 240) -> dict[str, int]:
                 rationale="Cluster mapped from canonical cluster_id.",
             )
             link_count += 1
+
+        report_entity_id = upsert_entity(
+            entity_type="report",
+            ref_id="weekly-macro-brief",
+            title="Weekly Macro Brief",
+            source="macro-core",
+            source_type="derived",
+            source_tier="secondary",
+            source_url=None,
+            mode="derived",
+            freshness="degraded",
+            confidence_score=0.56,
+            metadata={"surface": "reports"},
+        )
+        link_entities(
+            from_entity_id=news_entity_id,
+            to_entity_id=report_entity_id,
+            link_type="linked_report",
+            confidence_score=0.50,
+            rationale="News row linked to canonical weekly report context.",
+        )
+        link_count += 1
 
     return {"entities": entity_count, "links": link_count}
 
@@ -475,74 +531,98 @@ def materialize_geoboard_links(feed: list[dict[str, Any]]) -> dict[str, int]:
         )
         entity_count += 1
 
-        for symbol in list(row.get("linkedAssetSymbols") or []):
-            asset_entity_id = upsert_entity(
-                entity_type="asset",
-                ref_id=str(symbol).upper(),
-                title=str(symbol).upper(),
+        created_links: set[tuple[str, str, str]] = set()
+
+        def link_ref(entity_type: str, ref_id: str, link_type: str, confidence: float, rationale: str, *, title: str | None = None, metadata: dict | None = None) -> None:
+            nonlocal link_count
+            normalized_ref = str(ref_id or "").strip()
+            if not normalized_ref:
+                return
+            dedupe_key = (entity_type, normalized_ref, link_type)
+            if dedupe_key in created_links:
+                return
+            created_links.add(dedupe_key)
+            to_entity_id = upsert_entity(
+                entity_type=entity_type,
+                ref_id=normalized_ref,
+                title=str(title or normalized_ref),
                 source="macro-core",
                 source_type="derived",
                 source_tier="secondary",
                 source_url=None,
                 mode="derived",
                 freshness="degraded",
-                confidence_score=0.62,
-                metadata={},
+                confidence_score=confidence,
+                metadata=metadata or {},
             )
             link_entities(
                 from_entity_id=signal_entity_id,
-                to_entity_id=asset_entity_id,
-                link_type="linked_asset",
-                confidence_score=0.72,
-                rationale="Asset linked from geoboard ranked signal.",
+                to_entity_id=to_entity_id,
+                link_type=link_type,
+                confidence_score=confidence,
+                rationale=rationale,
             )
             link_count += 1
+
+        for symbol in _unique_refs(list(row.get("linkedAssetSymbols") or []) + list(row.get("linkedAssets") or [])):
+            link_ref(
+                "asset",
+                symbol.upper(),
+                "linked_asset",
+                0.72,
+                "Asset linked from geoboard ranked signal.",
+                title=symbol.upper(),
+            )
 
         linked_event_id = str(row.get("linkedEventId") or "").strip()
         if linked_event_id:
-            event_entity_id = upsert_entity(
-                entity_type="scheduled_event",
-                ref_id=linked_event_id,
-                title=linked_event_id,
-                source="macro-core",
-                source_type="derived",
-                source_tier="secondary",
-                source_url=None,
-                mode="derived",
-                freshness="degraded",
-                confidence_score=0.70,
-                metadata={},
+            link_ref(
+                "scheduled_event",
+                linked_event_id,
+                "linked_event",
+                0.76,
+                "Event linked from geoboard feed payload.",
             )
-            link_entities(
-                from_entity_id=signal_entity_id,
-                to_entity_id=event_entity_id,
-                link_type="linked_event",
-                confidence_score=0.76,
-                rationale="Event linked from geoboard feed payload.",
-            )
-            link_count += 1
 
-        for news_id in list(row.get("relatedNewsIds") or []):
-            news_entity_id = upsert_entity(
-                entity_type="news_item",
-                ref_id=str(news_id),
-                title=str(news_id),
-                source="macro-core",
-                source_type="derived",
-                source_tier="secondary",
-                source_url=None,
-                mode="derived",
-                freshness="degraded",
-                confidence_score=0.60,
-                metadata={},
+        for news_ref in _unique_refs(
+            list(row.get("relatedNewsIds") or [])
+            + list(row.get("relatedNewsClusterIds") or [])
+            + list(row.get("linkedNews") or [])
+        ):
+            news_type = "news_cluster" if str(news_ref).startswith("cluster-") else "news_item"
+            link_ref(
+                news_type,
+                news_ref,
+                "linked_news",
+                0.65,
+                "News linkage from geoboard signal context.",
             )
-            link_entities(
-                from_entity_id=signal_entity_id,
-                to_entity_id=news_entity_id,
-                link_type="linked_news",
-                confidence_score=0.65,
-                rationale="News linkage from geoboard signal context.",
+
+        for region_ref in _unique_refs(list(row.get("linkedRegions") or []) + [row.get("regionGroup"), row.get("regionCode")]):
+            link_ref(
+                "region",
+                region_ref,
+                "linked_region",
+                0.60,
+                "Region linkage from geoboard signal metadata.",
             )
-            link_count += 1
+
+        for report_ref in _unique_refs(row.get("linkedReports") or []):
+            link_ref(
+                "report",
+                report_ref,
+                "linked_report",
+                0.58,
+                "Report linkage from geoboard intelligence contract.",
+            )
+
+        for reaction_ref in _unique_refs(list(row.get("linkedReactions") or []) + [row.get("feedType")]):
+            link_ref(
+                "reaction_family",
+                reaction_ref,
+                "linked_reaction",
+                0.56,
+                "Reaction linkage from geoboard signal family.",
+            )
 
     return {"entities": entity_count, "links": link_count}

@@ -1,4 +1,4 @@
-import { ScatterplotLayer, TextLayer } from 'deck.gl'
+import { ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 
 import type { CentralBank } from '../types'
 
