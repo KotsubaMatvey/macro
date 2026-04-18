@@ -17,6 +17,9 @@ def test_semantics_normalize_mode_freshness_and_scores():
  assert normalize_source_type('??') == 'discovery'
  assert normalize_score(1.2) == 1.0
  assert normalize_score(-1.0) == 0.0
+ assert normalize_score(float('inf')) == 1.0
+ assert normalize_score(float('-inf')) == 0.0
+ assert normalize_score(float('nan')) == 0.0
 
 
 def test_build_source_metadata_uses_shared_semantics():

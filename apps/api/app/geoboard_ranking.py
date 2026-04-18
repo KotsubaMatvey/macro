@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Iterable
 
 from .intelligence_scoring import UnifiedScoreInputs, clamp01, compute_unified_scores, source_quality_score as unified_source_quality_score
@@ -22,11 +23,19 @@ class GeoboardRankInputs:
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
- if value < low:
+ try:
+  parsed = float(value)
+ except (TypeError, ValueError):
   return low
- if value > high:
+ if not math.isfinite(parsed):
+  if parsed == float("inf"):
+   return high
+  return low
+ if parsed < low:
+  return low
+ if parsed > high:
   return high
- return value
+ return parsed
 
 
 def source_quality_score(source_type: str, source_tier: str, mode: str) -> float:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from typing import Iterable
 
 VALID_SOURCE_TYPES = {"official", "discovery", "derived", "static", "fallback", "seeded"}
@@ -48,18 +50,27 @@ def normalize_freshness(value: object, *, mode: str = "fallback") -> str:
 
 
 def _clamp01(value: float) -> float:
-    if value < 0.0:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
         return 0.0
-    if value > 1.0:
+    if not math.isfinite(parsed):
+        if parsed == float("inf"):
+            return 1.0
+        return 0.0
+    if parsed < 0.0:
+        return 0.0
+    if parsed > 1.0:
         return 1.0
-    return value
+    return parsed
 
 
 def normalize_score(value: object, *, default: float = 0.0) -> float:
     try:
-        return round(_clamp01(float(value)), 4)
+        parsed = float(value)
     except (TypeError, ValueError):
-        return round(_clamp01(float(default)), 4)
+        parsed = float(default)
+    return round(_clamp01(parsed), 4)
 
 
 def uniq(values: Iterable[object]) -> list[str]:

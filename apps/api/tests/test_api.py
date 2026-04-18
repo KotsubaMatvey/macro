@@ -163,6 +163,36 @@ def test_watchlist_mutation_invalidates_workstation_cache():
     second = client.get('/api/v1/workstation').json()
     assert len(second['watchlists']) == before + 1
 
+def test_watchlist_item_mutation_rejects_cross_user_access():
+    reset_demo()
+    sign_in()
+    created = client.post('/api/v1/watchlists', json={'name': 'Desk-owned', 'description': 'owner test'})
+    assert created.status_code == 200, created.text
+    watchlist_id = created.json()['detail']
+
+    client.post('/api/v1/auth/sign-out')
+    sign_in('admin@macroaccess.local', 'admin12345')
+    blocked = client.post('/api/v1/watchlists/' + watchlist_id + '/items', json={'symbol': 'DXY', 'itemType': 'asset', 'note': 'cross-user attempt'})
+    assert blocked.status_code == 404
+
+def test_watchlist_item_mutation_rejects_invalid_or_duplicate_symbols():
+    reset_demo()
+    sign_in()
+    created = client.post('/api/v1/watchlists', json={'name': 'Validation list', 'description': 'validation'})
+    assert created.status_code == 200, created.text
+    watchlist_id = created.json()['detail']
+
+    first = client.post('/api/v1/watchlists/' + watchlist_id + '/items', json={'symbol': 'eurusd', 'itemType': 'asset', 'note': 'first'})
+    assert first.status_code == 200, first.text
+
+    duplicate = client.post('/api/v1/watchlists/' + watchlist_id + '/items', json={'symbol': 'EURUSD', 'itemType': 'asset', 'note': 'duplicate'})
+    assert duplicate.status_code == 400
+    assert 'already exists' in duplicate.json()['detail']
+
+    invalid_symbol = client.post('/api/v1/watchlists/' + watchlist_id + '/items', json={'symbol': '   ', 'itemType': 'asset', 'note': 'blank'})
+    assert invalid_symbol.status_code == 400
+    assert 'required' in invalid_symbol.json()['detail']
+
 def test_worker_job_types_transition_to_completed(monkeypatch):
 	reset_demo()
 	import importlib.util

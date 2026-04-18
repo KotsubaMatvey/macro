@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.geoboard_ranking import GeoboardRankInputs, rank_metadata
-from app.intelligence_scoring import UnifiedScoreInputs, compute_unified_scores
+from app.intelligence_scoring import UnifiedScoreInputs, compute_unified_scores, event_proximity_score, watchlist_overlap_score, asset_breadth_score
 from app.news_core.pipeline import _score_row
 
 
@@ -72,3 +72,33 @@ def test_geoboard_rank_metadata_reports_model_components():
  assert ranked['componentScores']['baseRankScore'] >= 0.0
  assert ranked['catalystProximityScore'] == round(0.72, 4)
  assert any('Unified score baseline dominates' in line for line in ranked['rationale'])
+
+
+def test_unified_scoring_clamps_non_finite_inputs():
+ scores = compute_unified_scores(
+  UnifiedScoreInputs(
+   importance=float('nan'),
+   urgency=float('inf'),
+   confidence=float('-inf'),
+   source_quality=0.7,
+   recency=0.6,
+   watchlist_overlap=0.2,
+   event_proximity=0.3,
+   asset_breadth=0.4,
+   regime_relevance=0.5,
+   evidence_density=0.6,
+  ),
+  rationale=['non-finite hardening test'],
+ )
+ assert scores['importanceScore'] == 0.0
+ assert scores['urgencyScore'] == 1.0
+ assert scores['confidenceScore'] == 0.0
+ assert 0.0 <= scores['rankScore'] <= 1.0
+
+
+def test_helper_scores_tolerate_malformed_numbers():
+ assert event_proximity_score('bad') == 0.14
+ assert event_proximity_score(float('nan')) == 0.14
+ assert event_proximity_score(float('inf')) == 0.14
+ assert watchlist_overlap_score('bad') == 0.0
+ assert asset_breadth_score('bad') == 0.0

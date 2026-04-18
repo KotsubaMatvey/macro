@@ -63,7 +63,15 @@ def _parse_dt(value):
 	return parsed.astimezone(timezone.utc)
 
 def _clamp(value, low=-1.0, high=1.0):
-	return max(low, min(high, value))
+	try:
+		parsed = float(value)
+	except (TypeError, ValueError):
+		return low
+	if not math.isfinite(parsed):
+		if parsed == float("inf"):
+			return high
+		return low
+	return max(low, min(high, parsed))
 
 def _values(series_payload):
     if not isinstance(series_payload, dict):
@@ -78,7 +86,13 @@ def _values(series_payload):
         value = item.get('value')
         if value is None:
             continue
-        values.append(value)
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(numeric):
+            continue
+        values.append(numeric)
     return values
 
 def _pct_change(values, periods, offset=0):

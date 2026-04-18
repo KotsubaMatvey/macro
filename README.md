@@ -17,6 +17,7 @@ Track macro events. Read the regime. Trade the reaction.
 - Session auth with secure token hashing and cookie sessions
 - Redis used for queue/cache/rate-limits (with worker queue consumption and dashboard cache warming)
 - Worker jobs now run domain-specific refresh, normalization, linkage, scoring, and evaluation paths while keeping admin-visible lifecycle states.
+- Web API proxy routes now enforce deterministic upstream timeouts (`API_PROXY_TIMEOUT_MS`, default `15000`) and return explicit `504` timeout errors instead of hanging indefinitely.
 
 ## Unified Intelligence Core
 - Shared contract layer: source metadata, runtime mode, freshness, unified score fields, entity linkage references, and evaluation metadata are normalized through common backend helpers.
@@ -38,6 +39,7 @@ Track macro events. Read the regime. Trade the reaction.
 - Event Explorer and Impact Lab: family history and reaction context
 - Market Bias and Liquidity Regime: cross-asset consensus and regime layers
 - News (Wire, Macro Only, Watchlist), Briefings, Watchlists, Alerts, Community, Admin: connected operator workflows
+- Watchlist mutations are user-scoped server-side: items can only be written to watchlists owned by the authenticated user.
 
 ## Quick start
 1. Copy `.env.example` to `.env`.

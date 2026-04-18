@@ -178,12 +178,20 @@ def watchlists(user = Depends(current_user)):
 
 @app.post('/api/v1/watchlists', response_model=SimpleResponse)
 def watchlists_create(payload: WatchlistInput, user = Depends(current_user)):
-    watchlist_id = create_watchlist(user['id'], payload)
+    try:
+        watchlist_id = create_watchlist(user['id'], payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {'status': 'ok', 'detail': watchlist_id}
 
 @app.post('/api/v1/watchlists/{watchlist_id}/items', response_model=SimpleResponse)
 def watchlists_add_item(watchlist_id: str, payload: WatchlistItemInput, user = Depends(current_user)):
-    item_id = add_watchlist_item(user['id'], watchlist_id, payload)
+    try:
+        item_id = add_watchlist_item(user['id'], watchlist_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {'status': 'ok', 'detail': item_id}
 
 @app.get('/api/v1/alerts')

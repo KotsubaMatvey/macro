@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 from urllib.parse import quote
 
@@ -42,11 +43,19 @@ FRESHNESS_WEIGHTS = {
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
-    if value < low:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
         return low
-    if value > high:
+    if not math.isfinite(parsed):
+        if parsed == float("inf"):
+            return high
+        return low
+    if parsed < low:
+        return low
+    if parsed > high:
         return high
-    return value
+    return parsed
 
 
 def _as_str(value: Any, default: str = '') -> str:

@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Iterable
 
 from .source_meta import parse_source_timestamp
@@ -8,11 +9,19 @@ from .security import utc_now
 
 
 def clamp01(value: float) -> float:
-    if value < 0.0:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
         return 0.0
-    if value > 1.0:
+    if not math.isfinite(parsed):
+        if parsed == float("inf"):
+            return 1.0
+        return 0.0
+    if parsed < 0.0:
+        return 0.0
+    if parsed > 1.0:
         return 1.0
-    return value
+    return parsed
 
 
 def round_score(value: float) -> float:
@@ -50,7 +59,12 @@ def recency_score(timestamp: object, *, horizon_hours: float = 96.0) -> float:
 def event_proximity_score(hours_to_event: float | None) -> float:
     if hours_to_event is None:
         return 0.14
-    value = float(hours_to_event)
+    try:
+        value = float(hours_to_event)
+    except (TypeError, ValueError):
+        return 0.14
+    if not math.isfinite(value):
+        return 0.14
     if value < -24:
         return 0.30
     if value <= 2:
@@ -65,15 +79,23 @@ def event_proximity_score(hours_to_event: float | None) -> float:
 
 
 def watchlist_overlap_score(watch_hits: int, *, max_hits: int = 4) -> float:
-    if watch_hits <= 0:
+    try:
+        hits = int(watch_hits)
+    except (TypeError, ValueError):
         return 0.0
-    return clamp01(float(watch_hits) / float(max(1, max_hits)))
+    if hits <= 0:
+        return 0.0
+    return clamp01(float(hits) / float(max(1, max_hits)))
 
 
 def asset_breadth_score(asset_count: int, *, max_assets: int = 6) -> float:
-    if asset_count <= 0:
+    try:
+        count = int(asset_count)
+    except (TypeError, ValueError):
         return 0.0
-    return clamp01(float(asset_count) / float(max(1, max_assets)))
+    if count <= 0:
+        return 0.0
+    return clamp01(float(count) / float(max(1, max_assets)))
 
 
 @dataclass(frozen=True)

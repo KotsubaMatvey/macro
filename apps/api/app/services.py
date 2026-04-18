@@ -263,11 +263,26 @@ def list_news(
 
 def list_watchlists(user_id):
  rows = fetch_all("select id, name, description from watchlists where user_id = %s order by created_at desc", (user_id,))
+ if not rows:
+  return []
+ alert_count = fetch_one("select count(*) as count from alerts where user_id = %s and status in ('Active', 'Triggered', 'Scheduled')", (user_id,))
+ alert_total = int(alert_count["count"]) if alert_count else 0
+ item_rows = fetch_all(
+  "select wi.id, wi.watchlist_id, wi.symbol, wi.item_type, wi.note from watchlist_items wi join watchlists w on w.id = wi.watchlist_id where w.user_id = %s order by wi.symbol",
+  (user_id,),
+ )
+ items_by_watchlist = {}
+ for item in item_rows:
+  watchlist_id = item["watchlist_id"]
+  existing = items_by_watchlist.get(watchlist_id)
+  if existing is None:
+   existing = []
+   items_by_watchlist[watchlist_id] = existing
+  existing.append({"id": item["id"], "symbol": item["symbol"], "itemType": item["item_type"], "note": item["note"]})
  output = []
  for row in rows:
-  items = fetch_all("select id, symbol, item_type, note from watchlist_items where watchlist_id = %s order by symbol", (row["id"],))
-  alert_count = fetch_one("select count(*) as count from alerts where user_id = %s and status in ('Active', 'Triggered', 'Scheduled')", (user_id,))
-  output.append({"id": row["id"], "name": row["name"], "description": row["description"], "itemCount": len(items), "alertCount": int(alert_count["count"]), "items": [{"id": item["id"], "symbol": item["symbol"], "itemType": item["item_type"], "note": item["note"]} for item in items]})
+  items = items_by_watchlist.get(row["id"], [])
+  output.append({"id": row["id"], "name": row["name"], "description": row["description"], "itemCount": len(items), "alertCount": alert_total, "items": items})
  return output
 
 
@@ -281,12 +296,32 @@ def create_watchlist(user_id, payload):
  return watchlist_id
 
 
+def _watchlist_owned_by_user(user_id, watchlist_id):
+ row = fetch_one("select id from watchlists where id = %s and user_id = %s", (watchlist_id, user_id))
+ return row is not None
+
+
 def add_watchlist_item(user_id, watchlist_id, payload):
+ if not _watchlist_owned_by_user(user_id, watchlist_id):
+  raise LookupError("Watchlist not found.")
+ symbol = str(payload.symbol or "").upper().strip()
+ if not symbol:
+  raise ValueError("Watchlist symbol is required.")
+ item_type = str(payload.itemType or "").strip().lower()
+ if not item_type:
+  raise ValueError("Watchlist item type is required.")
+ note = str(payload.note or "").strip()
+ duplicate = fetch_one(
+  "select id from watchlist_items where watchlist_id = %s and upper(symbol) = %s and item_type = %s",
+  (watchlist_id, symbol, item_type),
+ )
+ if duplicate:
+  raise ValueError("Watchlist item already exists.")
  item_id = _id("watch-item")
  with get_connection() as conn:
   with conn.cursor() as cur:
-   cur.execute("insert into watchlist_items (id, watchlist_id, item_type, symbol, note) values (%s, %s, %s, %s, %s)", (item_id, watchlist_id, payload.itemType, payload.symbol.upper(), payload.note))
- audit(user_id, "create_watchlist_item", "watchlist_item", item_id, {"watchlistId": watchlist_id, "symbol": payload.symbol.upper()})
+   cur.execute("insert into watchlist_items (id, watchlist_id, item_type, symbol, note) values (%s, %s, %s, %s, %s)", (item_id, watchlist_id, item_type, symbol, note))
+ audit(user_id, "create_watchlist_item", "watchlist_item", item_id, {"watchlistId": watchlist_id, "symbol": symbol})
  _invalidate_user_cache(user_id, include_live_dashboard=True)
  return item_id
 

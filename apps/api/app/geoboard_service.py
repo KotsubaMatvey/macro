@@ -2,6 +2,7 @@
 
 import hashlib
 from datetime import timedelta
+import math
 from typing import Any
 from urllib.parse import quote
 
@@ -34,11 +35,19 @@ from .geoboard_core.constants import (
 from .geoboard_core.feed import _feed_from_layers, _mode_state
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
- if value < low:
+ try:
+  parsed = float(value)
+ except (TypeError, ValueError):
   return low
- if value > high:
+ if not math.isfinite(parsed):
+  if parsed == float("inf"):
+   return high
+  return low
+ if parsed < low:
+  return low
+ if parsed > high:
   return high
- return value
+ return parsed
 
 
 def _to_iso(value: Any, fallback: str | None = None) -> str:
