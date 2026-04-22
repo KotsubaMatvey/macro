@@ -646,6 +646,100 @@ export interface TrackRecordPayload { mode: 'replay'; label: string; sampleSize:
  
 export interface WeeklyReport { id: string; slug: string; title: string; status: string; mode: DataMode | 'deterministic' | 'replay'; weekStart: string; weekEnd: string; summary: string; body: { [key: string]: unknown }; sourceMeta: SourceMetadata[]; createdAt: string }
 
+export interface ProviderStatusItem {
+ providerKey: string
+ label: string
+ domainKey: string
+ sourceType: string
+ sourceTier: string
+ mode: string
+ freshness: FreshnessState | string
+ state: string
+ note: string
+ lastRefresh?: string | null
+ lastUpdated?: string | null
+ routeHint: string
+ diagnosticsPath?: string | null
+ affectedSurfaces: string[]
+ meta: Record<string, unknown>
+}
+
+export interface ProviderDomainBlock {
+ key: string
+ label: string
+ description: string
+ counts: Record<string, number>
+ items: ProviderStatusItem[]
+}
+
+export interface ProviderControlPlanePayload {
+ generatedAt: string
+ summary: Record<string, number>
+ domains: ProviderDomainBlock[]
+}
+
+export interface GraphSeedEntity {
+ id: string
+ entityType: string
+ refId: string
+ title: string
+ mode: string
+ freshness: string
+ routeHint: string
+}
+
+export interface GraphNode {
+ id: string
+ entityType: string
+ refId: string
+ title: string
+ source: string
+ sourceType: string
+ sourceTier: string
+ sourceUrl?: string | null
+ mode: string
+ freshness: string
+ confidenceScore: number
+ metadata: Record<string, unknown>
+ routeHint: string
+ surfaceHint: string
+ scores?: Record<string, unknown>
+}
+
+export interface GraphEdge {
+ id: string
+ fromId: string
+ toId: string
+ linkType: string
+ confidenceScore: number
+ rationale: string
+}
+
+export interface GraphNeighborhoodPayload {
+ generatedAt: string
+ root: Record<string, unknown>
+ nodes: GraphNode[]
+ edges: GraphEdge[]
+ summary: Record<string, number | boolean>
+ filters: Record<string, unknown>
+ seedEntities: GraphSeedEntity[]
+}
+
+export interface WorkspaceEntry {
+ id: string
+ name: string
+ presetKey?: string | null
+ isPreset: boolean
+ moduleKeys: string[]
+ filters: Record<string, unknown>
+ layout: Record<string, unknown>
+ routes: string[]
+ activeRoute: string
+ createdAt: string
+ updatedAt: string
+ lastUsedAt: string
+}
+
 
 
 

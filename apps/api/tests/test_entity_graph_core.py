@@ -139,3 +139,47 @@ def test_materialize_news_links_adds_reaction_and_report_edges(monkeypatch):
  entity_types = {item['entity_type'] for item in entities}
  assert 'reaction_family' in entity_types
  assert 'report' in entity_types
+
+
+def test_materialize_operator_links_maps_watchlists_and_alert_targets(monkeypatch):
+ entities = []
+ links = []
+
+ def fake_fetch_all(query, params):
+  if "from watchlists" in query and "limit" in query:
+   return [{"id": "watch-1", "name": "Desk", "description": "Desk list"}]
+  if "from watchlist_items" in query:
+   return [
+    {"watchlist_id": "watch-1", "item_type": "asset", "symbol": "eurusd"},
+    {"watchlist_id": "watch-1", "item_type": "event", "symbol": "US CPI"},
+   ]
+  if "from alerts" in query:
+   return [
+    {"id": "alert-1", "name": "CPI reminder", "trigger_type": "event_reminder", "target_ref": "event-cpi-mar", "status": "Active"},
+    {"id": "alert-2", "name": "FX level", "trigger_type": "asset_threshold", "target_ref": "EURUSD", "status": "Triggered"},
+   ]
+  return []
+
+ monkeypatch.setattr(entity_graph, "fetch_all", fake_fetch_all)
+
+ def fake_upsert_entity(**kwargs):
+  entities.append(kwargs)
+  return kwargs["entity_type"] + ":" + kwargs["ref_id"]
+
+ def fake_link_entities(**kwargs):
+  links.append(kwargs)
+  return "link-id"
+
+ monkeypatch.setattr(entity_graph, "upsert_entity", fake_upsert_entity)
+ monkeypatch.setattr(entity_graph, "link_entities", fake_link_entities)
+
+ result = entity_graph.materialize_operator_links("user-demo", limit=50)
+
+ assert result["entities"] >= 2
+ link_types = {item["link_type"] for item in links}
+ assert "linked_asset" in link_types
+ assert "linked_event" in link_types
+ assert "linked_reaction" in link_types
+ entity_types = {item["entity_type"] for item in entities}
+ assert "watchlist" in entity_types
+ assert "alert_rule" in entity_types

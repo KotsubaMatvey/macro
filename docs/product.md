@@ -14,12 +14,17 @@ Macro Access is a dark, desk-oriented macro intelligence workstation for event-d
 - Event Detail, Event Explorer, and Impact Lab
 - Market Bias and Regime surfaces
 - News (Wire, Macro Only, Watchlist), Briefings, Watchlists, Alerts, Community, Admin
+- Data Sources (provider control plane)
+- Relationship Map (entity graph explorer)
+- Workspaces (saved desk presets)
 
 ## UX principles
 - Institutional dark visual system
 - Dense board-based desktop hierarchy
 - Honest live/fallback/provider labeling
 - Direct drill-down into event detail routes
+- Fast keyboard-first workflows through a command palette (`Ctrl/Cmd+K`)
+- Strong cross-surface pivots so the workstation behaves as one desk
 
 ## Expanded real-data layer
 - Dashboard market strip now comes from a provider-backed market adapter rather than seeded pseudo-prices.
@@ -38,4 +43,11 @@ Macro Access is a dark, desk-oriented macro intelligence workstation for event-d
 - Static: central bank nodes and trade/chokepoint routes remain curated static overlays with explicit static labeling.
 - Fallback: each layer can degrade independently; fallback is shown per-layer in source status rather than hidden behind a generic online badge.
 - Integration: ranked feed items carry direct links into Event Detail, Macro Calendar, News, Live Reactions, Market Bias, Reports, Watchlists, and Alerts.
+
+## Operator platform upgrades
+- Provider control plane: grouped domain rows for market, calendar, news, geoboard, and evaluation/worker freshness with explicit mode/source/freshness/state semantics.
+- Relationship map: neighborhood exploration over the existing intelligence graph model; no separate front-end graph truth source.
+- Workspaces: user-scoped persistence with safe CRUD and immutable defaults (`Macro Desk`, `Event Day`, `News + Calendar`, `Geoboard Focus`, `Reactions / Bias Review`).
+- Command palette: searchable command registry with route jumps, workspace actions, and entity-aware pivots (event/news/asset graph actions).
+- Cross-surface linkage: event/news/geoboard/provider/workspace surfaces now include direct pivots into related modules without hiding fallback or derived context.
 

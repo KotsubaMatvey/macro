@@ -47,7 +47,7 @@ function payload(mode: 'STANDARD' | 'RISK' | 'LIQUIDITY' | 'CENT.BANKS', fallbac
   linkedAssetSymbols: ['OIL', 'DXY', 'XAU'],
   tags: ['Shipping'],
   geoboardModes: ['STANDARD', 'RISK'],
-  links: { event: '/app/events/event-cpi-mar', calendar: '/app/macro-calendar', reactions: '/app/live-reactions', bias: '/app/market-bias', reports: '/app/reports', news: '/app/news?focus=news-a', watchlists: '/app/watchlists', alerts: '/app/alerts', source: 'https://example.com' },
+  links: { event: '/app/events/event-cpi-mar', calendar: '/app/macro-calendar', reactions: '/app/live-reactions', bias: '/app/market-bias', graph: '/app/relationship-map?entity_type=scheduled_event&ref_id=event-cpi-mar', reports: '/app/reports', providers: '/app/data-sources', news: '/app/news?focus=news-a', watchlists: '/app/watchlists', alerts: '/app/alerts', source: 'https://example.com' },
   sourceMeta,
   ranking,
  }
@@ -150,6 +150,8 @@ describe('GeoboardShell', function () {
   expect(screen.getByText('Source Integrity')).toBeInTheDocument()
   expect(screen.getByText(/Discovery rows are ranked signals/)).toBeInTheDocument()
   expect(screen.getByText('GEO // LIVE')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'GRAPH' })).toHaveAttribute('href', '/app/relationship-map?entity_type=scheduled_event&ref_id=event-cpi-mar')
+  expect(screen.getByRole('link', { name: 'SRCS' })).toHaveAttribute('href', '/app/data-sources')
  })
 
  it('switches modes and updates data hook mode argument', function () {

@@ -206,10 +206,15 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  ]
  const familyRows: ReactNode[][] = families.map(function (family) { return [h(Link, { href: calendarHref(filters, { family: family }), className: 'text-sky-300 transition hover:text-sky-200' }, family), String(events.filter(function (item: EventRelease) { return item.family === family }).length)] })
  const highImpact = applyCalendarFilters(events, { impact: 'High', currency: filters.currency, status: filters.status, region: filters.region, category: filters.category, family: filters.family, search: filters.search }).slice(0, 6)
+ const pivotEvent = highImpact[0] ? highImpact[0] : filtered[0]
+ const graphHref = pivotEvent ? '/app/relationship-map?entity_type=scheduled_event&ref_id=' + encodeURIComponent(pivotEvent.id) : '/app/relationship-map'
  const workflowRows: ReactNode[][] = [
   [h(Link, { href: '/app/alerts', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open alerts'), 'Turn filtered rows into scheduled operator reminders before the print.'],
   [h(Link, { href: '/app/watchlists', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open watchlists'), 'Use tracked baskets to prioritize tape rows that already drive desk risk.'],
   [h(Link, { href: '/app/event-explorer', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open event explorer'), 'Pivot one row into family archive, surprise history, and linked reaction studies.'],
+  [h(Link, { href: graphHref, className: 'text-sky-300 transition hover:text-sky-200' }, 'Open relationship map'), 'Inspect linked news, assets, reactions, and reports from the selected catalyst node.'],
+  [h(Link, { href: '/app/data-sources', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open data sources'), 'Validate calendar/provider freshness before committing event-day positioning.'],
+  [h(Link, { href: '/app/workspaces', className: 'text-sky-300 transition hover:text-sky-200' }, 'Open workspaces'), 'Persist the current filter deck as a reusable Event Day workspace.'],
  ]
  sourceRows.push(['Source note', sourceNote(filtered.length !== 0 ? filtered : events)])
  return h(PageShell, { title: 'Macro Calendar', subtitle: 'Event tape surface for operator scan: dense rows, explicit provenance, and direct drill paths.', active: 'macro-calendar', mode: datasetMode }, h('div', { className: 'space-y-4' }, [

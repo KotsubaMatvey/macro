@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(function () { return { getSession: vi.fn() } })
 vi.mock('@/lib/server/api', function () { return { getSession: api.getSession } })
+vi.mock('@/components/app/command-palette', function () { return { CommandPalette: function CommandPalette() { return null } } })
 
 import { PageShell } from '@/components/app/chrome'
 
@@ -38,5 +39,13 @@ describe('PageShell role-aware nav', function () {
   expect(screen.getByText('Macro Access')).toBeInTheDocument()
   expect(screen.getAllByText('mixed').length).toBeGreaterThan(0)
  })
-})
 
+ it('exposes new settings navigation children for workspaces and data sources', async function () {
+  api.getSession.mockResolvedValue({ id: 'user-demo', email: 'demo@macroaccess.local', name: 'Demo', role: 'user', onboardingCompleted: true, emailVerified: true })
+  const view = await PageShell({ title: 'Workspaces', subtitle: 'sub', active: 'workspaces', children: null })
+  render(view)
+  const workspaceLinks = screen.getAllByRole('link', { name: /Workspaces/ })
+  expect(workspaceLinks.some(function (item) { return item.getAttribute('aria-current') === 'page' })).toBe(true)
+  expect(screen.getAllByRole('link', { name: /Data Sources/ }).length).toBeGreaterThan(0)
+ })
+})

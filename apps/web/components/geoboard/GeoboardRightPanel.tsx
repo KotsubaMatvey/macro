@@ -33,7 +33,7 @@ function safeHref(value: unknown) {
 }
 
 function quickLinks(item: FeedItem) {
- const links = [['EVT', item.links.event], ['CAL', item.links.calendar], ['NEWS', item.links.news], ['REACT', item.links.reactions], ['BIAS', item.links.bias], ['RPT', item.links.reports], ['WATCH', item.links.watchlists], ['ALRT', item.links.alerts], ['SRC', item.links.source]] as const
+ const links = [['EVT', item.links.event], ['CAL', item.links.calendar], ['NEWS', item.links.news], ['REACT', item.links.reactions], ['BIAS', item.links.bias], ['GRAPH', item.links.graph], ['RPT', item.links.reports], ['SRCS', item.links.providers], ['WATCH', item.links.watchlists], ['ALRT', item.links.alerts], ['SRC', item.links.source]] as const
  return links.map(function (entry) { return [entry[0], safeHref(entry[1])] as const }).filter(function (entry) { return Boolean(entry[1]) })
 }
 

@@ -193,6 +193,8 @@ def _base_links(
     event_id: str | None = None,
     event_slug: str | None = None,
     source_url: str | None = None,
+    graph_entity_type: str | None = None,
+    graph_ref_id: str | None = None,
 ) -> dict[str, Any]:
     event_link = None
     event_id_text = _as_str(event_id)
@@ -201,6 +203,11 @@ def _base_links(
         event_link = '/app/events/' + quote(event_id_text, safe='')
     elif event_slug_text:
         event_link = '/app/events/' + quote(event_slug_text, safe='')
+    graph_entity = _as_str(graph_entity_type)
+    graph_ref = _as_str(graph_ref_id)
+    graph_link = '/app/relationship-map'
+    if graph_entity and graph_ref:
+        graph_link = '/app/relationship-map?entity_type=' + quote(graph_entity, safe='') + '&ref_id=' + quote(graph_ref, safe='')
     return {
         'event': event_link,
         'calendar': '/app/macro-calendar',
@@ -208,6 +215,8 @@ def _base_links(
         'bias': '/app/market-bias',
         'reports': '/app/reports',
         'news': '/app/news',
+        'graph': graph_link,
+        'providers': '/app/data-sources',
         'watchlists': '/app/watchlists',
         'alerts': '/app/alerts',
         'source': _safe_source_url(source_url),
@@ -318,6 +327,8 @@ def _build_geo_feed_row(item: dict[str, Any]) -> dict[str, Any] | None:
         event_id=_as_str(item.get('linkedEventId')) or None,
         event_slug=_as_str(item.get('linkedEventSlug')) or None,
         source_url=_as_str(item.get('url')) or source_meta.get('sourceUrl'),
+        graph_entity_type='geoboard_signal',
+        graph_ref_id=source_id,
     )
     links['news'] = '/app/news?asset=' + quote(assets[0], safe='') if assets else '/app/news'
     return {
@@ -356,10 +367,13 @@ def _build_macro_feed_row(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
     assets = _as_str_list(item.get('relatedAssets'), limit=8)
     source_meta = _safe_source_meta(item.get('sourceMeta'), 'macro')
+    linked_event_id = _as_str(item.get('linkedEventId'))
     links = _base_links(
-        event_id=_as_str(item.get('linkedEventId')) or None,
+        event_id=linked_event_id or None,
         event_slug=_as_str(item.get('linkedEventSlug')) or None,
         source_url=source_meta.get('sourceUrl'),
+        graph_entity_type='scheduled_event' if linked_event_id else 'geoboard_signal',
+        graph_ref_id=linked_event_id if linked_event_id else source_id,
     )
     links['calendar'] = _safe_app_path(item.get('linkedCalendarPath'), '/app/macro-calendar')
     links['reactions'] = _safe_app_path(item.get('linkedReactionPath'), '/app/live-reactions')
@@ -402,10 +416,13 @@ def _build_cb_feed_row(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
     assets = _as_str_list(item.get('relatedAssets'), limit=8)
     source_meta = _safe_source_meta(item.get('sourceMeta'), 'cb')
+    linked_event_id = _as_str(item.get('linkedEventId'))
     links = _base_links(
-        event_id=_as_str(item.get('linkedEventId')) or None,
+        event_id=linked_event_id or None,
         event_slug=_as_str(item.get('linkedEventSlug')) or None,
         source_url=source_meta.get('sourceUrl'),
+        graph_entity_type='scheduled_event' if linked_event_id else 'geoboard_signal',
+        graph_ref_id=linked_event_id if linked_event_id else source_id,
     )
     links['news'] = _safe_app_path(item.get('linkedNewsPath'), '/app/news?topic=Central%20banks')
     links['reactions'] = _safe_app_path(item.get('linkedReactionPath'), '/app/live-reactions')
@@ -448,7 +465,11 @@ def _build_trade_feed_row(item: dict[str, Any], generated_at: str) -> dict[str, 
         return None
     assets = _as_str_list(item.get('impact'), limit=8)
     source_meta = _safe_source_meta(item.get('sourceMeta'), 'trade')
-    links = _base_links(source_url=source_meta.get('sourceUrl'))
+    links = _base_links(
+        source_url=source_meta.get('sourceUrl'),
+        graph_entity_type='geoboard_signal',
+        graph_ref_id=source_id,
+    )
     links['news'] = _safe_app_path(item.get('linkedNewsPath'), '/app/news')
     links['alerts'] = _safe_app_path(item.get('linkedAlertsPath'), '/app/alerts')
     return {
@@ -527,7 +548,7 @@ def _build_regime_feed_row(zone: dict[str, Any], generated_at: str) -> dict[str,
         'linkedAssetSymbols': _as_str_list(zone.get('relatedAssets'), limit=8),
         'tags': _as_str_list(['Regime', regime], limit=6),
         'geoboardModes': _safe_modes(zone.get('geoboardModes'), 'regime'),
-        'links': {**_base_links(), 'bias': '/app/market-bias'},
+        'links': {**_base_links(graph_entity_type='geoboard_signal', graph_ref_id=zone_id), 'bias': '/app/market-bias'},
         'sourceMeta': _safe_source_meta(zone.get('sourceMeta'), 'regime'),
         'ranking': ranking,
     }

@@ -105,11 +105,17 @@ export default async function EventDetailPage(props: EventDetailPageProps) {
  const biasRows: ReactNode[][] = relatedBiases.length !== 0 ? relatedBiases.map(function (item: MarketBiasSnapshot) {
  return [item.symbol, item.direction, item.score.toFixed(0), Math.round(item.confidence * 100) + "%", item.rationale.join(", ")]
  }) : [["No related assets", "-", "-", "-", "No mapped bias overlap for this catalyst"]]
+ const leadAsset = event.relatedAssets[0] ? event.relatedAssets[0] : ""
  const workflowRows: ReactNode[][] = [
  [surfaceLink("/app/dashboard", "Return to dashboard"), "Re-rank this catalyst against the rest of the macro stack."],
  [surfaceLink("/app/event-explorer?family=" + encodeURIComponent(event.family), "Open family explorer"), "Compare this release with the full family archive."],
- [surfaceLink("/app/briefings", "Open briefings"), "Read desk notes and timing cues linked to the same catalyst set."],
- [surfaceLink("/app/news", "Open news tape"), "Track headline follow-through around the print and its category."],
+ [surfaceLink("/app/news?event_family=" + encodeURIComponent(event.family), "Open linked news"), "Track headline follow-through around the print and its category."],
+ [surfaceLink("/app/live-reactions?family=" + encodeURIComponent(event.family) + (leadAsset ? "&asset=" + encodeURIComponent(leadAsset) : ""), "Open reactions"), "Inspect intraday and multi-day response windows for this family context."],
+ [surfaceLink("/app/market-bias" + (leadAsset ? "?asset=" + encodeURIComponent(leadAsset) : ""), "Open bias context"), "Validate cross-asset direction and confidence around the same release footprint."],
+ [surfaceLink("/app/reports", "Open reports archive"), "Move from event detail into weekly summaries and replay evaluation notes."],
+ [surfaceLink("/app/relationship-map?entity_type=scheduled_event&ref_id=" + encodeURIComponent(event.id), "Open relationship map"), "Inspect graph-linked entities: clusters, assets, reports, reactions, and alerts."],
+ [surfaceLink("/app/data-sources", "Open data sources"), "Check provider freshness and fallback/degraded states behind this workflow."],
+ [surfaceLink("/app/workspaces", "Open workspaces"), "Save this event context into a reusable desk preset for event-day reuse."],
  ]
  const releaseRows: ReactNode[][] = [
  ["Previous", show(event.previous), "Prior print in the release sequence"],

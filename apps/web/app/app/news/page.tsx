@@ -87,11 +87,14 @@ function sourceBadge(item: NewsItem) {
 function itemRow(item: NewsItem): ReactNode[] {
  const assets = item.assetSymbols && item.assetSymbols.length !== 0 ? item.assetSymbols.join(', ') : '--'
  const sourceLink = item.sourceUrl
-  ? h('a', { href: item.sourceUrl, target: '_blank', rel: 'noreferrer', className: 'terminal-link text-xs' }, 'Source')
-  : h('span', { className: 'text-xs text-slate-500' }, 'No source URL')
+  ? h('a', { key: 'source', href: item.sourceUrl, target: '_blank', rel: 'noreferrer', className: 'terminal-link text-xs' }, 'Source')
+  : h('span', { key: 'source', className: 'text-xs text-slate-500' }, 'No source URL')
  const eventLink = item.relatedEventId
-  ? h(Link, { href: '/app/events/' + item.relatedEventId, className: 'terminal-link text-xs' }, 'Event')
-  : h('span', { className: 'text-xs text-slate-500' }, 'No event')
+  ? h(Link, { key: 'event', href: '/app/events/' + item.relatedEventId, className: 'terminal-link text-xs' }, 'Event')
+  : h('span', { key: 'event', className: 'text-xs text-slate-500' }, 'No event')
+ const graphHref = item.relatedEventId
+  ? '/app/relationship-map?entity_type=scheduled_event&ref_id=' + encodeURIComponent(item.relatedEventId)
+  : '/app/relationship-map?entity_type=news_item&ref_id=' + encodeURIComponent(item.id)
  return [
   formatTime(item.publishedAt),
   h('div', { className: 'min-w-[130px]' }, [
@@ -102,7 +105,7 @@ function itemRow(item: NewsItem): ReactNode[] {
   h('div', { className: 'min-w-[360px]' }, [
    h(Link, { key: 'headline', href: '/app/news?focus=' + item.id, className: 'text-sm font-medium text-white transition hover:text-sky-200' }, item.title),
    h('p', { key: 'summary', className: 'mt-1 text-xs leading-5 text-slate-400' }, item.summary),
-   h('div', { key: 'links', className: 'mt-2 flex flex-wrap gap-3' }, [eventLink, sourceLink, h(Link, { key: 'reactions', href: '/app/live-reactions', className: 'terminal-link text-xs' }, 'Reactions'), h(Link, { key: 'bias', href: '/app/market-bias', className: 'terminal-link text-xs' }, 'Bias')]),
+   h('div', { key: 'links', className: 'mt-2 flex flex-wrap gap-3' }, [eventLink, sourceLink, h(Link, { key: 'graph', href: graphHref, className: 'terminal-link text-xs' }, 'Graph'), h(Link, { key: 'reactions', href: '/app/live-reactions', className: 'terminal-link text-xs' }, 'Reactions'), h(Link, { key: 'bias', href: '/app/market-bias', className: 'terminal-link text-xs' }, 'Bias')]),
   ]),
   assets,
   item.clusterCount ? String(item.clusterCount) : '1',
@@ -202,6 +205,16 @@ export default async function NewsPage(props: NewsPageProps) {
   h(Link, { key: 'watch', href: buildHref(filters, { mode: 'watchlist', watchlist_only: 'true' }), className: 'ws-toolbar-chip' }, 'Watchlist only'),
   h(Link, { key: 'macro', href: buildHref(filters, { mode: 'macro' }), className: 'ws-toolbar-chip' }, 'Macro only'),
  ])
+ const leadItem = payload.items[0]
+ const leadGraphHref = leadItem ? (leadItem.relatedEventId ? '/app/relationship-map?entity_type=scheduled_event&ref_id=' + encodeURIComponent(leadItem.relatedEventId) : '/app/relationship-map?entity_type=news_item&ref_id=' + encodeURIComponent(leadItem.id)) : '/app/relationship-map'
+ const workflowRows: ReactNode[][] = [
+  [h(Link, { href: '/app/macro-calendar', className: 'terminal-link text-sm' }, 'Open macro calendar'), 'Move from a headline cluster into upcoming catalysts with matching event family and region.'],
+  [h(Link, { href: '/app/live-reactions', className: 'terminal-link text-sm' }, 'Open reactions'), 'Validate whether current tape direction is consistent with historical event windows.'],
+  [h(Link, { href: '/app/market-bias', className: 'terminal-link text-sm' }, 'Open market bias'), 'Check whether headline direction aligns with current cross-asset factor posture.'],
+  [h(Link, { href: leadGraphHref, className: 'terminal-link text-sm' }, 'Open relationship map'), 'Inspect linked graph neighborhoods around the current lead row and its connected entities.'],
+  [h(Link, { href: '/app/data-sources', className: 'terminal-link text-sm' }, 'Open data sources'), 'Audit official/discovery provider states and fallback notes driving this feed state.'],
+  [h(Link, { href: '/app/workspaces', className: 'terminal-link text-sm' }, 'Open workspaces'), 'Persist this news+calendar+bias workflow as a reusable desk preset.'],
+ ]
 
  return h(PageShell, { title: 'News Wire', subtitle: 'Intelligence feed surface: ranked rows first, provenance always visible, secondary rails quieter.', active: 'news', mode: payload.shellMode }, h('div', { className: 'space-y-4' }, [
   h(MetricGrid, { key: 'metrics', items: metrics }),
@@ -222,10 +235,11 @@ export default async function NewsPage(props: NewsPageProps) {
     h(Panel, { key: 'status', title: 'Source status', subtitle: 'Provider state by source type, runtime mode, and degradation detail.', level: 'integrity' }, h(DataTable, { headers: ['Provider', 'Type', 'Status', 'Mode', 'Detail'], rows: statusRows, dense: true })),
    ]),
    h('div', { key: 'right', className: 'space-y-4' }, [
-    railList('Top now', 'Highest-ranked stories for immediate operator attention.', payload.rails.topNow),
-    railList('Calendar linked', 'Stories linked directly to upcoming or released events.', payload.rails.calendarLinked),
-    railList('Watchlist news', 'Feed overlap with desk watchlists and catalyst assets.', payload.rails.watchlistNews),
-    railList('High urgency', 'Fast-moving rows with urgency score at or above desk threshold.', payload.rails.highUrgency),
+   railList('Top now', 'Highest-ranked stories for immediate operator attention.', payload.rails.topNow),
+   railList('Calendar linked', 'Stories linked directly to upcoming or released events.', payload.rails.calendarLinked),
+   railList('Watchlist news', 'Feed overlap with desk watchlists and catalyst assets.', payload.rails.watchlistNews),
+   railList('High urgency', 'Fast-moving rows with urgency score at or above desk threshold.', payload.rails.highUrgency),
+    h(Panel, { key: 'workflow', title: 'Workflow pivots', subtitle: 'Cross-surface routing from headline tape into event, graph, provider, and workspace flows.', level: 'support' }, h(DataTable, { headers: ['Module', 'Use'], rows: workflowRows, dense: true })),
    ]),
   ]),
  ]))

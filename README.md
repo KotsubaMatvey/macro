@@ -39,7 +39,17 @@ Track macro events. Read the regime. Trade the reaction.
 - Event Explorer and Impact Lab: family history and reaction context
 - Market Bias and Liquidity Regime: cross-asset consensus and regime layers
 - News (Wire, Macro Only, Watchlist), Briefings, Watchlists, Alerts, Community, Admin: connected operator workflows
+- Data Sources: provider control plane with domain grouping, mode/source/freshness state, fallback and degraded notes, and affected-surface routing
+- Relationship Map: graph neighborhood explorer over `intelligence_entities`/`intelligence_links` with route pivots into event/news/geoboard/reactions/bias/reports/alerts/watchlists
+- Workspaces: user-scoped saved desk layouts with default presets (`Macro Desk`, `Event Day`, `News + Calendar`, `Geoboard Focus`, `Reactions / Bias Review`)
 - Watchlist mutations are user-scoped server-side: items can only be written to watchlists owned by the authenticated user.
+
+## Operator workflow upgrades
+- Provider control plane API: `GET /api/v1/providers/status`
+- Graph explorer API: `GET /api/v1/graph/neighborhood?entity_type=...&ref_id=...`
+- Workspaces API: `GET/POST /api/v1/workspaces`, `GET/PATCH/DELETE /api/v1/workspaces/{workspace_id}`
+- Command palette (`Ctrl/Cmd+K`): route jumps, entity-aware pivots, workspace open actions, and provider/graph shortcuts
+- Cross-surface pivots are first-class across Dashboard, Calendar, Event Detail, News, Geoboard, Reactions, Bias, Reports, Alerts, Watchlists, Data Sources, and Relationship Map
 
 ## Quick start
 1. Copy `.env.example` to `.env`.

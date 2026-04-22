@@ -737,6 +737,118 @@ class GeoboardPayload(BaseModel):
  summary: dict
 
 
+class ProviderStatusItem(BaseModel):
+ providerKey: str
+ label: str
+ domainKey: str
+ sourceType: str
+ sourceTier: str
+ mode: str
+ freshness: str
+ state: str
+ note: str
+ lastRefresh: Optional[str] = None
+ lastUpdated: Optional[str] = None
+ routeHint: str = "/app/dashboard"
+ diagnosticsPath: Optional[str] = None
+ affectedSurfaces: list[str] = Field(default_factory=list)
+ meta: dict = Field(default_factory=dict)
+
+
+class ProviderDomainBlock(BaseModel):
+ key: str
+ label: str
+ description: str
+ counts: dict = Field(default_factory=dict)
+ items: list[ProviderStatusItem] = Field(default_factory=list)
+
+
+class ProviderControlPlanePayload(BaseModel):
+ generatedAt: str
+ summary: dict = Field(default_factory=dict)
+ domains: list[ProviderDomainBlock] = Field(default_factory=list)
+
+
+class GraphSeedEntity(BaseModel):
+ id: str
+ entityType: str
+ refId: str
+ title: str
+ mode: str
+ freshness: str
+ routeHint: str
+
+
+class GraphNode(BaseModel):
+ id: str
+ entityType: str
+ refId: str
+ title: str
+ source: str
+ sourceType: str
+ sourceTier: str
+ sourceUrl: Optional[str] = None
+ mode: str
+ freshness: str
+ confidenceScore: float = 0
+ metadata: dict = Field(default_factory=dict)
+ routeHint: str
+ surfaceHint: str
+ scores: Optional[dict] = None
+
+
+class GraphEdge(BaseModel):
+ id: str
+ fromId: str
+ toId: str
+ linkType: str
+ confidenceScore: float = 0
+ rationale: str = ""
+
+
+class GraphNeighborhoodPayload(BaseModel):
+ generatedAt: str
+ root: dict
+ nodes: list[GraphNode] = Field(default_factory=list)
+ edges: list[GraphEdge] = Field(default_factory=list)
+ summary: dict = Field(default_factory=dict)
+ filters: dict = Field(default_factory=dict)
+ seedEntities: list[GraphSeedEntity] = Field(default_factory=list)
+
+
+class WorkspaceEntry(BaseModel):
+ id: str
+ name: str
+ presetKey: Optional[str] = None
+ isPreset: bool = False
+ moduleKeys: list[str] = Field(default_factory=list)
+ filters: dict = Field(default_factory=dict)
+ layout: dict = Field(default_factory=dict)
+ routes: list[str] = Field(default_factory=list)
+ activeRoute: str = "/app/dashboard"
+ createdAt: str
+ updatedAt: str
+ lastUsedAt: str
+
+
+class WorkspaceInput(BaseModel):
+ name: str
+ moduleKeys: list[str] = Field(default_factory=list)
+ filters: dict = Field(default_factory=dict)
+ layout: dict = Field(default_factory=dict)
+ routes: list[str] = Field(default_factory=list)
+ activeRoute: str = "/app/dashboard"
+
+
+class WorkspaceUpdateInput(BaseModel):
+ name: Optional[str] = None
+ moduleKeys: Optional[list[str]] = None
+ filters: Optional[dict] = None
+ layout: Optional[dict] = None
+ routes: Optional[list[str]] = None
+ activeRoute: Optional[str] = None
+
+
 
 
 

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 import type { WeeklyReport } from '@macroaccess/types'
@@ -27,6 +28,14 @@ export default async function ReportsPage() {
   { label: 'Status', value: latest ? latest.status : '-', note: latest ? latest.summary : 'No report generated yet' },
  ]
  const rows: ReactNode[][] = reports.map(function (item) { return [item.title, item.weekStart + ' / ' + item.weekEnd, item.mode, item.status, watchItems(item)] })
+ const leadRef = latest ? latest.slug : 'weekly-macro-brief'
+ const workflowRows: ReactNode[][] = [
+  [h(Link, { href: '/app/dashboard', className: 'terminal-link text-sm' }, 'Open dashboard'), 'Reconcile latest report themes against current board-level regime and catalysts.'],
+  [h(Link, { href: '/app/news?mode=macro', className: 'terminal-link text-sm' }, 'Open macro news'), 'Confirm whether current headline flow supports weekly report assumptions.'],
+  [h(Link, { href: '/app/relationship-map?entity_type=report&ref_id=' + encodeURIComponent(leadRef), className: 'terminal-link text-sm' }, 'Open relationship map'), 'Inspect linked report context against event, asset, and reaction entities.'],
+  [h(Link, { href: '/app/data-sources', className: 'terminal-link text-sm' }, 'Open data sources'), 'Validate evaluation-worker freshness and fallback notes behind report generation.'],
+  [h(Link, { href: '/app/workspaces', className: 'terminal-link text-sm' }, 'Open workspaces'), 'Persist report-review routes as reusable weekly desk presets.'],
+ ]
  const cards = reports.slice(0, 4).map(function (item) {
   return h('div', { key: item.id, className: 'ws-feed-card' }, [
    h('div', { key: 'meta', className: 'ws-status-band' }, [
@@ -48,10 +57,11 @@ export default async function ReportsPage() {
   ])),
   h('div', { key: 'grid', className: 'ws-two-panel' }, [
    h('div', { key: 'left', className: 'space-y-4' }, [
-    h(Panel, { key: 'archive', title: 'Report archive', subtitle: 'Weekly briefs sorted for quick desk retrieval and mode-aware context.', level: 'command' }, h(DataTable, { headers: ['Title', 'Week', 'Mode', 'Status', 'Watch items'], rows: rows.length !== 0 ? rows : [['No report', '-', '-', '-', '-']], dense: true })),
-   ]),
-   h('div', { key: 'right', className: 'space-y-4' }, [
-    h(Panel, { key: 'latest', title: 'Latest briefs', subtitle: 'Recent digest cards with compact reading rhythm and watch-item scan.', level: 'support' }, cards.length !== 0 ? h('div', { className: 'grid gap-2.5' }, cards) : h('div', { className: 'text-sm text-slate-500' }, 'No reports generated yet.')),
+   h(Panel, { key: 'archive', title: 'Report archive', subtitle: 'Weekly briefs sorted for quick desk retrieval and mode-aware context.', level: 'command' }, h(DataTable, { headers: ['Title', 'Week', 'Mode', 'Status', 'Watch items'], rows: rows.length !== 0 ? rows : [['No report', '-', '-', '-', '-']], dense: true })),
+  ]),
+  h('div', { key: 'right', className: 'space-y-4' }, [
+   h(Panel, { key: 'latest', title: 'Latest briefs', subtitle: 'Recent digest cards with compact reading rhythm and watch-item scan.', level: 'support' }, cards.length !== 0 ? h('div', { className: 'grid gap-2.5' }, cards) : h('div', { className: 'text-sm text-slate-500' }, 'No reports generated yet.')),
+    h(Panel, { key: 'workflow', title: 'Workflow pivots', subtitle: 'Cross-surface routes from reports into graph, provider, and workspace workflows.', level: 'support' }, h(DataTable, { headers: ['Module', 'Use'], rows: workflowRows, dense: true })),
    ]),
   ]),
  ]))

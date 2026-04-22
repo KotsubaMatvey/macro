@@ -97,7 +97,7 @@ describe('DashboardPage', function () {
   const view = await DashboardPage({ searchParams: Promise.resolve({ impact: 'Medium' }) })
   render(view)
   const calendarPanel = screen.getByRole('heading', { name: 'Macro Calendar -- APR 2026' }).closest('section') as HTMLElement
-  expect(within(calendarPanel).getByText('ECB Rate Decision')).toBeInTheDocument()
+  expect(within(calendarPanel).getByRole('link', { name: 'ECB Rate Decision' })).toBeInTheDocument()
   expect(within(calendarPanel).queryByText('Initial Jobless Claims')).not.toBeInTheDocument()
   expect(within(calendarPanel).getAllByText('Med').length).toBeGreaterThan(1)
  }, 15000)
@@ -109,7 +109,7 @@ describe('DashboardPage', function () {
   render(view)
   const catalystPanel = screen.getByRole('heading', { name: 'Next Catalysts' }).closest('section') as HTMLElement
   const calendarPanel = screen.getByRole('heading', { name: 'Macro Calendar -- APR 2026' }).closest('section') as HTMLElement
-  expect(within(calendarPanel).getByText('ECB Rate Decision')).toBeInTheDocument()
+  expect(within(calendarPanel).getByRole('link', { name: 'ECB Rate Decision' })).toBeInTheDocument()
   expect(within(calendarPanel).getByRole('link', { name: 'ECB Rate Decision' })).toHaveAttribute('href', '/app/events/event-ecb-rate')
   expect(within(catalystPanel).getByRole('link', { name: /Nonfarm Payrolls/ })).toHaveAttribute('href', '/app/events/event-nfp')
  }, 15000)
@@ -136,7 +136,7 @@ describe('DashboardPage', function () {
   const view = await DashboardPage({ searchParams: Promise.resolve({ impact: 'Medium', region: 'Eurozone', category: 'Central bank' }) })
   render(view)
   const calendarPanel = screen.getByRole('heading', { name: 'Macro Calendar -- APR 2026' }).closest('section') as HTMLElement
-  expect(within(calendarPanel).getByText('ECB Rate Decision')).toBeInTheDocument()
+  expect(within(calendarPanel).getByRole('link', { name: 'ECB Rate Decision' })).toBeInTheDocument()
   expect(within(calendarPanel).queryByText('Initial Jobless Claims')).not.toBeInTheDocument()
   expect(within(calendarPanel).getByRole('link', { name: 'Eurozone' })).toBeInTheDocument()
  }, 15000)

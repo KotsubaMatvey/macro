@@ -12,6 +12,7 @@ export const APP_SECTIONS: NavSection[] = [
  description: 'Events and context',
  children: [
  { slug: 'event-explorer', title: 'Event Explorer', description: 'Family archive' },
+ { slug: 'relationship-map', title: 'Relationship Map', description: 'Entity graph explorer' },
  { slug: 'news', title: 'Market News', description: 'Headline tape' },
  { slug: 'briefings', title: 'Briefings', description: 'Prep notes' },
  { slug: 'watchlists', title: 'Watchlists', description: 'Saved baskets' },
@@ -56,6 +57,8 @@ export const APP_SECTIONS: NavSection[] = [
  description: 'Profile and billing',
  children: [
  { slug: 'billing', title: 'Billing', description: 'Plan controls' },
+ { slug: 'workspaces', title: 'Workspaces', description: 'Desk presets' },
+ { slug: 'data-sources', title: 'Data Sources', description: 'Provider control plane' },
  ],
  },
  { slug: 'admin', title: 'Admin', description: 'Users and jobs', adminOnly: true },
@@ -77,3 +80,7 @@ if (biasChildren) {
 } 
 const calendarChildren = APP_SECTIONS.find(function (item) { return item.slug === 'macro-calendar' })?.children 
 if (calendarChildren && !calendarChildren.some(function (item) { return item.slug === 'reports' })) calendarChildren.push({ slug: 'reports', title: 'Reports', description: 'Weekly brief archive' })
+if (calendarChildren && !calendarChildren.some(function (item) { return item.slug === 'relationship-map' })) calendarChildren.push({ slug: 'relationship-map', title: 'Relationship Map', description: 'Entity graph explorer' })
+const settingsChildren = APP_SECTIONS.find(function (item) { return item.slug === 'settings' })?.children
+if (settingsChildren && !settingsChildren.some(function (item) { return item.slug === 'workspaces' })) settingsChildren.push({ slug: 'workspaces', title: 'Workspaces', description: 'Desk presets' })
+if (settingsChildren && !settingsChildren.some(function (item) { return item.slug === 'data-sources' })) settingsChildren.push({ slug: 'data-sources', title: 'Data Sources', description: 'Provider control plane' })

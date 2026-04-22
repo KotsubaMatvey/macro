@@ -18,9 +18,10 @@
 ## User workflows
 - watchlists, watchlist_items
 - alerts, alert_deliveries
+- user_workspaces (user-scoped desk presets: module keys, filters, routes, layout, active route, preset metadata)
 
 ## Intelligence core
-- intelligence_entities: canonical source-aware entities across surfaces (news/event/asset/region/geoboard signal/cluster)
+- intelligence_entities: canonical source-aware entities across surfaces (news/event/asset/region/geoboard signal/cluster/watchlist/alert rule/report/reaction family)
 - intelligence_scores: unified importance/urgency/confidence/market-relevance/desk-relevance/rank snapshots
 - intelligence_links: explicit typed edges (linked_asset, linked_event, linked_region, linked_news, linked_news_cluster, linked_report, linked_reaction)
 - signal_snapshots: replay-safe point-in-time snapshots of ranked feed states

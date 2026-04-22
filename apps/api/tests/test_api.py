@@ -273,3 +273,77 @@ def test_dashboard_endpoint_falls_back_when_bias_overlay_fails(monkeypatch):
  assert market_row['status'] in ['degraded', 'fallback'] 
  assert 'bias overlay fallback' in market_row['detail']
 
+
+def test_provider_control_plane_route_exposes_domain_groups():
+ reset_demo()
+ sign_in()
+ response = client.get('/api/v1/providers/status')
+ assert response.status_code == 200, response.text
+ payload = response.json()
+ assert payload['domains']
+ domain_keys = {item['key'] for item in payload['domains']}
+ assert 'market_data' in domain_keys
+ assert 'calendar_data' in domain_keys
+ assert 'news_feeds' in domain_keys
+ assert 'geoboard_layers' in domain_keys
+ assert 'evaluation_jobs' in domain_keys
+
+
+def test_graph_neighborhood_route_returns_root_context():
+ reset_demo()
+ sign_in()
+ response = client.get('/api/v1/graph/neighborhood?entity_type=scheduled_event&ref_id=event-cpi-mar&depth=1&limit=40')
+ assert response.status_code == 200, response.text
+ payload = response.json()
+ assert payload['root']['entityType'] == 'scheduled_event'
+ assert payload['root']['refId'] == 'event-cpi-mar'
+ assert payload['summary']['nodeCount'] >= 1
+ assert payload['filters']['depth'] == 1
+
+
+def test_workspace_crud_and_user_scope():
+ reset_demo()
+ sign_in()
+ listed = client.get('/api/v1/workspaces')
+ assert listed.status_code == 200, listed.text
+ presets = listed.json()
+ assert any(item['isPreset'] is True for item in presets)
+
+ created = client.post(
+  '/api/v1/workspaces',
+  json={
+   'name': 'Desk Runbook',
+   'moduleKeys': ['dashboard', 'macro-calendar'],
+   'filters': {'impact': 'High'},
+   'layout': {'density': 'dense'},
+   'routes': ['/app/dashboard', '/app/macro-calendar?impact=High'],
+   'activeRoute': '/app/dashboard',
+  },
+ )
+ assert created.status_code == 200, created.text
+ workspace_id = created.json()['detail']
+
+ detail = client.get('/api/v1/workspaces/' + workspace_id)
+ assert detail.status_code == 200, detail.text
+ assert detail.json()['name'] == 'Desk Runbook'
+
+ updated = client.patch(
+  '/api/v1/workspaces/' + workspace_id,
+  json={'name': 'Desk Runbook v2', 'activeRoute': '/app/macro-calendar?impact=High'},
+ )
+ assert updated.status_code == 200, updated.text
+ assert updated.json()['name'] == 'Desk Runbook v2'
+ assert updated.json()['activeRoute'].startswith('/app/macro-calendar')
+
+ client.post('/api/v1/auth/sign-out')
+ sign_in('admin@macroaccess.local', 'admin12345')
+ forbidden = client.get('/api/v1/workspaces/' + workspace_id)
+ assert forbidden.status_code == 404
+
+ client.post('/api/v1/auth/sign-out')
+ sign_in()
+ deleted = client.delete('/api/v1/workspaces/' + workspace_id)
+ assert deleted.status_code == 200, deleted.text
+ gone = client.get('/api/v1/workspaces/' + workspace_id)
+ assert gone.status_code == 404
+

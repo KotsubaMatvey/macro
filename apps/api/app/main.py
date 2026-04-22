@@ -6,10 +6,13 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import apply_migrations
-from .schemas import AlertInput, CommentInput, CommunityPostInput, DashboardPayload, OnboardingRequest, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkstationPayload, NewsFeedPayload
+from .schemas import AlertInput, CommentInput, CommunityPostInput, DashboardPayload, GraphNeighborhoodPayload, NewsFeedPayload, OnboardingRequest, ProviderControlPlanePayload, ResetCompleteRequest, ResetRequest, SignInRequest, SignUpRequest, SimpleResponse, VerifyEmailRequest, WatchlistInput, WatchlistItemInput, WorkspaceEntry, WorkspaceInput, WorkspaceUpdateInput, WorkstationPayload
 from .dashboard_service import dashboard_payload
 from .seed import seed_demo_database
 from .services import add_watchlist_item, admin_summary, complete_password_reset, create_alert, create_comment, create_post, create_watchlist, current_user_from_token, event_detail, latest_regime, like_post, list_alerts, list_biases, list_briefings, list_events, list_feature_flags, list_jobs, list_news, list_posts, list_watchlists, request_password_reset, sign_in, sign_out, sign_up, update_onboarding, verify_email, workstation_payload, create_job
+from .provider_control_plane import provider_control_plane_payload
+from .graph_service import graph_neighborhood, refresh_graph_materialization
+from .workspace_service import create_workspace, delete_workspace, get_workspace, list_workspaces, update_workspace
 from .settings import settings
 from .routers.geoboard import router as geoboard_router
 
@@ -172,6 +175,28 @@ def news(
         watchlist_only=watchlist_only,
     )
 
+@app.get('/api/v1/providers/status', response_model=ProviderControlPlanePayload)
+def providers_status(user = Depends(current_user)):
+    return provider_control_plane_payload(user)
+
+@app.get('/api/v1/graph/neighborhood', response_model=GraphNeighborhoodPayload)
+def graph_neighborhood_route(
+    entity_type: str = 'scheduled_event',
+    ref_id: str = '',
+    depth: int = 1,
+    limit: int = 80,
+    link_types: str = '',
+    refresh: bool = True,
+    user = Depends(current_user),
+):
+    if refresh:
+        refresh_graph_materialization(user)
+    filters = [item.strip() for item in link_types.split(',') if item.strip()] if link_types else []
+    try:
+        return graph_neighborhood(entity_type=entity_type, ref_id=ref_id, depth=depth, limit=limit, link_types=filters)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
 @app.get('/api/v1/watchlists')
 def watchlists(user = Depends(current_user)):
     return list_watchlists(user['id'])
@@ -202,6 +227,44 @@ def alerts(user = Depends(current_user)):
 def alerts_create(payload: AlertInput, user = Depends(current_user)):
     alert_id = create_alert(user['id'], payload)
     return {'status': 'ok', 'detail': alert_id}
+
+@app.get('/api/v1/workspaces', response_model=list[WorkspaceEntry])
+def workspaces(user = Depends(current_user)):
+    return list_workspaces(user['id'])
+
+@app.post('/api/v1/workspaces', response_model=SimpleResponse)
+def workspaces_create(payload: WorkspaceInput, user = Depends(current_user)):
+    try:
+        workspace_id = create_workspace(user['id'], payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {'status': 'ok', 'detail': workspace_id}
+
+@app.get('/api/v1/workspaces/{workspace_id}', response_model=WorkspaceEntry)
+def workspace_detail(workspace_id: str, user = Depends(current_user)):
+    row = get_workspace(user['id'], workspace_id)
+    if not row:
+        raise HTTPException(status_code=404, detail='Workspace not found')
+    return row
+
+@app.patch('/api/v1/workspaces/{workspace_id}', response_model=WorkspaceEntry)
+def workspace_update(workspace_id: str, payload: WorkspaceUpdateInput, user = Depends(current_user)):
+    try:
+        return update_workspace(user['id'], workspace_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+@app.delete('/api/v1/workspaces/{workspace_id}', response_model=SimpleResponse)
+def workspace_delete(workspace_id: str, user = Depends(current_user)):
+    try:
+        delete_workspace(user['id'], workspace_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {'status': 'ok', 'detail': workspace_id}
 
 @app.get('/api/v1/community/posts')
 def posts(user = Depends(current_user)):

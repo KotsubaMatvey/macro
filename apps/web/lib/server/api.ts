@@ -7,9 +7,12 @@ import type {
  EventDetail,
  EventRelease,
  FeatureFlag,
+ GraphNeighborhoodPayload,
  JobRun,
  NewsFeedPayload,
+ ProviderControlPlanePayload,
  SessionUser,
+ WorkspaceEntry,
  WorkstationPayload,
 } from "@macroaccess/types"
 
@@ -145,5 +148,39 @@ export const getTrackRecord = cache(async function getTrackRecord() {
 export const getReports = cache(async function getReports(limit = 12) { 
  const payload = await load('/api/v1/reports?limit=' + String(limit)) 
  return payload as import('@macroaccess/types').WeeklyReport[] 
+})
+
+export const getProviderStatus = cache(async function getProviderStatus() {
+ const payload = await load('/api/v1/providers/status')
+ return payload as ProviderControlPlanePayload
+})
+
+export const getGraphNeighborhood = cache(async function getGraphNeighborhood(params: {
+ entityType: string
+ refId: string
+ depth?: number
+ limit?: number
+ linkTypes?: string[]
+ refresh?: boolean
+}): Promise<GraphNeighborhoodPayload> {
+ const query = new URLSearchParams()
+ query.set('entity_type', params.entityType)
+ query.set('ref_id', params.refId)
+ if (params.depth !== undefined) query.set('depth', String(params.depth))
+ if (params.limit !== undefined) query.set('limit', String(params.limit))
+ if (params.linkTypes && params.linkTypes.length) query.set('link_types', params.linkTypes.join(','))
+ if (params.refresh === false) query.set('refresh', 'false')
+ const payload = await load('/api/v1/graph/neighborhood?' + query.toString())
+ return payload as GraphNeighborhoodPayload
+})
+
+export const getWorkspaces = cache(async function getWorkspaces() {
+ const payload = await load('/api/v1/workspaces')
+ return payload as WorkspaceEntry[]
+})
+
+export const getWorkspace = cache(async function getWorkspace(id: string) {
+ const payload = await load('/api/v1/workspaces/' + encodeURIComponent(id))
+ return payload as WorkspaceEntry
 })
 

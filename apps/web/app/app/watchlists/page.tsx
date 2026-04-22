@@ -38,10 +38,14 @@ export default async function WatchlistsPage() {
  const symbolRows: ReactNode[][] = trackedSymbols.map(function (symbol) {
  return [symbol, String(payload.watchlists.filter(function (list: Watchlist) { return list.items.some(function (item) { return item.symbol === symbol }) }).length) + " lists"]
  })
+ const leadWatchlist = payload.watchlists[0] ? payload.watchlists[0].id : ''
  const workflowRows: ReactNode[][] = [
  [h(Link, { href: "/app/alerts", className: "text-sky-300 transition hover:text-sky-200" }, "Open alerts"), "Attach trigger rules to the basket you already monitor."],
  [h(Link, { href: "/app/macro-calendar", className: "text-sky-300 transition hover:text-sky-200" }, "Open macro calendar"), "Use the saved symbols to prioritize which events matter most."],
  [h(Link, { href: "/app/news", className: "text-sky-300 transition hover:text-sky-200" }, "Open news tape"), "Track whether the headline tape is moving your watched assets."],
+ [h(Link, { href: leadWatchlist ? "/app/relationship-map?entity_type=watchlist&ref_id=" + encodeURIComponent(leadWatchlist) : "/app/relationship-map", className: "text-sky-300 transition hover:text-sky-200" }, "Open relationship map"), "Inspect graph-linked assets/events/reports connected to the current watchlist context."],
+ [h(Link, { href: "/app/data-sources", className: "text-sky-300 transition hover:text-sky-200" }, "Open data sources"), "Validate provider and fallback states before expanding watchlist-driven workflows."],
+ [h(Link, { href: "/app/workspaces", className: "text-sky-300 transition hover:text-sky-200" }, "Open workspaces"), "Save the active watchlist routing into reusable desk presets."],
  ]
  return h(PageShell, { title: "Watchlists", subtitle: "Saved baskets of assets and catalysts that keep the desk focused on the right tape.", active: "watchlists" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),

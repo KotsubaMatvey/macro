@@ -57,8 +57,11 @@ describe('NewsPage', function () {
   expect(screen.getByText('Mode / filters')).toBeInTheDocument()
   expect(screen.getByText('Wire feed')).toBeInTheDocument()
   expect(screen.getByText('Source status')).toBeInTheDocument()
+  expect(screen.getByText('Workflow pivots')).toBeInTheDocument()
   expect(screen.getByText('Fed speakers stay patient')).toBeInTheDocument()
   expect(screen.getByText('4 normalized / 1 deduped')).toBeInTheDocument()
+  expect(screen.getAllByRole('link', { name: 'Graph' })[0]).toHaveAttribute('href', '/app/relationship-map?entity_type=scheduled_event&ref_id=event-cpi-mar')
+  expect(screen.getByRole('link', { name: 'Open data sources' })).toHaveAttribute('href', '/app/data-sources')
   expect(screen.getByTestId('page-shell')).toHaveAttribute('data-mode', 'mixed')
  }, 15000)
 

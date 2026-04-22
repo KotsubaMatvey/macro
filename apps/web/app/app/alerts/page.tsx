@@ -43,6 +43,9 @@ export default async function AlertsPage() {
  [h(Link, { href: "/app/macro-calendar", className: "text-sky-300 transition hover:text-sky-200" }, "Open macro calendar"), "Promote upcoming catalysts into scheduled reminders."],
  [h(Link, { href: "/app/watchlists", className: "text-sky-300 transition hover:text-sky-200" }, "Open watchlists"), "Connect saved baskets to the alerts you need before the print."],
  [h(Link, { href: "/app/live-reactions", className: "text-sky-300 transition hover:text-sky-200" }, "Open live reactions"), "Treat triggered alerts as a prompt to inspect the reaction tape."],
+ [h(Link, { href: "/app/relationship-map", className: "text-sky-300 transition hover:text-sky-200" }, "Open relationship map"), "Inspect alert-rule links to assets/events and connected desk entities."],
+ [h(Link, { href: "/app/data-sources", className: "text-sky-300 transition hover:text-sky-200" }, "Open data sources"), "Check evaluation-worker and provider degradation behind alert pipeline behavior."],
+ [h(Link, { href: "/app/workspaces", className: "text-sky-300 transition hover:text-sky-200" }, "Open workspaces"), "Save the alert-monitoring route set into a reusable event-day preset."],
  ]
  return h(PageShell, { title: "Alerts", subtitle: "Event reminders, threshold logic, and channel state in one operational alert center.", active: "alerts" }, h("div", { className: "space-y-5" }, [
  h(MetricGrid, { key: "metrics", items: metrics }),

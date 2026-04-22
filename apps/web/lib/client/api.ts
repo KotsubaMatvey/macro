@@ -26,11 +26,15 @@ async function parseJson(response: Response) {
 }
 
 export async function postJson(path: string, payload: unknown) { 
+ return requestJson(path, 'POST', payload)
+}
+
+async function requestJson(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', payload?: unknown) {
  const options = { 
-  method: 'POST', 
+  method: method, 
   credentials: 'include' as const, 
   headers: { 'Content-Type': 'application/json' }, 
-  body: JSON.stringify(payload), 
+  body: method === 'GET' || method === 'DELETE' ? undefined : JSON.stringify(payload), 
  } 
  try { 
   const response = await fetch(path, options) 
@@ -47,9 +51,21 @@ export async function postJson(path: string, payload: unknown) {
   } 
   return parseJson(response) 
  } catch (error) { 
-  console.error('POST request failed', path, error) 
+  console.error('Request failed', method, path, error) 
   if (error instanceof Error) throw error 
   throw new Error('Network request failed') 
  } 
+}
+
+export async function getJson(path: string) {
+ return requestJson(path, 'GET')
+}
+
+export async function patchJson(path: string, payload: unknown) {
+ return requestJson(path, 'PATCH', payload)
+}
+
+export async function deleteJson(path: string) {
+ return requestJson(path, 'DELETE')
 }
 

@@ -626,3 +626,190 @@ def materialize_geoboard_links(feed: list[dict[str, Any]]) -> dict[str, int]:
             )
 
     return {"entities": entity_count, "links": link_count}
+
+
+def materialize_operator_links(user_id: str, *, limit: int = 320) -> dict[str, int]:
+    if not user_id:
+        return {"entities": 0, "links": 0}
+    entity_count = 0
+    link_count = 0
+
+    watchlists = fetch_all(
+        """
+        select id, name, description
+        from watchlists
+        where user_id = %s
+        order by created_at desc
+        limit %s
+        """,
+        (user_id, max(1, limit // 4)),
+    )
+    watchlist_items = fetch_all(
+        """
+        select wi.watchlist_id, wi.item_type, wi.symbol
+        from watchlist_items wi
+        join watchlists w on w.id = wi.watchlist_id
+        where w.user_id = %s
+        order by wi.watchlist_id, wi.symbol
+        limit %s
+        """,
+        (user_id, limit),
+    )
+    alerts = fetch_all(
+        """
+        select id, name, trigger_type, target_ref, status
+        from alerts
+        where user_id = %s
+        order by created_at desc
+        limit %s
+        """,
+        (user_id, max(1, limit // 3)),
+    )
+
+    watchlist_entities: dict[str, str] = {}
+    for row in watchlists:
+        watchlist_id = str(row.get("id") or "").strip()
+        if not watchlist_id:
+            continue
+        watch_entity_id = upsert_entity(
+            entity_type="watchlist",
+            ref_id=watchlist_id,
+            title=str(row.get("name") or watchlist_id),
+            source="operator-desk",
+            source_type="derived",
+            source_tier="secondary",
+            source_url=None,
+            mode="derived",
+            freshness="degraded",
+            confidence_score=0.68,
+            metadata={"description": str(row.get("description") or ""), "userId": user_id},
+        )
+        watchlist_entities[watchlist_id] = watch_entity_id
+        entity_count += 1
+
+    for item in watchlist_items:
+        watchlist_id = str(item.get("watchlist_id") or "").strip()
+        source_id = watchlist_entities.get(watchlist_id)
+        if not source_id:
+            continue
+        symbol = str(item.get("symbol") or "").strip()
+        item_type = str(item.get("item_type") or "").strip().lower()
+        if not symbol:
+            continue
+        if item_type == "asset":
+            target_entity = upsert_entity(
+                entity_type="asset",
+                ref_id=symbol.upper(),
+                title=symbol.upper(),
+                source="operator-desk",
+                source_type="derived",
+                source_tier="secondary",
+                source_url=None,
+                mode="derived",
+                freshness="degraded",
+                confidence_score=0.62,
+                metadata={"watchlistId": watchlist_id},
+            )
+            link_entities(
+                from_entity_id=source_id,
+                to_entity_id=target_entity,
+                link_type="linked_asset",
+                confidence_score=0.72,
+                rationale="Asset tracked inside user watchlist.",
+            )
+            link_count += 1
+            continue
+        target_entity = upsert_entity(
+            entity_type="reaction_family",
+            ref_id=symbol,
+            title=symbol,
+            source="operator-desk",
+            source_type="derived",
+            source_tier="secondary",
+            source_url=None,
+            mode="derived",
+            freshness="degraded",
+            confidence_score=0.58,
+            metadata={"watchlistId": watchlist_id},
+        )
+        link_entities(
+            from_entity_id=source_id,
+            to_entity_id=target_entity,
+            link_type="linked_reaction",
+            confidence_score=0.60,
+            rationale="Event family tracked inside user watchlist.",
+        )
+        link_count += 1
+
+    for row in alerts:
+        alert_id = str(row.get("id") or "").strip()
+        if not alert_id:
+            continue
+        alert_entity_id = upsert_entity(
+            entity_type="alert_rule",
+            ref_id=alert_id,
+            title=str(row.get("name") or alert_id),
+            source="operator-desk",
+            source_type="derived",
+            source_tier="secondary",
+            source_url=None,
+            mode="derived",
+            freshness="degraded",
+            confidence_score=0.64,
+            metadata={
+                "triggerType": str(row.get("trigger_type") or ""),
+                "status": str(row.get("status") or ""),
+                "targetRef": str(row.get("target_ref") or ""),
+            },
+        )
+        entity_count += 1
+        target_ref = str(row.get("target_ref") or "").strip()
+        if not target_ref:
+            continue
+        trigger_type = str(row.get("trigger_type") or "").strip().lower()
+        if trigger_type == "event_reminder" or target_ref.startswith("event-"):
+            target_entity = upsert_entity(
+                entity_type="scheduled_event",
+                ref_id=target_ref,
+                title=target_ref,
+                source="operator-desk",
+                source_type="derived",
+                source_tier="secondary",
+                source_url=None,
+                mode="derived",
+                freshness="degraded",
+                confidence_score=0.66,
+                metadata={},
+            )
+            link_entities(
+                from_entity_id=alert_entity_id,
+                to_entity_id=target_entity,
+                link_type="linked_event",
+                confidence_score=0.74,
+                rationale="Alert target references a scheduled event.",
+            )
+            link_count += 1
+            continue
+        target_entity = upsert_entity(
+            entity_type="asset",
+            ref_id=target_ref.upper(),
+            title=target_ref.upper(),
+            source="operator-desk",
+            source_type="derived",
+            source_tier="secondary",
+            source_url=None,
+            mode="derived",
+            freshness="degraded",
+            confidence_score=0.58,
+            metadata={},
+        )
+        link_entities(
+            from_entity_id=alert_entity_id,
+            to_entity_id=target_entity,
+            link_type="linked_asset",
+            confidence_score=0.66,
+            rationale="Alert target references an asset or symbol.",
+        )
+        link_count += 1
+
+    return {"entities": entity_count, "links": link_count}

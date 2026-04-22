@@ -6,6 +6,7 @@ import { APP_NAME, APP_SECTIONS } from '@macroaccess/config'
 import type { NavSection } from '@macroaccess/types'
 import { cx, surfaces, toneClass } from '@macroaccess/ui'
 import { getSession } from '@/lib/server/api'
+import { CommandPalette } from './command-palette'
 
 type Child = ReactNode
 
@@ -247,6 +248,9 @@ export async function PageShell(props: PageShellProps) {
      h('p', { key: 'subtitle', className: 'mt-1 max-w-3xl text-[11px] leading-5 text-slate-400' }, props.subtitle),
     ]),
     h('div', { key: 'utility', className: 'flex flex-wrap items-center gap-1.5' }, [
+     h(CommandPalette, { key: 'cmdk' }),
+     h(Link, { key: 'workspaces', href: '/app/workspaces', className: 'desk-tab' }, 'Workspaces'),
+     h(Link, { key: 'providers', href: '/app/data-sources', className: 'desk-tab' }, 'Data Sources'),
      h(Badge, { key: 'role' }, session.role),
      h(Badge, { key: 'mode', accent: mode === 'live' }, mode),
     ]),

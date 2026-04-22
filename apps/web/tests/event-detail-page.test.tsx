@@ -16,7 +16,14 @@ vi.mock("@/components/app/chrome", function () {
  PageShell: function PageShell(props: { title: string; children?: ReactNode }) { return h("div", {}, [h("h1", { key: "title" }, props.title), h("div", { key: "body" }, props.children)]) },
  Panel: function Panel(props: { title: string; children?: ReactNode }) { return h("section", {}, [h("h2", { key: "title" }, props.title), h("div", { key: "body" }, props.children)]) },
  MetricGrid: function MetricGrid() { return h("div", {}, "metrics") },
- DataTable: function DataTable() { return h("div", {}, "table") },
+ DataTable: function DataTable(props: any) {
+  return h("table", {}, [
+   h("thead", { key: "head" }, h("tr", {}, (props.headers || []).map(function (header: string, index: number) { return h("th", { key: header + String(index) }, header) }))),
+   h("tbody", { key: "body" }, (props.rows || []).map(function (row: any[], rowIndex: number) {
+    return h("tr", { key: rowIndex }, row.map(function (cell: any, cellIndex: number) { return h("td", { key: String(rowIndex) + "-" + String(cellIndex) }, cell) }))
+   })),
+  ])
+ },
  KeyValueList: function KeyValueList() { return h("div", {}, "meta") },
  EventLink: function EventLink(props: { title: string }) { return h("a", {}, props.title) },
  Badge: function Badge(props: { children?: ReactNode }) { return h("span", {}, props.children) },
@@ -35,5 +42,7 @@ describe("EventDetailPage", function () {
  expect(screen.getByText("US CPI March")).toBeInTheDocument()
  expect(screen.getByText("Archive selector")).toBeInTheDocument()
  expect(screen.getByText("Bias context")).toBeInTheDocument()
+ expect(screen.getByRole("link", { name: "Open relationship map" })).toHaveAttribute("href", "/app/relationship-map?entity_type=scheduled_event&ref_id=event-cpi-mar")
+ expect(screen.getByRole("link", { name: "Open data sources" })).toHaveAttribute("href", "/app/data-sources")
  })
 })

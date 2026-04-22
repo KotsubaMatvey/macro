@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 import type { DataMode } from '@macroaccess/types'
@@ -32,6 +33,14 @@ export default async function MarketBiasPage() {
  ]
  const factorRows: ReactNode[][] = payload.factors.map(function (item) { return [item.label, item.direction, item.score.toFixed(1), String(Math.round(item.confidence * 100)) + '%', item.detail] })
  const assetRows: ReactNode[][] = payload.assets.map(function (item) { return [item.symbol, item.direction, item.score.toFixed(1), pct(item.change1d), pct(item.change30d), item.freshness.mode + ' / ' + item.freshness.freshness] })
+ const leadAsset = payload.assets[0] ? payload.assets[0].symbol : ''
+ const workflowRows: ReactNode[][] = [
+  [h(Link, { href: '/app/news?asset=' + encodeURIComponent(leadAsset), className: 'terminal-link text-sm' }, 'Open linked news'), 'Scan headlines touching the current lead asset and validate narrative alignment.'],
+  [h(Link, { href: '/app/live-reactions?asset=' + encodeURIComponent(leadAsset || 'SPX'), className: 'terminal-link text-sm' }, 'Open reactions'), 'Check event-window behavior for the same asset before acting on bias direction.'],
+  [h(Link, { href: '/app/relationship-map?entity_type=asset&ref_id=' + encodeURIComponent(leadAsset || 'SPX'), className: 'terminal-link text-sm' }, 'Open relationship map'), 'Inspect graph-linked events, clusters, reports, and reactions around this asset node.'],
+  [h(Link, { href: '/app/data-sources', className: 'terminal-link text-sm' }, 'Open data sources'), 'Audit provider freshness and fallback states behind current factor decomposition.'],
+  [h(Link, { href: '/app/workspaces', className: 'terminal-link text-sm' }, 'Open workspaces'), 'Persist the current bias/reactions/news route set as a reusable review desk.'],
+ ]
  const notes = payload.factors.slice(0, 4).map(function (item) {
   return h('div', { key: item.key, className: 'ws-feed-card' }, [
    h('div', { key: 'meta', className: 'ws-status-band' }, [
@@ -54,11 +63,12 @@ export default async function MarketBiasPage() {
   ])),
   h('div', { key: 'grid', className: 'ws-two-panel' }, [
    h('div', { key: 'left', className: 'space-y-4' }, [
-    h(Panel, { key: 'factors', title: 'Factor contributions', subtitle: 'Direction, score, confidence, and mechanism detail by factor.', level: 'command' }, h(DataTable, { headers: ['Factor', 'Direction', 'Score', 'Confidence', 'Detail'], rows: factorRows, dense: true, numericColumns: [2, 3] })),
-    h(Panel, { key: 'assets', title: 'Asset influence', subtitle: 'Instrument-level posture from factor stack and market tape.', level: 'command' }, h(DataTable, { headers: ['Asset', 'Direction', 'Score', '1d', '30d', 'Freshness'], rows: assetRows, dense: true, numericColumns: [2, 3, 4] })),
-   ]),
-   h('div', { key: 'right', className: 'space-y-4' }, [
-    h(Panel, { key: 'notes', title: 'Factor notes', subtitle: 'Operator notes for the highest-weight active factors.', level: 'context' }, h('div', { className: 'grid gap-2.5' }, notes)),
+   h(Panel, { key: 'factors', title: 'Factor contributions', subtitle: 'Direction, score, confidence, and mechanism detail by factor.', level: 'command' }, h(DataTable, { headers: ['Factor', 'Direction', 'Score', 'Confidence', 'Detail'], rows: factorRows, dense: true, numericColumns: [2, 3] })),
+   h(Panel, { key: 'assets', title: 'Asset influence', subtitle: 'Instrument-level posture from factor stack and market tape.', level: 'command' }, h(DataTable, { headers: ['Asset', 'Direction', 'Score', '1d', '30d', 'Freshness'], rows: assetRows, dense: true, numericColumns: [2, 3, 4] })),
+  ]),
+  h('div', { key: 'right', className: 'space-y-4' }, [
+   h(Panel, { key: 'notes', title: 'Factor notes', subtitle: 'Operator notes for the highest-weight active factors.', level: 'context' }, h('div', { className: 'grid gap-2.5' }, notes)),
+    h(Panel, { key: 'workflow', title: 'Workflow pivots', subtitle: 'Cross-surface follow-through from bias into graph, provider, and workspace operations.', level: 'support' }, h(DataTable, { headers: ['Module', 'Use'], rows: workflowRows, dense: true })),
    ]),
   ]),
  ]))

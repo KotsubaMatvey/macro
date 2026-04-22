@@ -226,7 +226,7 @@ function buildFallbackFeed(): FeedItem[] {
    linkedAssetSymbols: item.affectedAssets,
    tags: [item.classification, item.sourceMeta.sourceType],
    geoboardModes: item.geoboardModes,
-   links: { calendar: '/app/macro-calendar', news: '/app/news', reactions: '/app/live-reactions', bias: '/app/market-bias', reports: '/app/reports', watchlists: '/app/watchlists', alerts: '/app/alerts', source: item.url },
+   links: { calendar: '/app/macro-calendar', news: '/app/news', reactions: '/app/live-reactions', bias: '/app/market-bias', graph: '/app/relationship-map?entity_type=geoboard_signal&ref_id=' + encodeURIComponent(item.id), reports: '/app/reports', providers: '/app/data-sources', watchlists: '/app/watchlists', alerts: '/app/alerts', source: item.url },
    sourceMeta: item.sourceMeta,
    ranking: item.ranking,
   }

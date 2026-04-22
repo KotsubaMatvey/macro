@@ -280,6 +280,9 @@ export default async function DashboardPage(props: DashboardPageProps) {
  const datasetCalendarMode = calendarBoardMode(calendarDataset)
  const viewCalendarMode = calendarBoardMode(visibleCalendar)
  const calendarRows: ReactNode[][] = visibleCalendar.length !== 0 ? visibleCalendar.map(calendarRow) : [["--", "--", "No events match the current dashboard filters", "--", "--", "--", "--"]]
+ const graphEvent = visibleCalendar[0] ? visibleCalendar[0] : catalysts[0]
+ const keyCatalystEventId = payload.keyCatalyst.href.startsWith("/app/events/") ? payload.keyCatalyst.href.replace("/app/events/", "").split("?")[0] : ""
+ const keyCatalystGraphHref = keyCatalystEventId ? "/app/relationship-map?entity_type=scheduled_event&ref_id=" + encodeURIComponent(keyCatalystEventId) : "/app/relationship-map"
     return h(PageShell, { title: "Dashboard", subtitle: "Command board surface with prioritized macro state, catalysts, and tape-level integrity context.", active: "dashboard", mode: shellMode }, h("div", { className: "space-y-4" }, [
  h("section", { key: "context", className: "grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]" }, [
  h("div", { key: "desk", className: "terminal-strip flex-wrap gap-2" }, [
@@ -341,6 +344,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  signalTile("Consensus", payload.marketConsensus.label, String(Math.round(payload.marketConsensus.confidence * 100)) + "% confidence / " + String(payload.marketConsensus.sampleSize) + " assets"),
  signalTile("Track record", trackValue, String(payload.trackRecord.sampleSize) + " replays / " + payload.trackRecord.evaluationMode),
  linkCard("active-tape", "Active tape", activeAsset ? activeAsset.symbol : "No asset", activeAsset ? activeAsset.price + " / 5d edge " + showPercent(activeAsset.expectedMove5dPct) : "No market print", dashboardHref(state, { asset: activeAsset ? activeAsset.symbol : undefined }), "Focus"),
+ linkCard("provider-plane", "Data sources", "Provider control plane", "Inspect mode, freshness, and fallback states behind this board.", "/app/data-sources", "Inspect"),
  ]),
  ]))),
  h("div", { key: "catalyst-wrap", id: "catalyst-board" }, h(Panel, { title: "Next Catalysts", subtitle: "Upcoming macro releases prioritized for immediate desk action across 48H or 1W windows.", level: "command", actions: h(Link, { href: "/app/event-explorer", className: "terminal-link text-[11px] font-medium" }, "Open event explorer") }, h("div", { className: "space-y-4" }, [
@@ -374,6 +378,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  briefingLead ? linkCard("briefing", "Briefing", briefingLead.title, briefingLead.subtitle + " / " + briefingLead.mode, briefingLead.href) : signalTile("Briefing", "Pending", "No linked briefing loaded"),
  newsLead ? linkCard("news", "News", newsLead.title, newsLead.subtitle + " / " + newsLead.mode, newsLead.href) : signalTile("News", "Pending", "No ranked news item loaded"),
  alertLead ? linkCard("alert", "Alert", alertLead.title, alertLead.subtitle + " / " + alertLead.mode, alertLead.href) : signalTile("Alert", "Pending", "No live alert attached"),
+ linkCard("graph-catalyst", "Relationship map", payload.keyCatalyst.title, "Open entity graph around the key catalyst and linked modules.", keyCatalystGraphHref, "Pivot"),
  ]),
  ]))),
  ]),
@@ -396,6 +401,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  signalTile("Filter", state.impact === "all" ? "All impact" : compactImpactLabel(state.impact), String(visibleCalendar.length) + " rows loaded"),
  signalTile("Catalyst map", String(catalysts.length), "Next board remains synced with desk window"),
  linkCard("calendar-focus", "Focus asset", activeAsset ? activeAsset.symbol : "No asset", activeAsset ? activeAsset.regimeContext : "No market context loaded", dashboardHref(state, { asset: activeAsset ? activeAsset.symbol : undefined }), "Focus"),
+ linkCard("calendar-graph", "Relationship map", graphEvent ? graphEvent.title : "No event", "Open graph neighborhood for the lead event in the current calendar view.", graphEvent ? "/app/relationship-map?entity_type=scheduled_event&ref_id=" + encodeURIComponent(graphEvent.id) : "/app/relationship-map", "Pivot"),
  ]),
  ]))),
  h("div", { key: "market-wrap", id: "market-board" }, h(Panel, { title: "Market strip", subtitle: "Cross-asset context tape with explicit live, demo, and fallback freshness states.", level: "context", actions: h(Link, { href: "/app/market-bias", className: "terminal-link text-[11px] font-medium" }, "Open market bias") }, h("div", { className: "space-y-4" }, [
@@ -412,6 +418,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
  signalTile("Hero source", payload.hero.sourceNote, payload.hero.modelNote),
  signalTile("Consensus", payload.marketConsensus.label, payload.marketConsensus.note),
  linkCard("event-link", "Key event", payload.keyCatalyst.title, payload.keyCatalyst.threshold, payload.keyCatalyst.href, "Open"),
+ linkCard("workspaces-link", "Workspaces", "Save desk state", "Persist this dashboard route + filters for fast reopen on event days.", "/app/workspaces", "Save"),
  ]),
  ]))),
  ]),

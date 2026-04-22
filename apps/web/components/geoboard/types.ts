@@ -244,12 +244,14 @@ export interface FeedItem {
   calendar?: string | null
   reactions?: string | null
   bias?: string | null
-  reports?: string | null
-  news?: string | null
-  watchlists?: string | null
-  alerts?: string | null
-  source?: string | null
- }
+ reports?: string | null
+ news?: string | null
+ graph?: string | null
+ providers?: string | null
+ watchlists?: string | null
+ alerts?: string | null
+ source?: string | null
+}
  sourceMeta: GeoboardSourceMetadata
  ranking: GeoboardRankingMetadata
  intelligence?: GeoboardIntelligence
