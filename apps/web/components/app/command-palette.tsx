@@ -6,6 +6,7 @@ import { getJson } from '@/lib/client/api'
 
 interface CommandItem {
  id: string
+ group: 'Navigation' | 'Workspaces' | 'Entities' | 'Providers' | 'Graph' | 'Actions'
  title: string
  subtitle: string
  href: string
@@ -14,18 +15,20 @@ interface CommandItem {
 
 function staticCommands(): CommandItem[] {
  return [
-  { id: 'nav-dashboard', title: 'Open Dashboard', subtitle: 'Desk overview and catalyst board', href: '/app/dashboard', keywords: ['dashboard', 'desk', 'overview'] },
-  { id: 'nav-calendar', title: 'Open Macro Calendar', subtitle: 'Event tape and catalyst filters', href: '/app/macro-calendar', keywords: ['calendar', 'events', 'catalysts'] },
-  { id: 'nav-news', title: 'Open News Wire', subtitle: 'Official and discovery headline feed', href: '/app/news', keywords: ['news', 'wire', 'headlines'] },
-  { id: 'nav-geoboard', title: 'Open Geoboard', subtitle: 'Geo + macro map layers', href: '/app/geoboard', keywords: ['geoboard', 'map', 'geo'] },
-  { id: 'nav-reactions', title: 'Open Reactions', subtitle: 'Reaction tape by event family and asset', href: '/app/live-reactions', keywords: ['reactions', 'tape', 'event windows'] },
-  { id: 'nav-bias', title: 'Open Market Bias', subtitle: 'Cross-asset directional context', href: '/app/market-bias', keywords: ['bias', 'market', 'signals'] },
-  { id: 'nav-reports', title: 'Open Reports Archive', subtitle: 'Weekly macro report history', href: '/app/reports', keywords: ['reports', 'archive', 'weekly'] },
-  { id: 'nav-alerts', title: 'Open Alerts', subtitle: 'Trigger and reminder rules', href: '/app/alerts', keywords: ['alerts', 'trigger', 'rules'] },
-  { id: 'nav-watchlists', title: 'Open Watchlists', subtitle: 'Desk baskets and linked assets', href: '/app/watchlists', keywords: ['watchlists', 'assets', 'baskets'] },
-  { id: 'nav-provider', title: 'Open Data Sources', subtitle: 'Provider control plane', href: '/app/data-sources', keywords: ['providers', 'sources', 'control plane'] },
-  { id: 'nav-graph', title: 'Open Relationship Map', subtitle: 'Entity graph explorer', href: '/app/relationship-map', keywords: ['graph', 'relationship', 'map'] },
-  { id: 'nav-workspaces', title: 'Open Workspaces', subtitle: 'Saved desk presets and layout restore', href: '/app/workspaces', keywords: ['workspace', 'preset', 'layout'] },
+  { id: 'nav-dashboard', group: 'Navigation', title: 'Open Dashboard', subtitle: 'Desk overview and catalyst board', href: '/app/dashboard', keywords: ['dashboard', 'desk', 'overview'] },
+  { id: 'nav-calendar', group: 'Navigation', title: 'Open Macro Calendar', subtitle: 'Event tape and catalyst filters', href: '/app/macro-calendar', keywords: ['calendar', 'events', 'catalysts'] },
+  { id: 'nav-news', group: 'Navigation', title: 'Open News Wire', subtitle: 'Official and discovery headline feed', href: '/app/news', keywords: ['news', 'wire', 'headlines'] },
+  { id: 'nav-geoboard', group: 'Navigation', title: 'Open Geoboard', subtitle: 'Geo + macro map layers', href: '/app/geoboard', keywords: ['geoboard', 'map', 'geo'] },
+  { id: 'nav-reactions', group: 'Navigation', title: 'Open Reactions', subtitle: 'Reaction tape by event family and asset', href: '/app/live-reactions', keywords: ['reactions', 'tape', 'event windows'] },
+  { id: 'nav-bias', group: 'Navigation', title: 'Open Market Bias', subtitle: 'Cross-asset directional context', href: '/app/market-bias', keywords: ['bias', 'market', 'signals'] },
+  { id: 'nav-reports', group: 'Navigation', title: 'Open Reports Archive', subtitle: 'Weekly macro report history', href: '/app/reports', keywords: ['reports', 'archive', 'weekly'] },
+  { id: 'nav-alerts', group: 'Actions', title: 'Open Alerts', subtitle: 'Trigger and reminder rules', href: '/app/alerts', keywords: ['alerts', 'trigger', 'rules'] },
+  { id: 'nav-watchlists', group: 'Entities', title: 'Open Watchlists', subtitle: 'Desk baskets and linked assets', href: '/app/watchlists', keywords: ['watchlists', 'assets', 'baskets'] },
+  { id: 'nav-provider', group: 'Providers', title: 'Open Data Sources', subtitle: 'Provider control room and affected surfaces', href: '/app/data-sources', keywords: ['providers', 'sources', 'control plane', 'affected'] },
+  { id: 'nav-graph', group: 'Graph', title: 'Open Relationship Map', subtitle: 'Entity graph console', href: '/app/relationship-map', keywords: ['graph', 'relationship', 'map'] },
+  { id: 'nav-workspaces', group: 'Workspaces', title: 'Open Workspaces', subtitle: 'Saved desk presets and layout restore', href: '/app/workspaces', keywords: ['workspace', 'preset', 'layout'] },
+  { id: 'action-save-workspace', group: 'Actions', title: 'Save Current View', subtitle: 'Open Workspaces to capture this route into a desk preset', href: '/app/workspaces', keywords: ['save current', 'capture', 'workspace'] },
+  { id: 'action-inspect-providers', group: 'Providers', title: 'Inspect Affected Providers', subtitle: 'Open provider control room and degraded/fallback queue', href: '/app/data-sources', keywords: ['inspect affected providers', 'degraded', 'fallback'] },
  ]
 }
 
@@ -63,12 +66,17 @@ export function CommandPalette() {
  const [query, setQuery] = useState('')
  const [cursor, setCursor] = useState(0)
  const [dynamicCommands, setDynamicCommands] = useState<CommandItem[]>([])
+ const [dynamicLoading, setDynamicLoading] = useState(false)
+ const [dynamicIssue, setDynamicIssue] = useState('')
 
  useEffect(function () {
   if (!open) return
   let active = true
   async function loadDynamic() {
    const commands: CommandItem[] = []
+   let degraded = false
+   setDynamicLoading(true)
+   setDynamicIssue('')
    try {
     const events = await getJson('/api/v1/events')
     if (Array.isArray(events)) {
@@ -76,15 +84,16 @@ export function CommandPalette() {
      if (highImpact) {
       commands.push({
        id: 'dynamic-high-impact',
+       group: 'Entities',
        title: 'Open Latest High-Impact Event',
        subtitle: String(highImpact.title || highImpact.id),
        href: '/app/events/' + encodeURIComponent(String(highImpact.id)),
        keywords: ['high impact', 'event', 'calendar'],
       })
      }
-   }
+  }
   } catch (error) {
-   console.error('Command palette events load failed', error)
+   degraded = true
   }
   try {
     const geoPayload = await getJson('/api/geoboard/feed?mode=STANDARD')
@@ -92,6 +101,7 @@ export function CommandPalette() {
     if (topFeed && topFeed.id) {
      commands.push({
       id: 'dynamic-geoboard',
+      group: 'Entities',
       title: 'Open Top Geoboard Signal',
       subtitle: String(topFeed.title || topFeed.id),
       href: '/app/geoboard',
@@ -100,15 +110,16 @@ export function CommandPalette() {
      if (topFeed.linkedEventId) {
       commands.push({
        id: 'dynamic-geoboard-graph',
+       group: 'Graph',
        title: 'Open Relationship Map for Top Signal Event',
        subtitle: String(topFeed.linkedEventId),
        href: '/app/relationship-map?entity_type=scheduled_event&ref_id=' + encodeURIComponent(String(topFeed.linkedEventId)),
        keywords: ['graph', 'relationship', 'signal event'],
       })
      }
-   }
+  }
   } catch (error) {
-   console.error('Command palette geoboard load failed', error)
+   degraded = true
   }
   try {
     const newsPayload = await getJson('/api/v1/news?mode=macro&limit=1')
@@ -116,14 +127,15 @@ export function CommandPalette() {
     if (newsItem && newsItem.id) {
       commands.push({
        id: 'dynamic-news',
+       group: 'Entities',
        title: 'Open Latest Macro-Only News',
        subtitle: String(newsItem.title || newsItem.id),
        href: '/app/news?focus=' + encodeURIComponent(String(newsItem.id)),
        keywords: ['news', 'macro only', 'latest'],
       })
-   }
+  }
   } catch (error) {
-   console.error('Command palette news load failed', error)
+   degraded = true
   }
   try {
     const workspaces = await getJson('/api/v1/workspaces')
@@ -132,20 +144,22 @@ export function CommandPalette() {
       if (!item || !item.id || !item.name) return
       commands.push({
        id: 'workspace-' + String(item.id),
+       group: 'Workspaces',
        title: 'Open Workspace: ' + String(item.name),
        subtitle: String(item.activeRoute || '/app/dashboard'),
        href: String(item.activeRoute || '/app/dashboard'),
        keywords: ['workspace', 'preset', String(item.name).toLowerCase()],
       })
      })
-   }
+  }
   } catch (error) {
-   console.error('Command palette workspace load failed', error)
+   degraded = true
   }
   const eventId = eventIdFromPath(pathname)
   if (eventId) {
     commands.push({
      id: 'dynamic-current-event-graph',
+     group: 'Graph',
      title: 'Open Relationship Map for Current Event',
      subtitle: eventId,
      href: '/app/relationship-map?entity_type=scheduled_event&ref_id=' + encodeURIComponent(eventId),
@@ -154,8 +168,9 @@ export function CommandPalette() {
   }
    const focusNewsId = focusNewsIdFromLocation()
    if (focusNewsId) {
-    commands.push({
+   commands.push({
      id: 'dynamic-focus-news-graph',
+     group: 'Graph',
      title: 'Open Relationship Map for Focus News',
      subtitle: focusNewsId,
      href: '/app/relationship-map?entity_type=news_item&ref_id=' + encodeURIComponent(focusNewsId),
@@ -166,13 +181,18 @@ export function CommandPalette() {
    if (focusAsset) {
     commands.push({
      id: 'dynamic-focus-asset-graph',
+     group: 'Graph',
      title: 'Open Relationship Map for Focus Asset',
      subtitle: focusAsset,
      href: '/app/relationship-map?entity_type=asset&ref_id=' + encodeURIComponent(focusAsset),
      keywords: ['graph', 'asset', 'bias'],
     })
    }
-   if (active) setDynamicCommands(commands)
+   if (active) {
+    setDynamicCommands(commands)
+    setDynamicIssue(degraded ? 'Dynamic desk commands degraded. Static navigation remains available.' : '')
+    setDynamicLoading(false)
+   }
   }
   loadDynamic()
   return function () { active = false }
@@ -191,6 +211,12 @@ export function CommandPalette() {
    })
   }, [commands, query])
  const selectedIndex = filtered.length === 0 ? 0 : Math.min(cursor, filtered.length - 1)
+ const grouped = useMemo(function () {
+  const order = ['Navigation', 'Workspaces', 'Entities', 'Providers', 'Graph', 'Actions']
+  return order.map(function (group) {
+   return { group: group, items: filtered.filter(function (item) { return item.group === group }) }
+  }).filter(function (entry) { return entry.items.length !== 0 })
+ }, [filtered])
 
  useEffect(function () {
   function onKey(event: KeyboardEvent) {
@@ -228,8 +254,8 @@ export function CommandPalette() {
  }
 
  return <>
-  <button type='button' className='desk-tab' onClick={function () { setOpen(true) }}>Cmd K</button>
-  {open ? <div className='cmdk-overlay' role='dialog' aria-modal='true'>
+  <button type='button' className='desk-tab' aria-label='Open command palette' onClick={function () { setOpen(true) }}>Cmd K</button>
+  {open ? <div className='cmdk-overlay' role='dialog' aria-modal='true' aria-label='Command palette' onMouseDown={function (event) { if (event.target === event.currentTarget) setOpen(false) }}>
    <div className='cmdk-panel'>
     <div className='cmdk-head'>
      <input
@@ -238,30 +264,46 @@ export function CommandPalette() {
       onChange={function (event) { setQuery(event.target.value); setCursor(0) }}
       placeholder='Type a command, module, workspace, event, provider...'
       className='cmdk-input'
+      aria-label='Command search'
       onKeyDown={function (event) {
        if (event.key === 'Enter') {
         event.preventDefault()
         const selected = filtered[selectedIndex]
         if (selected) run(selected)
        }
-      }}
+     }}
      />
+     {dynamicIssue ? <div className='mt-2 text-[10px] uppercase tracking-[0.16em] text-amber-300/80'>{dynamicIssue}</div> : null}
     </div>
-    <div className='cmdk-list'>
-     {filtered.map(function (item, index) {
+    <div className='cmdk-list' role='listbox' aria-label='Command results'>
+     {grouped.map(function (entry) {
+      return <div key={entry.group}>
+       <div className='cmdk-group'>{entry.group}</div>
+       {entry.items.map(function (item) {
+      const index = filtered.indexOf(item)
       const active = index === selectedIndex
       return <button
        key={item.id + '-' + String(index)}
        type='button'
+       role='option'
+       aria-selected={active}
        onMouseEnter={function () { setCursor(index) }}
        onClick={function () { run(item) }}
        className={active ? 'cmdk-item cmdk-item-active' : 'cmdk-item'}
       >
-       <div className='cmdk-title'>{item.title}</div>
-       <div className='cmdk-subtitle'>{item.subtitle}</div>
+       <div className='cmdk-row'>
+        <div className='min-w-0'>
+         <div className='cmdk-title'>{item.title}</div>
+         <div className='cmdk-subtitle'>{item.subtitle}</div>
+        </div>
+        <span className='cmdk-key'>{active ? 'ENTER' : item.group.toUpperCase().slice(0, 4)}</span>
+       </div>
       </button>
      })}
-     {filtered.length === 0 ? <div className='cmdk-empty'>No matching commands.</div> : null}
+      </div>
+     })}
+     {dynamicLoading ? <div className='cmdk-empty'>Loading dynamic desk commands...</div> : null}
+     {filtered.length === 0 && !dynamicLoading ? <div className='cmdk-empty'>No matching commands. Static navigation, providers, graph, and workspace actions remain available.</div> : null}
     </div>
     <div className='cmdk-foot'>
      <span className='terminal-meta'>Enter to run</span>

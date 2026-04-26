@@ -10,6 +10,7 @@ vi.mock('@/components/app/chrome', function () {
   Panel: function Panel(props: any) { return h('section', {}, [h('h2', { key: 'title' }, props.title), h('div', { key: 'body' }, props.children)]) },
   MetricGrid: function MetricGrid(props: any) { return h('div', {}, props.items.map(function (item: any) { return h('div', { key: item.label }, item.label + ' ' + item.value) })) },
   Badge: function Badge(props: any) { return h('span', {}, props.children) },
+  ScoreBar: function ScoreBar(props: any) { return h('span', {}, String(Math.round(props.value || 0))) },
   DataTable: function DataTable(props: any) { return h('table', {}, [h('thead', { key: 'head' }, h('tr', {}, props.headers.map(function (header: string, index: number) { return h('th', { key: header + String(index) }, header) }))), h('tbody', { key: 'body' }, (props.rows || []).map(function (row: any[], rowIndex: number) { return h('tr', { key: rowIndex }, row.map(function (cell: any, cellIndex: number) { return h('td', { key: String(rowIndex) + '-' + String(cellIndex) }, cell) })) }))]) },
  }
 })

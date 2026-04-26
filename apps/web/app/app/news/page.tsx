@@ -3,7 +3,7 @@ import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 import type { NewsFeedPayload, NewsItem } from '@macroaccess/types'
 
-import { Badge, DataTable, EventLink, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { Badge, DataTable, EventLink, MetricGrid, PageShell, Panel, ScoreBar, SourceCell } from '@/components/app/chrome'
 import { getNews } from '@/lib/server/api'
 
 type NewsSearchParamValue = string | readonly string[] | undefined
@@ -66,21 +66,18 @@ function buildHref(filters: Record<string, string>, overrides: Record<string, st
  return query ? '/app/news?' + query : '/app/news'
 }
 
-function urgencyLabel(item: NewsItem) {
- const score = item.urgencyScore ? item.urgencyScore : 0
- if (score >= 0.8) return 'high'
- if (score >= 0.55) return 'medium'
- return 'low'
-}
-
 function sourceBadge(item: NewsItem) {
  const sourceType = item.sourceType ? item.sourceType : 'discovery'
  const mode = item.mode ? item.mode : 'fallback'
- return h('div', { className: 'ws-status-band' }, [
-  h(Badge, { key: 'type', accent: sourceType === 'official' }, sourceType),
-  h(Badge, { key: 'mode' }, mode),
-  h(Badge, { key: 'fresh' }, item.freshness ? item.freshness : 'degraded'),
-  h(Badge, { key: 'urgency' }, 'urgency ' + urgencyLabel(item)),
+ return h(SourceCell, { state: sourceType, mode: mode, freshness: item.freshness ? item.freshness : 'degraded', compact: true })
+}
+
+function newsSignal(item: NewsItem) {
+ const urgency = Math.round((item.urgencyScore ? item.urgencyScore : 0) * 100)
+ const confidence = Math.round((item.confidenceScore ? item.confidenceScore : 0) * 100)
+ return h('div', { className: 'grid min-w-[110px] gap-1.5' }, [
+  h(ScoreBar, { key: 'urg', value: urgency, label: 'urg', tone: urgency >= 70 ? 'warn' : 'neutral' }),
+  h(ScoreBar, { key: 'conf', value: confidence, label: 'conf', tone: confidence >= 70 ? 'live' : 'neutral' }),
  ])
 }
 
@@ -102,6 +99,7 @@ function itemRow(item: NewsItem): ReactNode[] {
    h('div', { key: 'meta', className: 'mt-1 text-[10px] uppercase tracking-[0.14em] text-slate-500' }, item.category + ' / ' + (item.topic ? item.topic : 'macro')),
   ]),
   sourceBadge(item),
+  newsSignal(item),
   h('div', { className: 'min-w-[360px]' }, [
    h(Link, { key: 'headline', href: '/app/news?focus=' + item.id, className: 'text-sm font-medium text-white transition hover:text-sky-200' }, item.title),
    h('p', { key: 'summary', className: 'mt-1 text-xs leading-5 text-slate-400' }, item.summary),
@@ -184,7 +182,7 @@ export default async function NewsPage(props: NewsPageProps) {
 
  const rows: ReactNode[][] = payload.items.length !== 0
   ? payload.items.map(itemRow)
-  : [['--', '--', '--', 'No items match current filters', '--', '--']]
+  : []
 
  const statusRows: ReactNode[][] = payload.rails.sourceStatus.length !== 0
   ? payload.rails.sourceStatus.map(function (item) {
@@ -231,7 +229,7 @@ export default async function NewsPage(props: NewsPageProps) {
   ]),
   h('div', { key: 'grid', className: 'ws-two-panel' }, [
    h('div', { key: 'left', className: 'space-y-4' }, [
-    h(Panel, { key: 'feed', title: 'Wire feed', subtitle: 'Ranked intelligence tape with headline-first scan order and direct desk actions.', level: 'command' }, h(DataTable, { headers: ['Time', 'Source', 'Status', 'Headline', 'Assets', 'Cluster'], rows: rows, dense: true, stickyHeader: true, ariaLabel: 'News feed' })),
+    h(Panel, { key: 'feed', title: 'Wire feed', subtitle: 'Ranked intelligence tape with headline-first scan order and direct desk actions.', level: 'command' }, h(DataTable, { headers: ['Time', 'Source', 'Status', 'Signal', 'Headline', 'Assets', 'Cluster'], rows: rows, dense: true, stickyHeader: true, ariaLabel: 'News feed', emptyMessage: 'No news rows match the current filters. Inspect Data Sources if official or discovery feeds are degraded.' })),
     h(Panel, { key: 'status', title: 'Source status', subtitle: 'Provider state by source type, runtime mode, and degradation detail.', level: 'integrity' }, h(DataTable, { headers: ['Provider', 'Type', 'Status', 'Mode', 'Detail'], rows: statusRows, dense: true })),
    ]),
    h('div', { key: 'right', className: 'space-y-4' }, [

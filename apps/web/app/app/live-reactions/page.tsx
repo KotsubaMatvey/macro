@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createElement as h } from 'react'
 import type { DataMode } from '@macroaccess/types'
 
-import { Badge, DataTable, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { Badge, DataTable, MetricGrid, PageShell, Panel, ScoreBar } from '@/components/app/chrome'
 import { getReactions } from '@/lib/server/api'
 
 type LiveReactionsSearchParamValue = string | readonly string[] | undefined
@@ -66,7 +66,7 @@ export default async function LiveReactionsPage(props: LiveReactionsPageProps) {
   { label: 'Negative', value: String(payload.summary.directionDistribution.negative), note: 'Negative windows in the filtered study set' },
   { label: 'Mode', value: surfaceMode, note: 'Market ' + marketMode + ' / Calendar ' + calendarMode + ' / ' + payload.calendar.note },
  ]
- const statRows = payload.summary.windowStats.map(function (item) { return [item.window, String(item.sampleSize), pct(item.meanMovePct), pct(item.medianMovePct), hitRate(item.positiveHitRate), hitRate(item.negativeHitRate)] })
+ const statRows = payload.summary.windowStats.map(function (item) { return [item.window, String(item.sampleSize), pct(item.meanMovePct), pct(item.medianMovePct), h(ScoreBar, { value: item.positiveHitRate * 100, label: 'pos', tone: 'live' }), h(ScoreBar, { value: item.negativeHitRate * 100, label: 'neg', tone: 'bad' })] })
  const recordRows = payload.records.map(function (item) { return [h(Link, { href: item.href, className: 'text-sky-300 transition hover:text-sky-200' }, item.title), item.scheduledAt.replace('T', ' ').slice(0, 16), item.country, item.currency, pct(item.windows.immediate), pct(item.windows['1h']), pct(item.windows['4h']), pct(item.windows['1d']), pct(item.windows['5d'])] })
  const familyLinks = payload.familyOptions.slice(0, 6).map(function (item) { return h(Link, { key: item, href: '/app/live-reactions?family=' + encodeURIComponent(item), className: 'ws-toolbar-chip' }, item) })
  const assetLinks = payload.assetOptions.map(function (item) { return h(Link, { key: item, href: '/app/live-reactions?asset=' + encodeURIComponent(item), className: 'ws-toolbar-chip' }, item) })
@@ -100,7 +100,14 @@ export default async function LiveReactionsPage(props: LiveReactionsPageProps) {
    ]),
    h('div', { key: 'right', className: 'space-y-4' }, [
    h(Panel, { key: 'integrity', title: 'Integrity notes', subtitle: 'Source posture, replay constraints, and fallback boundaries are surfaced directly.', level: 'integrity' }, h(DataTable, { headers: ['Field', 'Value'], rows: [['Surface mode', surfaceMode], ['Calendar mode', calendarMode], ['Calendar freshness', payload.calendar.freshness], ['Market freshness', payload.summary.freshness.freshness], ['Study note', payload.summary.note]], dense: true })),
-   h(Panel, { key: 'distribution', title: 'Directional distribution', subtitle: 'Directional balance across the current filtered sample set.', level: 'context' }, h(DataTable, { headers: ['Direction', 'Count'], rows: [['Positive', String(payload.summary.directionDistribution.positive)], ['Negative', String(payload.summary.directionDistribution.negative)], ['Flat', String(payload.summary.directionDistribution.flat)]], dense: true, numericColumns: [1] })),
+   h(Panel, { key: 'distribution', title: 'Directional distribution', subtitle: 'Directional balance across the current filtered sample set.', level: 'context' }, h(DataTable, { headers: ['Direction', 'Count', 'Share'], rows: (function () {
+    const total = Math.max(1, payload.summary.directionDistribution.positive + payload.summary.directionDistribution.negative + payload.summary.directionDistribution.flat)
+    return [
+     ['Positive', String(payload.summary.directionDistribution.positive), h(ScoreBar, { value: (payload.summary.directionDistribution.positive / total) * 100, label: 'share', tone: 'live' })],
+     ['Negative', String(payload.summary.directionDistribution.negative), h(ScoreBar, { value: (payload.summary.directionDistribution.negative / total) * 100, label: 'share', tone: 'bad' })],
+     ['Flat', String(payload.summary.directionDistribution.flat), h(ScoreBar, { value: (payload.summary.directionDistribution.flat / total) * 100, label: 'share', tone: 'neutral' })],
+    ]
+   })(), dense: true, numericColumns: [1] })),
     h(Panel, { key: 'workflow', title: 'Workflow pivots', subtitle: 'Cross-surface follow-through from reaction studies into graph, provider, and workspace workflows.', level: 'support' }, h(DataTable, { headers: ['Module', 'Use'], rows: workflowRows, dense: true })),
    ]),
   ]),

@@ -37,6 +37,24 @@ function quickLinks(item: FeedItem) {
  return links.map(function (entry) { return [entry[0], safeHref(entry[1])] as const }).filter(function (entry) { return Boolean(entry[1]) })
 }
 
+function pct(value: number) {
+ return String(Math.round(Math.max(0, Math.min(1, value)) * 100))
+}
+
+function meter(value: number, tone: string) {
+ return <div className='mt-1 h-[5px] overflow-hidden rounded-full bg-[#142033]'>
+  <div className={'h-full rounded-full ' + tone} style={{ width: pct(value) + '%' }} />
+ </div>
+}
+
+function sourceHealth(status: GeoboardSourceStatus) {
+ if (status.state === 'live' && status.mode === 'live') return 0.95
+ if (status.state === 'live') return 0.78
+ if (status.state === 'derived' || status.state === 'static') return 0.62
+ if (status.state === 'degraded') return 0.42
+ return 0.28
+}
+
 export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[]; selectedId: string | null; modeState: GeoboardModeState; sourceStatus: GeoboardSourceStatus[]; onRegionSelect: (zone: RegimeZone) => void; onFeedSelect: (item: FeedItem) => void }) {
  const rankedFeed = props.feed.slice().sort(function (a, b) { return b.ranking.rankScore - a.ranking.rankScore }).slice(0, 24)
  const liveSources = props.sourceStatus.filter(function (status) { return status.state === 'live' }).length
@@ -49,13 +67,14 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
    </div>
    <div className='grid grid-cols-2 gap-2'>
     {props.zones.map(function (zone, zoneIndex) {
-     return <button key={zone.id + '-' + String(zoneIndex)} type='button' onClick={function () { props.onRegionSelect(zone) }} className='rounded border border-[#1a2535] bg-[#060a0f] p-2 text-left transition hover:border-[#2b3c52] hover:bg-[#0b131d]'>
+     return <button key={zone.id + '-' + String(zoneIndex)} type='button' onClick={function () { props.onRegionSelect(zone) }} className='rounded-[6px] border border-[#1a2535] bg-[#060a0f] p-2 text-left transition hover:border-[#2b3c52] hover:bg-[#0b131d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/20'>
       <div className='flex items-center justify-between gap-2'>
        <span className='text-[10px] uppercase tracking-[0.12em]'>{zone.flag}</span>
        <span className={'rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] ' + badgeTone(zone.regime)}>{zone.regime}</span>
       </div>
       <div className='mt-1 text-[11px] uppercase tracking-[0.12em]'>{zone.label}</div>
       <div className='mt-1 text-[10px] text-[#7a9ab8]'>{'CONF ' + String(zone.confidence) + '%'}</div>
+      {meter(zone.confidence / 100, zone.regime === 'RISK-OFF' ? 'bg-[#f43f5e]' : zone.regime === 'RISK-ON' ? 'bg-[#10b981]' : 'bg-[#f59e0b]')}
      </button>
     })}
    </div>
@@ -68,9 +87,10 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
    <div className='mb-2 text-[9px] leading-4 text-[#587898]'>{props.modeState.sourceHonesty}</div>
    <div className='grid grid-cols-2 gap-1'>
     {props.sourceStatus.slice(0, 6).map(function (status, statusIndex) {
-     return <div key={status.layer + '-' + status.state + '-' + String(statusIndex)} className='rounded border border-[#1a2535] bg-[#060a0f] px-1.5 py-1 text-[9px] uppercase tracking-[0.08em]'>
+     return <div key={status.layer + '-' + status.state + '-' + String(statusIndex)} className='rounded-[6px] border border-[#1a2535] bg-[#060a0f] px-1.5 py-1 text-[9px] uppercase tracking-[0.08em]'>
       <div className='text-[#7a9ab8]'>{badgeLabel(status)}</div>
       <div className={sourceTone(status.sourceType)}>{status.sourceType + ' / ' + status.mode}</div>
+      {meter(sourceHealth(status), status.state === 'live' ? 'bg-[#10b981]' : status.state === 'degraded' ? 'bg-[#f59e0b]' : 'bg-[#f43f5e]')}
       <div className='mt-0.5 line-clamp-2 text-[8px] normal-case tracking-normal text-[#587898]'>{status.detail}</div>
      </div>
     })}
@@ -85,12 +105,13 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
    {rankedFeed.map(function (item, index) {
      const links = quickLinks(item)
      const selected = props.selectedId === item.id
-     return <div key={item.id + '-' + String(index)} className={'rounded border p-2 transition ' + (selected ? 'border-[#22d3ee]/45 bg-[#22d3ee]/8 shadow-[inset_2px_0_0_rgba(34,211,238,0.7)]' : 'border-[#1a2535] bg-[#060a0f] hover:border-[#2b3c52] hover:bg-[#0b131d]')}>
-      <button type='button' onClick={function () { props.onFeedSelect(item) }} className='block w-full text-left'>
+     return <div key={item.id + '-' + String(index)} className={'rounded-[6px] border p-2 transition ' + (selected ? 'border-[#22d3ee]/45 bg-[#0d2731] shadow-[inset_2px_0_0_rgba(34,211,238,0.78)]' : 'border-[#1a2535] bg-[#060a0f] hover:border-[#2b3c52] hover:bg-[#0b131d]')}>
+      <button type='button' onClick={function () { props.onFeedSelect(item) }} className='block w-full text-left focus-visible:outline-none'>
        <div className='flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.1em] text-[#7a9ab8]'>
         <span>{'#' + String(index + 1) + ' ' + item.feedType.replace('_', ' ')}</span>
         <span>{Math.round(item.ranking.rankScore * 100)}</span>
        </div>
+       {meter(item.ranking.rankScore, selected ? 'bg-[#22d3ee]' : 'bg-[#4dabf7]')}
        <div className='mt-1 flex flex-wrap gap-1.5'>
         <span className='rounded border border-[#2b3f58] px-1 py-0.5 text-[8px] uppercase tracking-[0.08em] text-[#8eb6d9]'>{'urg ' + Math.round(item.ranking.urgencyScore * 100)}</span>
         <span className='rounded border border-[#2b3f58] px-1 py-0.5 text-[8px] uppercase tracking-[0.08em] text-[#8eb6d9]'>{'conf ' + Math.round(item.ranking.confidenceScore * 100)}</span>
@@ -99,6 +120,7 @@ export function GeoboardRightPanel(props: { zones: RegimeZone[]; feed: FeedItem[
        <div className='mt-2 text-[11px] uppercase tracking-[0.08em] text-[#d4e3f3]'>{item.title}</div>
        <div className='mt-1 text-[10px] text-[#8aa7c4]'>{item.impactLine}</div>
        <div className='mt-1 text-[10px] text-[#5d7f9f]'>{item.subtitle}</div>
+       {selected ? <div className='mt-2 border-t border-[#244054] pt-2 text-[9px] leading-4 text-[#8aa7c4]'>{item.whyItMatters}</div> : null}
       </button>
      {links.length !== 0 ? <div className='mt-2 flex flex-wrap gap-1'>
        {links.map(function (entry, linkIndex) {

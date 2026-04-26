@@ -81,6 +81,13 @@ function toneFill(tone: number) {
  return '#10b981'
 }
 
+function modeAccent(mode: GeoboardMode) {
+ if (mode === 'RISK') return '#f43f5e'
+ if (mode === 'LIQUIDITY') return '#10b981'
+ if (mode === 'CENT.BANKS') return '#22d3ee'
+ return '#d59a3e'
+}
+
 export function GeoboardMap(props: {
  mode: GeoboardMode
  gdeltEvents: GeoEvent[]
@@ -164,9 +171,9 @@ export function GeoboardMap(props: {
  const focus = props.focusTarget && validCoordinate(props.focusTarget.lat, props.focusTarget.lon) ? project(props.focusTarget.lon, props.focusTarget.lat) : null
 
  return <div className='relative h-full w-full bg-[#060a0f]' onMouseLeave={function () { props.onHoverChange(null) }}>
-  <div className='pointer-events-none absolute left-3 top-3 z-10 max-w-[380px] rounded border border-[#1a2535] bg-[rgba(6,10,15,0.84)] px-3 py-2 text-[10px] uppercase tracking-[0.1em] text-[#8aa7c4]'>
+  <div className='pointer-events-none absolute left-3 top-3 z-10 max-w-[380px] rounded-[6px] border border-[#1a2535] bg-[rgba(6,10,15,0.86)] px-3 py-2 text-[10px] uppercase tracking-[0.1em] text-[#8aa7c4] shadow-[0_12px_26px_rgba(0,0,0,0.28)]'>
    <div className='flex flex-wrap items-center gap-1.5'>
-    <span className='text-[#c8d8e8]'>{props.mode}</span>
+    <span style={{ color: modeAccent(props.mode) }}>{props.mode}</span>
     <span>{'G' + String(counts.geo)}</span>
     <span>{'M' + String(counts.macro)}</span>
     <span>{'CB' + String(counts.cb)}</span>
@@ -174,7 +181,7 @@ export function GeoboardMap(props: {
    </div>
    <div className='mt-1 text-[9px] leading-4 text-[#6d8bab]'>{modeHint(props.mode)}</div>
   </div>
-  {geoState !== 'ready' ? <div className='pointer-events-none absolute right-3 top-3 z-10 max-w-[360px] rounded border border-[#1a2535] bg-[rgba(6,10,15,0.84)] px-3 py-2 text-[9px] uppercase tracking-[0.1em] text-[#8aa7c4]'>
+  {geoState !== 'ready' ? <div className='pointer-events-none absolute right-3 top-3 z-10 max-w-[360px] rounded-[6px] border border-[#1a2535] bg-[rgba(6,10,15,0.86)] px-3 py-2 text-[9px] uppercase tracking-[0.1em] text-[#8aa7c4]'>
    {geoState === 'loading' ? 'BASEMAP // LOADING' : 'BASEMAP // DEGRADED // CONTINUING WITH GRID + SIGNAL LAYERS'}
   </div> : null}
   <svg viewBox={'0 0 ' + String(WIDTH) + ' ' + String(HEIGHT)} className='absolute inset-0 h-full w-full'>
@@ -207,28 +214,37 @@ export function GeoboardMap(props: {
       return projected[0].toFixed(2) + ',' + projected[1].toFixed(2)
      }).join(' ')
      const selected = route.id === props.selectedSourceId || route.id === props.pulseId
-     return <polyline data-testid={'trade-node-' + route.id} key={'trade-line-' + route.id + '-' + String(index)} points={points} stroke={selected ? '#fcd34d' : '#f59e0b'} strokeWidth={selected ? '3' : '2'} onMouseMove={function (event) { props.onHoverChange({ layer: 'trade', x: event.clientX, y: event.clientY, object: route }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(route.id) }} />
+     return <polyline data-testid={'trade-node-' + route.id} key={'trade-line-' + route.id + '-' + String(index)} points={points} stroke={selected ? '#fcd34d' : '#f59e0b'} strokeWidth={selected ? '3.4' : '2'} strokeOpacity={selected ? '0.95' : '0.62'} onMouseMove={function (event) { props.onHoverChange({ layer: 'trade', x: event.clientX, y: event.clientY, object: route }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(route.id) }} />
     })}
    </g>
    <g>
     {visible.geo.map(function (item, index) {
      const projected = project(item.lon, item.lat)
      const selected = item.id === props.selectedSourceId || item.id === props.pulseId
-     return <circle data-testid={'geo-node-' + item.id} key={'geo-dot-' + item.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '7' : '5'} fill={toneFill(item.tone)} stroke={selected ? '#ecf4ff' : '#0c121c'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'geo', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
+     return <g key={'geo-dot-' + item.id + '-' + String(index)}>
+      {selected ? <circle cx={String(projected[0])} cy={String(projected[1])} r='13' fill='none' stroke='rgba(236,244,255,0.34)' strokeWidth='1.2' /> : null}
+      <circle data-testid={'geo-node-' + item.id} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '7' : '5'} fill={toneFill(item.tone)} stroke={selected ? '#ecf4ff' : '#0c121c'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'geo', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
+     </g>
     })}
    </g>
    <g>
     {visible.macro.map(function (item, index) {
      const projected = project(item.lon, item.lat)
      const selected = item.id === props.selectedSourceId || item.id === props.pulseId
-     return <rect data-testid={'macro-node-' + item.id} key={'macro-dot-' + item.id + '-' + String(index)} x={String(projected[0] - (selected ? 6 : 5))} y={String(projected[1] - (selected ? 6 : 5))} width={String(selected ? 12 : 10)} height={String(selected ? 12 : 10)} fill={selected ? '#cab4ff' : '#a78bfa'} stroke={selected ? '#ecf4ff' : '#221237'} strokeWidth='1.2' transform={'rotate(45 ' + String(projected[0]) + ' ' + String(projected[1]) + ')'} onMouseMove={function (event) { props.onHoverChange({ layer: 'macro', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
+     return <g key={'macro-dot-' + item.id + '-' + String(index)}>
+      {selected ? <circle cx={String(projected[0])} cy={String(projected[1])} r='14' fill='none' stroke='rgba(202,180,255,0.36)' strokeWidth='1.2' /> : null}
+      <rect data-testid={'macro-node-' + item.id} x={String(projected[0] - (selected ? 6 : 5))} y={String(projected[1] - (selected ? 6 : 5))} width={String(selected ? 12 : 10)} height={String(selected ? 12 : 10)} fill={selected ? '#cab4ff' : '#a78bfa'} stroke={selected ? '#ecf4ff' : '#221237'} strokeWidth='1.2' transform={'rotate(45 ' + String(projected[0]) + ' ' + String(projected[1]) + ')'} onMouseMove={function (event) { props.onHoverChange({ layer: 'macro', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
+     </g>
     })}
    </g>
    <g>
     {visible.cb.map(function (item, index) {
      const projected = project(item.lon, item.lat)
      const selected = item.id === props.selectedSourceId || item.id === props.pulseId
-     return <circle data-testid={'cb-node-' + item.id} key={'cb-dot-' + item.id + '-' + String(index)} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '8' : '6'} fill={selected ? '#4be2f5' : '#22d3ee'} stroke={selected ? '#eaf8ff' : '#0d2f38'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'cb', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
+     return <g key={'cb-dot-' + item.id + '-' + String(index)}>
+      {selected ? <circle cx={String(projected[0])} cy={String(projected[1])} r='15' fill='none' stroke='rgba(34,211,238,0.34)' strokeWidth='1.2' /> : null}
+      <circle data-testid={'cb-node-' + item.id} cx={String(projected[0])} cy={String(projected[1])} r={selected ? '8' : '6'} fill={selected ? '#4be2f5' : '#22d3ee'} stroke={selected ? '#eaf8ff' : '#0d2f38'} strokeWidth='1.5' onMouseMove={function (event) { props.onHoverChange({ layer: 'cb', x: event.clientX, y: event.clientY, object: item }) }} onClick={function () { if (props.onSelectSourceId) props.onSelectSourceId(item.id) }} />
+     </g>
     })}
    </g>
    {focus ? <g>

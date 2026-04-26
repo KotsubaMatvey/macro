@@ -3,7 +3,7 @@ import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 import type { WorkspaceEntry } from '@macroaccess/types'
 
-import { DataTable, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { DataTable, EmptyState, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
 import { WorkspaceManager } from '@/components/app/workspace-manager'
 import { getWorkspaces } from '@/lib/server/api'
 
@@ -26,9 +26,9 @@ export default async function WorkspacesPage() {
  })
  return h(PageShell, { title: 'Workspaces', subtitle: 'Saved desk layouts and presets for faster operator workflows across modules.', active: 'workspaces' }, h('div', { className: 'space-y-4' }, [
   h(MetricGrid, { key: 'metrics', items: metrics }),
-  h(Panel, { key: 'manager', title: 'Workspace manager', subtitle: 'Create, load, rename, and delete user-scoped workspaces. Save current route context directly into reusable desk presets.', level: 'command' }, h(WorkspaceManager, { initialWorkspaces: workspaces })),
+ h(Panel, { key: 'manager', title: 'Workspace manager', subtitle: 'Create, load, rename, and delete user-scoped workspaces. Save current route context directly into reusable desk presets.', level: 'command' }, h(WorkspaceManager, { initialWorkspaces: workspaces })),
   h('div', { key: 'grid', className: 'ws-two-panel' }, [
-   h(Panel, { key: 'presets', title: 'Default desk presets', subtitle: 'Prebuilt operator presets for macro desk, event day, news/calendar, geoboard focus, and reactions/bias review.', level: 'support' }, h(DataTable, { headers: ['Preset', 'Modules', 'Route', 'Updated'], rows: presetRows.length !== 0 ? presetRows : [['No presets', '-', '-', '-']], dense: true })),
+   h(Panel, { key: 'presets', title: 'Default desk presets', subtitle: 'Prebuilt operator presets for macro desk, event day, news/calendar, geoboard focus, and reactions/bias review.', level: 'support' }, presetRows.length !== 0 ? h(DataTable, { headers: ['Preset', 'Modules', 'Route', 'Updated'], rows: presetRows, dense: true, stickyHeader: true }) : h(EmptyState, { title: 'No preset workflows', body: 'Preset desk workflows are not loaded. Custom captures still work from the manager above.', tone: 'integrity' })),
    h(Panel, { key: 'workflow', title: 'Workspace workflow pivots', subtitle: 'Use workspace restore as a routing layer between calendar, news, geoboard, reactions, and provider diagnostics.', level: 'support' }, h(DataTable, { headers: ['Action', 'Use'], rows: [
     [h(Link, { href: '/app/dashboard', className: 'terminal-link text-sm' }, 'Open dashboard'), 'Start from macro desk baseline before loading a saved workspace.'],
     [h(Link, { href: '/app/macro-calendar', className: 'terminal-link text-sm' }, 'Open calendar'), 'Save filtered catalyst windows into reusable event-day desks.'],

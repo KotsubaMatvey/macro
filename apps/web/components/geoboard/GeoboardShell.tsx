@@ -9,6 +9,16 @@ import { GeoboardTicker } from './GeoboardTicker'
 import { useGeoboardData } from './hooks/useGeoboardData'
 import type { FeedItem, GeoboardMode, HoverState, RegimeZone } from './types'
 
+function modeClass(mode: GeoboardMode, active: boolean) {
+ const activeMap = {
+  STANDARD: 'border-[#d59a3e]/45 bg-[#d59a3e]/10 text-[#f3d19d]',
+  RISK: 'border-[#f43f5e]/45 bg-[#f43f5e]/10 text-[#fda4af]',
+  LIQUIDITY: 'border-[#10b981]/45 bg-[#10b981]/10 text-[#a7f3d0]',
+  'CENT.BANKS': 'border-[#22d3ee]/45 bg-[#22d3ee]/10 text-[#b8f3ff]',
+ } as Record<GeoboardMode, string>
+ return 'rounded-[6px] border px-2 py-1 text-[10px] uppercase tracking-[0.1em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]/20 ' + (active ? activeMap[mode] : 'border-[#1a2535] bg-[#060a0f] text-[#7a9ab8] hover:border-[#2b3c52] hover:text-[#b9d1ea]')
+}
+
 export function GeoboardShell() {
  const [mode, setMode] = useState<GeoboardMode>('STANDARD')
  const { payload, loading, fallback } = useGeoboardData(mode)
@@ -75,14 +85,14 @@ export function GeoboardShell() {
  const degradedLayers = payload.sourceStatus.filter(function (item) { return item.state === 'degraded' || item.state === 'fallback' }).length
 
  return <section className='geoboard-root grid h-screen grid-rows-[58px_minmax(0,1fr)_28px] bg-[#060a0f] text-[#c8d8e8]'>
-  <header className='flex items-center justify-between border-b border-[#1a2535] bg-[#0a1018] px-4'>
+  <header className='flex items-center justify-between border-b border-[#1a2535] bg-[#0a1018] px-4 shadow-[0_10px_22px_rgba(0,0,0,0.22)]'>
    <div>
     <div className='text-[10px] uppercase tracking-[0.1em] text-[#7a9ab8]'>{'// B05 // GEOBOARD'}</div>
     <div className='mt-1 text-[12px] uppercase tracking-[0.12em] text-[#c8d8e8]'>{'GLOBAL MACRO AOR // ' + mode}</div>
    </div>
    <div className='flex flex-wrap items-center gap-1.5'>
    {(['STANDARD', 'RISK', 'LIQUIDITY', 'CENT.BANKS'] as GeoboardMode[]).map(function (item) {
-     return <button key={item} type='button' onClick={function () { startTransition(function () { setMode(item); setHover(null) }) }} className={'rounded border px-2 py-1 text-[10px] uppercase tracking-[0.1em] transition ' + (mode === item ? 'border-[#22d3ee]/45 bg-[#22d3ee]/10 text-[#b8f3ff]' : 'border-[#1a2535] bg-[#060a0f] text-[#7a9ab8] hover:border-[#2b3c52] hover:text-[#b9d1ea]')}>
+     return <button key={item} type='button' onClick={function () { startTransition(function () { setMode(item); setHover(null) }) }} className={modeClass(item, mode === item)}>
       {item}
      </button>
     })}

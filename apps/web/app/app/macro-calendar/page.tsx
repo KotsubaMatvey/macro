@@ -3,7 +3,7 @@ import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 import type { DataMode, EventRelease, Watchlist } from '@macroaccess/types'
 
-import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { Badge, DataTable, EventLink, KeyValueList, MetricGrid, PageShell, Panel, ScoreBar, SourceCell } from '@/components/app/chrome'
 import { getEvents, getWorkstation } from '@/lib/server/api'
 
 type CalendarImpactFilter = '' | 'High' | 'Medium' | 'Low'
@@ -84,6 +84,17 @@ function eventSource(item: EventRelease) {
 
 function eventFreshness(item: EventRelease) {
  return item.freshness ? item.freshness.freshness : 'degraded'
+}
+
+function proximityScore(item: EventRelease) {
+ if (typeof item.urgencyScore === 'number') return Math.round(item.urgencyScore * 100)
+ const scheduled = new Date(item.scheduledAt).getTime()
+ if (!Number.isFinite(scheduled)) return 0
+ const hours = Math.abs(scheduled - Date.now()) / 3600000
+ if (hours <= 24) return 92
+ if (hours <= 72) return 70
+ if (hours <= 168) return 46
+ return 22
 }
 
 function calendarHref(filters: CalendarFilterState, overrides: Partial<CalendarFilterState>) {
@@ -195,7 +206,7 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
  ]
  const rows: ReactNode[][] = filtered.map(function (item: EventRelease) {
   const watchedAssets = item.relatedAssets.filter(function (asset) { return watchSymbols.includes(asset) })
-  return [timeLabel(item.scheduledAt), item.country + ' / ' + item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.category + ' / ' + eventMode(item) + ' / ' + eventFreshness(item) }, item.title), compactImpactLabel(item.impact), item.status, item.actual !== undefined ? String(item.actual) : '-', item.forecast !== undefined ? String(item.forecast) : '-', verdict(item), eventSource(item), watchedAssets.length !== 0 ? watchedAssets.join(', ') : 'Open']
+  return [timeLabel(item.scheduledAt), item.country + ' / ' + item.currency, h(EventLink, { eventId: item.id, slug: item.slug, title: item.title, meta: item.category + ' / ' + eventMode(item) + ' / ' + eventFreshness(item) }, item.title), compactImpactLabel(item.impact), h(ScoreBar, { value: proximityScore(item), label: 'prox', tone: proximityScore(item) >= 70 ? 'warn' : 'neutral' }), item.status, item.actual !== undefined ? String(item.actual) : '-', item.forecast !== undefined ? String(item.forecast) : '-', verdict(item), h(SourceCell, { state: eventMode(item), freshness: eventFreshness(item), sourceType: eventSource(item), compact: true }), watchedAssets.length !== 0 ? watchedAssets.join(', ') : 'Open']
  })
  const sourceRows: ReactNode[][] = [
   ['Calendar mode (dataset)', datasetMode],
@@ -248,7 +259,7 @@ export default async function MacroCalendarPage(props: MacroCalendarPageProps) {
       h(Badge, { key: 'demo' }, 'demo ' + String(demoRows)),
       h(Badge, { key: 'fallback' }, 'fallback ' + String(fallbackRows)),
      ]),
-     h(DataTable, { headers: ['Time', 'Region', 'Event', 'Impact', 'Status', 'Actual', 'Forecast', 'Verdict', 'Source', 'Watch'], rows: rows.length !== 0 ? rows : [['-', '-', 'No events match the current filters', '-', '-', '-', '-', '-', '-', '-']], numericColumns: [5, 6], dense: true, stickyHeader: true, ariaLabel: 'Standalone macro calendar' }),
+     h(DataTable, { headers: ['Time', 'Region', 'Event', 'Impact', 'Proximity', 'Status', 'Actual', 'Forecast', 'Verdict', 'Source', 'Watch'], rows: rows.length !== 0 ? rows : [], numericColumns: [6, 7], dense: true, stickyHeader: true, ariaLabel: 'Standalone macro calendar', emptyMessage: 'No events match the current filters. Clear filters or inspect calendar provider status.' }),
     ]),
    ]),
    h('div', { key: 'right', className: 'space-y-4' }, [

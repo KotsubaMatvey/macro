@@ -29,6 +29,9 @@ vi.mock('@/components/app/chrome', function () {
   MetricGrid: function MetricGrid() {
    return h('div', {}, 'metrics')
   },
+  EmptyState: function EmptyState(props: any) {
+   return h('div', {}, [h('strong', { key: 'title' }, props.title), h('p', { key: 'body' }, props.body), props.action])
+  },
   DataTable: function DataTable(props: any) {
    return h('table', {}, [
     h('thead', { key: 'head' }, h('tr', {}, props.headers.map(function (header: string, index: number) { return h('th', { key: header + String(index) }, header) }))),

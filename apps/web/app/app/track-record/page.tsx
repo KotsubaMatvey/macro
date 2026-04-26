@@ -1,7 +1,7 @@
 import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 
-import { Badge, DataTable, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { Badge, DataTable, MetricGrid, PageShell, Panel, ScoreBar } from '@/components/app/chrome'
 import { getTrackRecord } from '@/lib/server/api'
 
 function pct(value?: number) {
@@ -20,9 +20,9 @@ export default async function TrackRecordPage() {
   { label: 'Magnitude error', value: num(payload.magnitudeErrorPct), note: 'Average absolute miss versus expected move' },
   { label: 'Sample size', value: String(payload.sampleSize), note: payload.freshness.mode + ' / ' + payload.freshness.freshness },
  ]
- const byAssetRows: ReactNode[][] = payload.byAsset.map(function (item) { return [item.asset, String(item.sampleSize), pct(item.hitRate), num(item.magnitudeErrorPct)] })
- const bySignalRows: ReactNode[][] = payload.bySignalType.map(function (item) { return [item.signalType, String(item.sampleSize), pct(item.hitRate)] })
- const byRegimeRows: ReactNode[][] = (payload.byRegime ? payload.byRegime : []).map(function (item) { return [item.regime, String(item.sampleSize), pct(item.hitRate)] })
+ const byAssetRows: ReactNode[][] = payload.byAsset.map(function (item) { return [item.asset, String(item.sampleSize), h(ScoreBar, { value: item.hitRate * 100, label: 'hit', tone: item.hitRate >= 0.55 ? 'live' : 'warn' }), num(item.magnitudeErrorPct)] })
+ const bySignalRows: ReactNode[][] = payload.bySignalType.map(function (item) { return [item.signalType, String(item.sampleSize), h(ScoreBar, { value: item.hitRate ? item.hitRate * 100 : 0, label: 'hit', tone: item.hitRate && item.hitRate >= 0.55 ? 'live' : 'warn' })] })
+ const byRegimeRows: ReactNode[][] = (payload.byRegime ? payload.byRegime : []).map(function (item) { return [item.regime, String(item.sampleSize), h(ScoreBar, { value: item.hitRate * 100, label: 'hit', tone: item.hitRate >= 0.55 ? 'live' : 'warn' })] })
  const recentRows: ReactNode[][] = payload.recentRecords.map(function (item) { return [item.symbol, item.stance, num(item.expectedMove5dPct), num(item.realizedMove5dPct), item.outcome, item.regime ? item.regime : '-'] })
  return h(PageShell, { title: 'Track Record', subtitle: 'Evaluation lab for replay outcomes, signal consistency, and error discipline over closed windows.', active: 'track-record', mode: 'fallback' }, h('div', { className: 'space-y-4' }, [
   h(MetricGrid, { key: 'metrics', items: metrics }),

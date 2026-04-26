@@ -14,6 +14,7 @@ interface BadgeProps {
  children?: Child
  accent?: boolean
  className?: string
+ quiet?: boolean
 }
 
 interface PanelProps {
@@ -39,6 +40,7 @@ interface DataTableProps {
  stickyHeader?: boolean
  ariaLabel?: string
  className?: string
+ emptyMessage?: string
 }
 
 interface PageShellProps {
@@ -60,10 +62,10 @@ function badgeValue(children?: Child) {
 function badgeToneClass(value: string, accent?: boolean) {
  if (accent) return 'ws-badge-accent'
  const token = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
- if (['live', 'fresh', 'online', 'official'].includes(token)) return 'ws-badge-live'
- if (['mixed', 'discovery', 'derived', 'static'].includes(token)) return 'ws-badge-mixed'
- if (['demo', 'aging', 'replay', 'warning'].includes(token)) return 'ws-badge-demo'
- if (['fallback', 'degraded', 'stale', 'offline'].includes(token)) return 'ws-badge-fallback'
+ if (['live', 'fresh', 'online', 'official', 'ready', 'enabled'].includes(token)) return 'ws-badge-live'
+ if (['mixed', 'discovery', 'derived', 'static', 'seeded', 'secondary'].includes(token)) return 'ws-badge-mixed'
+ if (['demo', 'aging', 'replay', 'warning', 'pending', 'high', 'high-urgency'].includes(token)) return 'ws-badge-demo'
+ if (['fallback', 'degraded', 'stale', 'offline', 'failed', 'low-confidence'].includes(token)) return 'ws-badge-fallback'
  return ''
 }
 
@@ -76,11 +78,11 @@ function panelLevelClass(level?: PanelProps['level']) {
 
 export function Badge(props: BadgeProps) {
  const value = badgeValue(props.children)
- return h('span', { className: cx('ws-badge', badgeToneClass(value, props.accent), props.className) }, props.children ? props.children : null)
+ return h('span', { className: cx('ws-badge', props.quiet ? 'ws-badge-quiet' : '', badgeToneClass(value, props.accent), props.className) }, props.children ? props.children : null)
 }
 
 export function Panel(props: PanelProps) {
- return h('section', { className: cx('ws-panel p-4', panelLevelClass(props.level), props.className) }, [
+ return h('section', { className: cx('ws-panel', panelLevelClass(props.level), props.className) }, [
   h('div', { key: 'header', className: 'ws-panel-head' }, [
    h('div', { key: 'copy', className: 'min-w-0' }, [
     h('div', { key: 'eyebrow', className: 'ws-panel-kicker' }, props.level ? props.level : 'context'),
@@ -103,20 +105,47 @@ export function MetricGrid(props: { items: MetricItem[] }) {
  }))
 }
 
+export function ScoreBar(props: { value: number; label?: string; tone?: 'live' | 'warn' | 'bad' | 'neutral'; className?: string }) {
+ const value = Math.max(0, Math.min(100, Number.isFinite(props.value) ? props.value : 0))
+ return h('div', { className: cx('ws-score', props.className), 'aria-label': props.label ? props.label + ' ' + String(Math.round(value)) + '%' : String(Math.round(value)) + '%' }, [
+  props.label ? h('div', { key: 'label', className: 'ws-score-label' }, [
+   h('span', { key: 'text' }, props.label),
+   h('span', { key: 'value', className: 'ws-mono' }, String(Math.round(value))),
+  ]) : null,
+  h('div', { key: 'track', className: 'ws-score-track' }, h('div', { className: cx('ws-score-fill', props.tone ? 'ws-score-' + props.tone : ''), style: { width: String(value) + '%' } })),
+ ])
+}
+
+export function EmptyState(props: { title: string; body: string; action?: Child; tone?: 'integrity' | 'support'; className?: string }) {
+ return h('div', { className: cx('ws-empty-state', props.tone === 'integrity' ? 'ws-empty-integrity' : '', props.className) }, [
+  h('div', { key: 'title', className: 'ws-empty-title' }, props.title),
+  h('p', { key: 'body', className: 'ws-empty-body' }, props.body),
+  props.action ? h('div', { key: 'action', className: 'mt-3' }, props.action) : null,
+ ])
+}
+
+export function SourceCell(props: { state: string; mode?: string; freshness?: string; sourceType?: string; compact?: boolean }) {
+ const items = [props.state, props.mode, props.freshness, props.sourceType].filter(Boolean) as string[]
+ return h('div', { className: props.compact ? 'ws-source-cell ws-source-cell-compact' : 'ws-source-cell' }, items.map(function (item, index) {
+  return h(Badge, { key: item + String(index), accent: index === 0 && ['live', 'official', 'fresh'].includes(item.toLowerCase()), quiet: index > 0 }, item)
+ }))
+}
+
 export function DataTable(props: DataTableProps) {
  const numericColumns = new Set(props.numericColumns ? props.numericColumns : [])
  const rowPadding = props.dense ? 'py-1.5' : 'py-2'
- const headerClass = props.stickyHeader ? 'sticky top-0 z-[1] bg-[rgba(6,10,15,0.92)] supports-[backdrop-filter]:bg-[rgba(6,10,15,0.82)] supports-[backdrop-filter]:backdrop-blur' : ''
+ const headerClass = props.stickyHeader ? 'sticky top-0 z-[1] bg-[rgba(6,10,15,0.96)] supports-[backdrop-filter]:bg-[rgba(6,10,15,0.86)] supports-[backdrop-filter]:backdrop-blur' : ''
+ const rows = props.rows && props.rows.length !== 0 ? props.rows : [[h('span', { key: 'empty', className: 'text-slate-500' }, props.emptyMessage ? props.emptyMessage : 'No rows available')]]
  return h('div', { className: cx('ws-table-wrap', props.className) }, h('div', { className: 'overflow-x-auto' }, h('table', { 'aria-label': props.ariaLabel, className: 'min-w-full border-separate border-spacing-0 text-left text-[11px] leading-5' }, [
   h('thead', { key: 'head' }, h('tr', {}, props.headers.map(function (header, index) {
    return h('th', { key: header + String(index), className: cx('ws-table-head-cell', headerClass, numericColumns.has(index) ? 'text-right' : 'text-left') }, header)
   }))),
-  h('tbody', { key: 'body' }, props.rows.map(function (row, rowIndex) {
-   return h('tr', { key: rowIndex, className: 'ws-table-row even:bg-white/[0.01]' }, row.map(function (cell, cellIndex) {
+  h('tbody', { key: 'body' }, rows.map(function (row, rowIndex) {
+   return h('tr', { key: rowIndex, tabIndex: 0, className: 'ws-table-row even:bg-white/[0.008]' }, row.map(function (cell, cellIndex) {
     const isNumeric = numericColumns.has(cellIndex)
     let cellClass = 'text-slate-300'
     if (!isNumeric && cellIndex === 0) cellClass = 'font-medium text-slate-100'
-    return h('td', { key: String(rowIndex) + '-' + String(cellIndex), className: cx('ws-table-cell', rowPadding, isNumeric ? 'ws-mono text-right text-slate-100' : cellClass) }, cell)
+    return h('td', { key: String(rowIndex) + '-' + String(cellIndex), colSpan: row.length === 1 ? props.headers.length : undefined, className: cx('ws-table-cell', rowPadding, isNumeric ? 'ws-mono text-right text-slate-100' : cellClass) }, cell)
    }))
   })),
  ])))
@@ -132,7 +161,7 @@ export function KeyValueList(props: { items: { label: string; value: string; ton
 }
 
 export function EventLink(props: { eventId: string; slug: string; title: string; meta?: string }) {
- return h(Link, { href: '/app/events/' + props.eventId, className: 'group block rounded-[11px] border border-white/8 bg-white/[0.015] px-3 py-2.5 transition hover:border-white/14 hover:bg-white/[0.03]' }, [
+ return h(Link, { href: '/app/events/' + props.eventId, className: 'group block rounded-[8px] border border-white/8 bg-white/[0.015] px-3 py-2.5 transition hover:border-white/14 hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/35' }, [
   h('div', { key: 'copy', className: 'flex items-start justify-between gap-3' }, [
    h('div', { key: 'stack', className: 'min-w-0' }, [
     h('div', { key: 'title', className: 'text-[13px] font-medium text-white group-hover:text-amber-100' }, props.title),

@@ -19,6 +19,26 @@ function nowRoute(pathname: string, query: string) {
  return pathname + '?' + query
 }
 
+function graphHrefForRoute(route: string) {
+ try {
+  const url = new URL(route, 'http://workspace.local')
+  const path = url.pathname
+  const eventMatch = path.match(/^\/app\/events\/([^/?#]+)/)
+  if (eventMatch) return '/app/relationship-map?entity_type=scheduled_event&ref_id=' + encodeURIComponent(decodeURIComponent(eventMatch[1]))
+  const focus = url.searchParams.get('focus')
+  if (path === '/app/news' && focus) return '/app/relationship-map?entity_type=news_item&ref_id=' + encodeURIComponent(focus)
+  const asset = url.searchParams.get('asset')
+  if (path === '/app/market-bias' && asset) return '/app/relationship-map?entity_type=asset&ref_id=' + encodeURIComponent(asset.toUpperCase())
+  return '/app/relationship-map'
+ } catch {
+  return '/app/relationship-map'
+ }
+}
+
+function moduleChip(key: string) {
+ return <span key={key} className='rounded-[7px] border border-white/[0.055] bg-white/[0.012] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400'>{key}</span>
+}
+
 export function WorkspaceManager(props: { initialWorkspaces: WorkspaceEntry[] }) {
  const [items, setItems] = useState<WorkspaceEntry[]>(props.initialWorkspaces || [])
  const [name, setName] = useState('')
@@ -138,28 +158,39 @@ export function WorkspaceManager(props: { initialWorkspaces: WorkspaceEntry[] })
   </div>
   <div className='grid gap-2.5'>
    {items.map(function (item) {
-    return <div key={item.id} className='ws-link-card'>
+    const graphHref = graphHrefForRoute(item.activeRoute || '')
+    const routeChain = (item.routes || []).slice(0, 3)
+    return <div key={item.id} className='ws-link-card group'>
      <div className='flex flex-wrap items-start justify-between gap-3'>
       <div className='min-w-0'>
        <div className='flex flex-wrap items-center gap-1.5'>
         <span className='text-sm font-medium text-white'>{item.name}</span>
         {item.isPreset ? <span className='ws-badge ws-badge-mixed'>preset</span> : null}
-        {item.presetKey ? <span className='ws-badge'>{item.presetKey}</span> : null}
+        {item.presetKey ? <span className='ws-badge ws-badge-quiet'>{item.presetKey}</span> : null}
        </div>
        <div className='mt-1 ws-mono text-[10px] text-slate-500'>{item.activeRoute}</div>
-       <div className='mt-1 text-[11px] text-slate-400'>{item.moduleKeys.join(', ') || 'No modules declared'}</div>
+       <div className='mt-2 flex flex-wrap gap-1.5'>{item.moduleKeys.length !== 0 ? item.moduleKeys.map(moduleChip) : moduleChip('unscoped')}</div>
+       <div className='mt-2 grid gap-1'>
+        {routeChain.map(function (route, index) {
+         return <div key={route + String(index)} className='flex items-center gap-2 text-[10px] text-slate-500'>
+          <span className='ws-mono text-slate-600'>{String(index + 1).padStart(2, '0')}</span>
+          <span className='truncate ws-mono'>{route}</span>
+         </div>
+        })}
+       </div>
+       <div className='mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-600'>{item.isPreset ? 'Default operator workflow' : 'Custom saved desk workflow'} / Last used {item.lastUsedAt.replace('T', ' ').slice(0, 16)}</div>
       </div>
       <div className='flex flex-wrap gap-1.5'>
        <button type='button' onClick={function () { onOpen(item) }} className='desk-tab desk-tab-active'>Open</button>
        <button type='button' onClick={function () { onCaptureCurrent(item) }} className='desk-tab'>Capture current</button>
-       <Link href={'/app/relationship-map?entity_type=watchlist&ref_id=' + encodeURIComponent(item.id)} className='desk-tab'>Graph</Link>
+       <Link href={graphHref} className='desk-tab'>Graph</Link>
        <button type='button' onClick={function () { onRename(item) }} className='desk-tab'>Rename</button>
        {!item.isPreset ? <button type='button' onClick={function () { onDelete(item) }} className='desk-tab'>Delete</button> : null}
       </div>
      </div>
     </div>
    })}
-   {items.length === 0 ? <div className='text-sm text-slate-500'>No workspaces saved yet.</div> : null}
+   {items.length === 0 ? <div className='ws-empty-state'><div className='ws-empty-title'>No saved desk workflows</div><p className='ws-empty-body'>Capture the current route to create a reusable operator preset for this module context.</p></div> : null}
   </div>
  </div>
 }

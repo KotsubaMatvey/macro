@@ -30,7 +30,7 @@ function asDate(value: unknown) {
 
 export function GeoboardPopup(props: { hover: HoverState | null }) {
  if (!props.hover) return null
- const baseClass = 'pointer-events-none fixed z-[1000] min-w-[280px] max-w-[340px] rounded border border-[#1a2535] bg-[rgba(6,10,15,0.95)] px-3 py-2 text-[11px] text-[#c8d8e8] backdrop-blur-xl'
+ const baseClass = 'pointer-events-none fixed z-[1000] min-w-[280px] max-w-[360px] rounded-[6px] border border-[#1a2535] bg-[rgba(6,10,15,0.96)] px-3 py-2 text-[11px] text-[#c8d8e8] shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl'
  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
  const style = { left: Math.max(8, Math.min(viewportWidth - 360, props.hover.x + 16)), top: Math.max(8, Math.min(viewportHeight - 220, props.hover.y + 16)) }
@@ -43,10 +43,11 @@ export function GeoboardPopup(props: { hover: HoverState | null }) {
    <div className='mt-2 grid gap-1'>
     {line('RATE', asText(item.rate))}
     {line('NEXT', asText(item.nextMeeting))}
-    {line('BIAS', clip(asText(item.bias), 34))}
-    {line('SIGNAL', clip(asText(item.signal), 34))}
-    {line('CONF', String(Math.round((item.ranking?.confidenceScore ? item.ranking.confidenceScore : 0) * 100)) + '%')}
+   {line('BIAS', clip(asText(item.bias), 34))}
+   {line('SIGNAL', clip(asText(item.signal), 34))}
+   {line('CONF', String(Math.round((item.ranking?.confidenceScore ? item.ranking.confidenceScore : 0) * 100)) + '%')}
    </div>
+   <div className='mt-2 border-t border-[#1a2535] pt-2 text-[10px] leading-4 text-[#8aa7c4]'>{clip(asText(item.whyItMatters), 120)}</div>
   </div>
  }
 
@@ -62,6 +63,7 @@ export function GeoboardPopup(props: { hover: HoverState | null }) {
     {line('ASSETS', clip(Array.isArray(item.affectedAssets) ? item.affectedAssets.join(' / ') : '--', 46))}
     {line('CONF', String(Math.round((item.ranking?.confidenceScore ? item.ranking.confidenceScore : 0) * 100)) + '%')}
    </div>
+   <div className='mt-2 border-t border-[#1a2535] pt-2 text-[10px] leading-4 text-[#8aa7c4]'>{clip(asText(item.whyItMatters), 120)}</div>
   </div>
  }
 
@@ -77,6 +79,7 @@ export function GeoboardPopup(props: { hover: HoverState | null }) {
     {line('IMPACT', clip(Array.isArray(item.impact) ? item.impact.join(' / ') : '--', 44))}
     {line('LINKED GEO', String(Array.isArray(item.linkedGeoEventIds) ? item.linkedGeoEventIds.length : 0))}
    </div>
+   <div className='mt-2 border-t border-[#1a2535] pt-2 text-[10px] leading-4 text-[#8aa7c4]'>{clip(asText(item.whyItMatters), 120)}</div>
   </div>
  }
 
@@ -91,5 +94,6 @@ export function GeoboardPopup(props: { hover: HoverState | null }) {
    {line('HORIZON', asText(item.horizonTag).replace('_', ' '))}
    {line('REACTION', clip(asText(item.expectedReaction), 44))}
   </div>
+  <div className='mt-2 border-t border-[#1a2535] pt-2 text-[10px] leading-4 text-[#8aa7c4]'>{clip(asText(item.whyItMatters), 120)}</div>
  </div>
 }

@@ -24,6 +24,15 @@ vi.mock('@/components/app/chrome', function () {
   Badge: function Badge(props: any) {
    return h('span', {}, props.children)
   },
+  ScoreBar: function ScoreBar(props: any) {
+   return h('span', {}, String(Math.round(props.value || 0)))
+  },
+  SourceCell: function SourceCell(props: any) {
+   return h('span', {}, [props.state, props.mode, props.freshness, props.sourceType].filter(Boolean).join(' '))
+  },
+  EmptyState: function EmptyState(props: any) {
+   return h('div', {}, [h('strong', { key: 'title' }, props.title), h('p', { key: 'body' }, props.body), props.action])
+  },
   DataTable: function DataTable(props: any) {
    return h('table', {}, [
     h('thead', { key: 'head' }, h('tr', {}, props.headers.map(function (header: string, index: number) { return h('th', { key: header + String(index) }, header) }))),

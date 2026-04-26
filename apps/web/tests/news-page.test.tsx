@@ -16,8 +16,10 @@ vi.mock('@/components/app/chrome', function () {
   Panel: function Panel(props: any) { return h('section', {}, [h('h2', { key: 'title' }, props.title), h('div', { key: 'body' }, props.children)]) },
   MetricGrid: function MetricGrid() { return h('div', {}, 'metrics') },
   Badge: function Badge(props: any) { return h('span', {}, props.children) },
+  ScoreBar: function ScoreBar(props: any) { return h('span', {}, String(Math.round(props.value || 0))) },
+  SourceCell: function SourceCell(props: any) { return h('span', {}, [props.state, props.mode, props.freshness, props.sourceType].filter(Boolean).join(' ')) },
   EventLink: function EventLink(props: any) { return h('a', { href: '/app/events/' + props.eventId }, props.title) },
-  DataTable: function DataTable(props: any) { return h('table', {}, [h('thead', { key: 'head' }, h('tr', {}, props.headers.map(function (header: string, index: number) { return h('th', { key: header + String(index) }, header) }))), h('tbody', { key: 'body' }, (props.rows || []).map(function (row: any[], rowIndex: number) { return h('tr', { key: rowIndex }, row.map(function (cell: any, cellIndex: number) { return h('td', { key: String(rowIndex) + '-' + String(cellIndex) }, cell) })) }))]) },
+  DataTable: function DataTable(props: any) { const rows = props.rows && props.rows.length !== 0 ? props.rows : [[props.emptyMessage || 'No rows']]; return h('table', {}, [h('thead', { key: 'head' }, h('tr', {}, props.headers.map(function (header: string, index: number) { return h('th', { key: header + String(index) }, header) }))), h('tbody', { key: 'body' }, rows.map(function (row: any[], rowIndex: number) { return h('tr', { key: rowIndex }, row.map(function (cell: any, cellIndex: number) { return h('td', { key: String(rowIndex) + '-' + String(cellIndex) }, cell) })) }))]) },
  }
 })
 
@@ -78,6 +80,6 @@ describe('NewsPage', function () {
   const view = await NewsPage({})
   render(view)
   const feedPanel = screen.getByRole('heading', { name: 'Wire feed' }).closest('section') as HTMLElement
-  expect(within(feedPanel).getByText('No items match current filters')).toBeInTheDocument()
+  expect(within(feedPanel).getByText(/No news rows match the current filters/)).toBeInTheDocument()
  }, 15000)
 })

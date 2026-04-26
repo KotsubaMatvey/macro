@@ -3,7 +3,7 @@ import { createElement as h } from 'react'
 import type { ReactNode } from 'react'
 import type { DataMode } from '@macroaccess/types'
 
-import { Badge, DataTable, MetricGrid, PageShell, Panel } from '@/components/app/chrome'
+import { Badge, DataTable, MetricGrid, PageShell, Panel, ScoreBar } from '@/components/app/chrome'
 import { getMarketBiasInsights } from '@/lib/server/api'
 
 function pct(value: number) {
@@ -31,8 +31,8 @@ export default async function MarketBiasPage() {
   { label: 'Live assets', value: String(payload.providerStatus.live), note: 'Provider-backed instruments feeding factor decomposition' },
   { label: 'Degraded', value: String(payload.providerStatus.degraded), note: 'Surface ' + surfaceMode + ' / Summary ' + summaryMode + ' / ' + payload.summary.freshness.freshness },
  ]
- const factorRows: ReactNode[][] = payload.factors.map(function (item) { return [item.label, item.direction, item.score.toFixed(1), String(Math.round(item.confidence * 100)) + '%', item.detail] })
- const assetRows: ReactNode[][] = payload.assets.map(function (item) { return [item.symbol, item.direction, item.score.toFixed(1), pct(item.change1d), pct(item.change30d), item.freshness.mode + ' / ' + item.freshness.freshness] })
+ const factorRows: ReactNode[][] = payload.factors.map(function (item) { return [item.label, item.direction, h(ScoreBar, { value: Math.abs(item.score), label: 'score', tone: item.direction === 'bearish' || item.direction === 'restrictive' ? 'bad' : 'live' }), h(ScoreBar, { value: Math.round(item.confidence * 100), label: 'conf', tone: item.confidence >= 0.7 ? 'live' : 'warn' }), item.detail] })
+ const assetRows: ReactNode[][] = payload.assets.map(function (item) { return [item.symbol, item.direction, h(ScoreBar, { value: Math.abs(item.score), label: 'score', tone: item.direction === 'bearish' ? 'bad' : 'live' }), pct(item.change1d), pct(item.change30d), item.freshness.mode + ' / ' + item.freshness.freshness] })
  const leadAsset = payload.assets[0] ? payload.assets[0].symbol : ''
  const workflowRows: ReactNode[][] = [
   [h(Link, { href: '/app/news?asset=' + encodeURIComponent(leadAsset), className: 'terminal-link text-sm' }, 'Open linked news'), 'Scan headlines touching the current lead asset and validate narrative alignment.'],
